@@ -1,0 +1,41 @@
+@page { size: A4 landscape; margin: 10mm; }
+html, body { margin: 0; }
+body { background: #eef1f5; }
+.hoja { background: #fff; box-sizing: border-box; width: 100%; max-width: 277mm; margin: 0 auto 1rem; padding: 6mm; }
+.logo { width: 44px; height: 44px; object-fit: contain; }
+
+.nomina {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 9px;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    margin: 0;
+}
+.nomina th, .nomina td {
+    border: 1px solid #9aa3b5;
+    padding: 2px 3px;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    overflow: hidden;
+    vertical-align: middle;
+    line-height: 1.15;
+}
+.nomina thead th { background: #1a2e5a; color: #fff; text-align: center; font-size: 8px; font-weight: 700; }
+.nomina tfoot th { background: #fff3cd; color: #000; }
+.nomina thead { display: table-header-group; }
+.nomina tfoot { display: table-footer-group; }
+.nomina tr { break-inside: avoid; page-break-inside: avoid; }
+
+.nomina.pago { font-size: 11px; width: 70%; }
+.nomina.pago th, .nomina.pago td { padding: 4px 8px; }
+.salto { break-before: page; page-break-before: always; }
+
+@media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .hoja { max-width: none; width: 100%; margin: 0; padding: 0; }
+    .nomina thead th, .nomina tfoot th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

@@ -1,0 +1,20 @@
+@page { size: A4 portrait; margin: 12mm; }
+body { margin: 0; background: #eef1f5; color: #1a1f2b; }
+.hoja { background: #fff; max-width: 190mm; margin: 0 auto 1rem; padding: 8mm; }
+.cab { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.logo { width: 48px; height: 48px; object-fit: contain; }
+.cab h1 { font-size: 16px; margin: 0; }
+.cab p { margin: 0; font-size: 12px; color: #445; }
+.rejilla { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.celda { border: 1px solid #c5cdd8; border-radius: 6px; padding: 8px; text-align: center; break-inside: avoid; }
+.foto { width: 100%; height: 92px; object-fit: cover; border-radius: 4px; background: #eef1f5; }
+.foto-vacia { display: flex; align-items: center; justify-content: center; color: #889; font-size: 11px; }
+.celda h2 { font-size: 13px; margin: 6px 0 4px; }
+.usd { font-weight: 800; margin: 0; }
+.bs { font-size: 12px; color: #445; margin: 0; }
+.vacio { grid-column: 1 / -1; text-align: center; color: #667; }
+@media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .hoja { max-width: none; margin: 0; padding: 0; }
+}

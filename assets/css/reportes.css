@@ -1,0 +1,84 @@
+/* Reportes imprimibles de ADARA (liquidación de productores, notaría). */
+:root { --navy: #1e3a8a; --navy-2: #1e3a8a; --linea: #e8edf5; --gris: #64748b; }
+
+body.reporte { background: #f0f4fa; font-family: 'Segoe UI', system-ui, sans-serif; color: #1e293b; margin: 0; }
+
+.toolbar { max-width: 860px; margin: 20px auto 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+.toolbar-ancha { max-width: none; margin: 0 0 8px; }
+
+/* ---------- Liquidación ---------- */
+@page { size: Letter portrait; margin: 10mm; }
+
+.doc { max-width: 860px; margin: 0 auto 40px; background: #fff; border-radius: 14px; box-shadow: 0 4px 28px rgba(0, 0, 0, .12); overflow: hidden; }
+.doc + .doc { page-break-before: always; break-before: page; }
+.doc-header { background-color: #1e3a8a; background: #1e3a8a; color: #fff; padding: 28px 40px 22px; }
+.doc-head-brand { display: flex; gap: 16px; align-items: center; }
+.doc-head-meta { text-align: right; vertical-align: top; }
+.info-row td { padding: 0 8px 0 0; vertical-align: top; }
+.info-row td:last-child { padding-right: 0; padding-left: 8px; }
+.logo-box { height: 88px; width: 88px; object-fit: contain; background: #fff; border-radius: 10px; padding: 5px; }
+.empresa-nombre { font-size: 1.7rem; font-weight: 800; margin: 0; letter-spacing: -.5px; }
+.empresa-sub { font-size: .8rem; opacity: .75; margin: 2px 0 0; }
+.doc-title { font-size: 2.2rem; font-weight: 800; opacity: .95; letter-spacing: -.5px; }
+.doc-num { font-size: .9rem; opacity: .75; }
+.periodo-badge { display: inline-block; background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .35); border-radius: 20px; padding: 4px 16px; font-size: .8rem; margin-top: 8px; }
+.doc-body { padding: 32px 40px; }
+
+.info-box { background: #f4f7fc; border-radius: 10px; padding: 16px 20px; height: 100%; }
+.info-box .label { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--gris); font-weight: 600; margin-bottom: 4px; }
+.info-box .value { font-size: 1rem; font-weight: 700; color: var(--navy); }
+.info-box .sub-value { font-size: .78rem; color: var(--gris); }
+.info-box .resumen { font-size: .85rem; }
+
+.section-title { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--navy); font-weight: 700; border-bottom: 2px solid var(--navy); padding-bottom: 4px; margin: 22px 0 10px; }
+.tabla-doc { width: 100%; border-collapse: collapse; font-size: .865rem; }
+.tabla-doc thead th { background: var(--navy); color: #fff; padding: 8px 12px; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+.tabla-doc tbody td { padding: 7px 12px; border-bottom: 1px solid var(--linea); }
+.tabla-doc tbody tr:nth-child(even) { background: #f8fafc; }
+.tabla-doc tfoot td { background: #eef2ff; padding: 9px 12px; font-weight: 700; color: var(--navy); }
+.tabla-doc .dia { color: var(--gris); font-size: .78rem; text-transform: uppercase; }
+
+.resumen-box { background: #f4f7fc; border-radius: 10px; padding: 20px 24px; }
+.resumen-row { display: flex; justify-content: space-between; align-items: center; padding: .4rem 0; border-bottom: 1px solid #dee2e6; font-size: .9rem; }
+.resumen-row:last-child { border-bottom: none; }
+.resumen-row.total-row { font-size: 1.05rem; font-weight: 700; color: var(--navy); }
+.resumen-row.pagado-verde, .pagado-verde { color: #198754; font-weight: 700; }
+.resumen-row.saldo-row { background: var(--navy); color: #fff; border-radius: 8px; padding: .6rem 1rem; margin-top: .5rem; font-size: 1.1rem; font-weight: 800; }
+.resumen-row.saldo-positivo { background: #dc3545; color: #fff; border-radius: 8px; }
+.resumen-row.saldo-cero { background: #16a34a; }
+
+.firma-line { border-top: 1.5px solid #b0b8c8; padding-top: 6px; margin-top: 44px; font-size: .8rem; color: var(--gris); text-align: center; }
+.firma-line small { color: #aaa; }
+.doc-footer { text-align: center; padding: 16px 40px 22px; border-top: 1px solid var(--linea); font-size: .75rem; color: #94a3b8; }
+.doc-footer strong { color: var(--gris); }
+
+/* ---------- Notaría ---------- */
+body.notaria { background: #fff; font-family: Arial, Helvetica, sans-serif; color: #000; padding: 6mm; }
+.notaria .titulo { background: #1e3a8a; color: #fff; font-weight: bold; text-align: center; font-size: 14pt; padding: 5px; border: 1px solid #000; }
+.notaria .titulo-logo { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: bold; font-size: 12pt; color: #1f3864; border: 1px solid #2a4d7a; border-bottom: 0; padding: 4px; }
+.notaria .titulo-logo img { height: 28px; }
+.notaria .subt { text-align: center; font-weight: bold; font-size: 11pt; padding: 3px; border: 1px solid #2a4d7a; border-top: 0; margin-bottom: 6px; }
+.notaria table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+.notaria th, .notaria td { border: 1px solid #000; padding: 5px 6px; font-size: 10pt; vertical-align: middle; min-height: 40px; height: 40px; }
+.notaria th { background: #1e3a8a; text-align: center; color: #fff; font-size: 9.5pt; }
+.notaria th .fecha { display: block; font-weight: normal; font-size: 8.5pt; }
+.notaria col.c-n { width: 4%; }
+.notaria col.c-nom { width: 22%; }
+.notaria col.c-d { width: 7.5%; }
+.notaria col.c-obs { width: 21.5%; }
+.notaria td.n { text-align: center; font-weight: 600; }
+.notaria td.nom { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notaria td.vacia { min-height: 40px; height: 40px; }
+
+@media print {
+    .no-print { display: none !important; }
+    body.reporte { background: #fff; }
+    .doc { box-shadow: none; border-radius: 0; margin: 0; max-width: 100%; }
+    .doc-body, .doc-header { padding: 18px 22px; }
+    .doc-header, .tabla-doc thead th, .tabla-doc tbody tr:nth-child(even), .tabla-doc tfoot td,
+    .resumen-row.saldo-row, .resumen-row.saldo-positivo, .pagado-verde, .notaria .titulo, .notaria th {
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    body.notaria { padding: 0; }
+    .notaria th, .notaria td { border: 1px solid #000; min-height: 40px; height: 40px; }
+}

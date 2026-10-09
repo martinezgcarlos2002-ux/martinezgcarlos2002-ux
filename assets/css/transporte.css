@@ -1,0 +1,5 @@
+.tr-check-list { max-height: 280px; overflow-y: auto; }
+.tr-check-list .form-check { min-height: 2rem; margin-bottom: 0; }
+.tr-check-list .form-check-label { display: block; padding-left: .15rem; }
+.tr-veh-row .form-label { color: #64748b; }
+.badge-flete-alerta { background: #b91c1c; color: #fff; }

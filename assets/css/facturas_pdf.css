@@ -1,0 +1,50 @@
+@page { size: A4 landscape; margin: 10mm; }
+html, body { margin: 0; }
+body { background: #eef1f5; color: #1a1f2b; }
+.hoja { background: #fff; box-sizing: border-box; width: 100%; max-width: 277mm; margin: 0 auto 1rem; padding: 6mm; }
+.logo { width: 44px; height: 44px; object-fit: contain; }
+.salto { break-before: page; page-break-before: always; }
+
+.kpis { width: 100%; border-collapse: collapse; margin-bottom: 8px; table-layout: fixed; }
+.kpis.gerencial th { background: #1a2e5a; color: #fff; }
+.kpis.gerencial td { font-size: 13px; }
+.kpis th, .kpis td { border: 1px solid #9aa3b5; padding: 4px 6px; font-size: 10px; }
+.kpis th { background: #eef2f8; font-weight: 600; }
+.kpis .num { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+.cxc {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 9px;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    margin: 0 0 10px;
+}
+.cxc th, .cxc td {
+    border: 1px solid #9aa3b5;
+    padding: 2px 4px;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    overflow: hidden;
+    vertical-align: middle;
+    line-height: 1.15;
+}
+.cxc thead th { background: #1a2e5a; color: #fff; text-align: center; font-size: 8px; font-weight: 700; }
+.cxc tfoot th { background: #fff3cd; color: #000; }
+.cxc thead { display: table-header-group; }
+.cxc tfoot { display: table-footer-group; }
+.cxc tr { break-inside: avoid; page-break-inside: avoid; }
+.cxc .vencida { background: #fde8e8; }
+.cxc .por-vencer { background: #fff4d6; }
+
+h2.sec { font-size: 12px; margin: 10px 0 4px; }
+
+@media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .hoja { max-width: none; width: 100%; margin: 0; padding: 0; }
+    .cxc thead th, .cxc tfoot th, .kpis th,
+    .cxc .vencida, .cxc .por-vencer { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

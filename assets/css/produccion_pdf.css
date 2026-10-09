@@ -1,0 +1,19 @@
+@page { size: A4 portrait; margin: 14mm; }
+body { margin: 0; background: #eef1f5; color: #1a1f2b; }
+.hoja { background: #fff; max-width: 190mm; margin: 0 auto 1rem; padding: 10mm; }
+.cab { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.logo { width: 48px; height: 48px; object-fit: contain; }
+.cab h1 { margin: 0; font-size: 16px; }
+.cab p { margin: 0; font-size: 12px; color: #445; }
+.grid { width: 100%; border-collapse: collapse; font-size: 12px; }
+.grid th, .grid td { border: 1px solid #9aa3b5; padding: 5px 7px; }
+.grid thead th { background: #1a2e5a; color: #fff; }
+.grid tfoot th { background: #fff3cd; }
+.cat-desc { max-width: 280px; }
+.tbl-prod .col-num { width: 48px; }
+@media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .hoja { max-width: none; margin: 0; padding: 0; }
+    .grid thead th, .grid tfoot th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

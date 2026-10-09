@@ -1,0 +1,55 @@
+html, body { height: 100%; }
+body.menu-tv {
+    margin: 0;
+    background: #0b0d12;
+    color: #fff;
+    overflow: hidden;
+}
+.menu-tv-top {
+    padding: 18px 28px 8px;
+    background: #11151e;
+    border-bottom: 3px solid #e8a317;
+}
+.menu-tv-marca { font-size: 1.7rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.menu-tv-sub { font-size: .95rem; color: #c9b48a; }
+.menu-tv-tasa { font-size: 1.15rem; font-weight: 700; color: #e8a317; }
+.menu-tv-grid { padding: 16px 20px 24px; height: calc(100vh - 88px); overflow: auto; }
+.menu-tv-vacio { text-align: center; color: #889; padding: 4rem 1rem; }
+
+.menu-card {
+    position: relative;
+    aspect-ratio: 3 / 4;
+    overflow: hidden;
+    border-radius: 14px;
+    background: #1a1f2b;
+}
+.menu-card-foto {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.menu-card-foto-vacia {
+    position: absolute;
+    inset: 0;
+    background: #243044;
+}
+.menu-card-gradiente {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(180deg, rgba(0,0,0,.05) 30%, rgba(0,0,0,.82) 100%);
+}
+.menu-card-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+.menu-card-info h2 {
+    font-size: clamp(1.1rem, 2.2vw, 1.7rem);
+    font-weight: 800;
+    text-transform: uppercase;
+    margin: 0 0 .25rem;
+}
+.menu-card-usd { font-size: clamp(1.3rem, 2.6vw, 2rem); font-weight: 800; color: #e8a317; margin: 0; }
+.menu-card-bs { font-size: .95rem; color: #eee; margin: 0; }

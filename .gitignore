@@ -1,0 +1,35 @@
+# Credenciales y overrides locales (XAMPP / MySQL / entorno)
+.env
+.env.*
+!.env.example
+local-config.php
+**/local-config.php
+*.local.php
+config/database.local.php
+
+# Cargas de usuarios (se conserva la carpeta)
+public/uploads/**
+!public/uploads/**/.gitkeep
+!public/uploads/**/.htaccess
+
+# Logs, respaldos SQL temporales y caché
+storage/logs/*
+!storage/logs/.gitkeep
+storage/tmp/
+*.log
+
+# Dependencias
+/vendor/
+/node_modules/
+/aserp-php/vendor/
+/aserp/vendor/
+
+# Sistema y editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.swp
+*~
+*.tmp

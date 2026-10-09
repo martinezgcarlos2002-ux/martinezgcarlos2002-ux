@@ -1,0 +1,23 @@
+/* Bloque de firmas / sello para documentos CxC. Sin atributos style="". */
+.firmas { width: 100%; border-collapse: collapse; margin-top: 16mm; }
+.firmas td { border: none; padding: 6px 10px; vertical-align: bottom; }
+.firma-linea { border-top: 1px solid #1a1f2b; height: 1px; margin: 22mm 10px 6px; }
+.firma-lbl { font-size: 11px; font-weight: 700; }
+.firma-sub { font-size: 10px; color: #445; }
+
+.sello {
+    width: 92px;
+    height: 92px;
+    margin: 0 auto;
+    border: 2px solid #1a2e5a;
+    border-radius: 50%;
+    text-align: center;
+    box-sizing: border-box;
+    padding: 8px 4px 4px;
+}
+.sello-img { width: 36px; height: 36px; object-fit: contain; }
+.sello-txt { font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #1a2e5a; line-height: 1.2; }
+
+@media print {
+    .sello { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

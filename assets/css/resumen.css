@@ -1,0 +1,8 @@
+.rg-kpi .cifra { font-variant-numeric: tabular-nums; }
+#rgFiltro .form-label { color: #64748b; }
+.pl-table td { font-variant-numeric: tabular-nums; }
+.pl-table .pl-label { color: #334155; }
+.pl-table .pl-total { font-weight: 700; background: #fff8e6; }
+.pl-table .pl-ok { color: #166534; font-weight: 700; }
+.pl-table .pl-warn { color: #9a3412; font-weight: 700; }
+.pl-table .pl-sec { font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; color: #64748b; background: #f8fafc; }

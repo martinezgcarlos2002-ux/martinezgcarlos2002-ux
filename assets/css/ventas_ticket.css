@@ -1,0 +1,32 @@
+@page { size: 80mm auto; margin: 4mm; }
+html, body.ticket-pos {
+    margin: 0;
+    background: #fff;
+    color: #111;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 12px;
+    line-height: 1.35;
+}
+.ticket {
+    width: 72mm;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 6px 4px 12px;
+}
+.ticket-head { text-align: center; }
+.ticket-head img { max-width: 52px; max-height: 52px; display: block; margin: 0 auto 6px; }
+.ticket-emp { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .2px; }
+.ticket-rif { font-size: 11px; }
+.ticket-sep { border: 0; border-top: 1px dashed #333; margin: 8px 0; }
+.ticket table { width: 100%; border-collapse: collapse; }
+.ticket th, .ticket td { font-size: 11px; padding: 2px 0; vertical-align: top; }
+.ticket th { border-bottom: 1px solid #333; text-align: left; }
+.ticket .num { text-align: right; white-space: nowrap; }
+.ticket-tot { font-weight: 700; font-size: 13px; }
+.ticket-foot { text-align: center; font-size: 11px; }
+.toolbar { padding: 10px 16px; }
+@media print {
+    .no-print { display: none !important; }
+    html, body.ticket-pos { background: #fff; }
+    .ticket { width: 100%; }
+}

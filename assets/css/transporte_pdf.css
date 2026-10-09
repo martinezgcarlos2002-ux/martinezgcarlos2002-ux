@@ -1,0 +1,37 @@
+@page { size: Letter portrait; margin: 10mm; }
+body { margin: 0; background: #f0f4fa; color: #1e293b; font-family: 'Segoe UI', system-ui, sans-serif; }
+.hoja { background: #fff; max-width: 860px; margin: 16px auto 32px; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 28px rgba(0,0,0,.12); }
+.doc-header { background: #1e3a8a; color: #fff; padding: 22px 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.doc-header .brand { display: flex; align-items: center; gap: 14px; }
+.logo { width: 72px; height: 72px; object-fit: contain; background: #fff; border-radius: 10px; padding: 4px; }
+.doc-header h1 { margin: 0; font-size: 1.35rem; font-weight: 800; }
+.doc-header p { margin: 2px 0 0; font-size: .8rem; opacity: .8; }
+.doc-title { font-size: 1.6rem; font-weight: 800; text-align: right; }
+.doc-num { font-size: .85rem; opacity: .8; text-align: right; }
+.doc-body { padding: 24px 28px 28px; }
+.info-row { width: 100%; border-collapse: separate; border-spacing: 10px 0; margin-bottom: 8px; }
+.info-box { background: #f4f7fc; border-radius: 10px; padding: 14px 16px; vertical-align: top; }
+.info-box .label { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: #64748b; font-weight: 600; }
+.info-box .value { font-weight: 700; color: #1e3a8a; }
+.info-box .sub { font-size: .82rem; color: #64748b; }
+.section-title { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: #1e3a8a; font-weight: 700; border-bottom: 2px solid #1e3a8a; padding-bottom: 4px; margin: 20px 0 10px; }
+.grid { width: 100%; border-collapse: collapse; font-size: .86rem; margin-bottom: 8px; }
+.grid th, .grid td { padding: 7px 10px; border-bottom: 1px solid #e8edf5; }
+.grid thead th { background: #1e3a8a; color: #fff; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
+.grid tbody tr:nth-child(even) { background: #f8fafc; }
+.grid tfoot td { background: #eef2ff; font-weight: 700; color: #1e3a8a; }
+.resumen-box { background: #f4f7fc; border-radius: 10px; padding: 16px 20px; width: 52%; margin-left: auto; }
+.resumen-row { display: flex; justify-content: space-between; padding: .4rem 0; border-bottom: 1px solid #dee2e6; font-size: .9rem; }
+.resumen-row:last-child { border-bottom: none; }
+.pagado-verde { color: #198754; font-weight: 700; }
+.neto-row { background: #1e3a8a; color: #fff; border-radius: 8px; padding: .6rem 1rem; margin-top: .5rem; font-weight: 800; }
+.neto-deuda { background: #dc3545; }
+@media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .hoja { box-shadow: none; border-radius: 0; max-width: 100%; margin: 0; }
+    .doc-header, .grid thead th, .neto-row, .neto-deuda {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}

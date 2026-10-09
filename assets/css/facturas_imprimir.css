@@ -1,0 +1,33 @@
+@page { size: A4 portrait; margin: 12mm; }
+html, body { margin: 0; }
+body { background: #eef1f5; color: #1a1f2b; }
+.hoja { background: #fff; box-sizing: border-box; width: 100%; max-width: 190mm; margin: 0 auto 1rem; padding: 8mm; }
+.logo { width: 48px; height: 48px; object-fit: contain; }
+
+.fac {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin: 0 0 8px;
+}
+.fac th, .fac td {
+    border: 1px solid #9aa3b5;
+    padding: 4px 6px;
+    vertical-align: middle;
+    word-wrap: break-word;
+}
+.fac thead th { background: #1a2e5a; color: #fff; text-align: center; font-size: 9px; font-weight: 700; }
+.fac tfoot th { background: #fff3cd; color: #000; }
+.fac thead { display: table-header-group; }
+.fac tfoot { display: table-footer-group; }
+.fac .num { font-variant-numeric: tabular-nums; }
+.meta { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 11px; }
+.meta td { padding: 2px 0; }
+
+@media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .hoja { max-width: none; width: 100%; margin: 0; padding: 0; }
+    .fac thead th, .fac tfoot th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

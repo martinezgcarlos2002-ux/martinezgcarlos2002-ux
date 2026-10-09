@@ -1,0 +1,23 @@
+@page { size: A4 portrait; margin: 14mm; }
+body { margin: 0; background: #eef1f5; color: #1a1f2b; }
+.hoja { background: #fff; max-width: 190mm; margin: 0 auto 1rem; padding: 10mm; }
+.cab { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.logo { width: 48px; height: 48px; object-fit: contain; }
+.cab h1 { margin: 0; font-size: 16px; }
+.cab p { margin: 0; font-size: 12px; color: #445; }
+h2 { font-size: 13px; margin: 14px 0 6px; color: #1a2e5a; }
+.nota { font-size: 12px; color: #445; margin: 6px 0 12px; }
+.kpis, .grid { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px; }
+.kpis th, .kpis td, .grid th, .grid td { border: 1px solid #9aa3b5; padding: 5px 7px; }
+.kpis thead th, .grid thead th { background: #1a2e5a; color: #fff; }
+.kpis.gerencial td, .grid tfoot th { font-weight: 700; font-variant-numeric: tabular-nums; }
+.grid tfoot th { background: #fff3cd; }
+.firmas { display: flex; justify-content: space-between; gap: 24px; margin-top: 36px; }
+.firma { flex: 1; text-align: center; font-size: 12px; }
+.firma .linea { border-top: 1px solid #333; margin: 48px 18px 8px; }
+@media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .hoja { max-width: none; margin: 0; padding: 0; }
+    .kpis thead th, .grid thead th, .grid tfoot th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

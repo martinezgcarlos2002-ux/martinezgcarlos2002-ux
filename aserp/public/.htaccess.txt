@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# Evitar mostrar errores si ya existe el archivo o directorio
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Redirigir todas las solicitudes a index.php con parámetro url
+RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]

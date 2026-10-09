@@ -1,0 +1,62 @@
+html, body { height: 100%; margin: 0; }
+body.login-page {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 1rem;
+  background-image: url('../img/fondo_empresa.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  position: relative;
+}
+body.login-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 0;
+}
+.login-overlay {
+  position: relative;
+  z-index: 1;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  border-radius: 24px;
+  padding: 1.15rem;
+}
+.login-card {
+  width: 100%; max-width: 420px;
+  border: none; border-radius: 20px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.28);
+  background: #fff;
+  padding: 2rem 2rem 1.75rem;
+}
+.brand-logo {
+  width: 140px; height: 140px; border-radius: 50%;
+  background: #fff;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  object-fit: cover;
+  margin-bottom: .75rem;
+  border: 3px solid #f0c14b;
+}
+.brand-title { color: #1a2e5a; font-weight: 800; letter-spacing: .3px; margin: 0; }
+.brand-sub { color: #6c757d; font-size: .8rem; margin-top: .25rem; }
+.brand-mark {
+  margin-top: .7rem;
+  color: #1e3a5f;
+  font-size: .95rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+.login-page .btn-primary {
+  background: #f97316; border-color: #f97316; font-weight: 600;
+  padding: .6rem; border-radius: 10px;
+}
+.login-page .btn-primary:hover,
+.login-page .btn-primary:focus { background: #ea6c0c; border-color: #ea6c0c; }
+.login-page .form-control { border-radius: 10px; padding: .55rem .75rem; }
+.login-page .form-label { font-weight: 500; color: #37425a; font-size: .85rem; margin-bottom: .3rem; }

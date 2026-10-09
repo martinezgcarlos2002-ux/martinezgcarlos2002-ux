@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual de Usuario — ASERP El Castillo del Queso</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: #1a1a2e;
+    background: #fff;
+  }
+
+  /* ── Portada ── */
+  .portada {
+    min-height: 100vh;
+    background: linear-gradient(160deg, #1a2e5a 0%, #2a4a8a 60%, #3a6abf 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px;
+    page-break-after: always;
+  }
+  .portada img { width: 110px; height: 110px; object-fit: contain; background: #fff; border-radius: 16px; padding: 8px; margin-bottom: 28px; box-shadow: 0 4px 20px rgba(0,0,0,.3); }
+  .portada h1 { font-size: 2.4rem; font-weight: 700; color: #fff; margin-bottom: 8px; }
+  .portada .sub { font-size: 1.1rem; color: rgba(255,255,255,.75); margin-bottom: 6px; }
+  .portada .empresa { font-size: 1.3rem; font-weight: 600; color: #ffd700; margin-bottom: 32px; }
+  .portada .meta { font-size: .85rem; color: rgba(255,255,255,.6); }
+  .portada .divider { width: 80px; height: 3px; background: #ffd700; border-radius: 2px; margin: 20px auto; }
+
+  /* ── Índice ── */
+  .toc { padding: 50px 60px; page-break-after: always; }
+  .toc h2 { font-size: 1.6rem; color: #1a2e5a; border-bottom: 3px solid #1a2e5a; padding-bottom: 10px; margin-bottom: 24px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { padding: 5px 0; font-size: .95rem; }
+  .toc li a { color: #2a4a8a; text-decoration: none; }
+  .toc li a:hover { text-decoration: underline; }
+  .toc .sub-list { margin-top: 4px; padding-left: 20px; list-style: disc; }
+  .toc .sub-list li { font-size: .87rem; color: #555; }
+
+  /* ── Contenido general ── */
+  .contenido { padding: 40px 60px; max-width: 860px; margin: 0 auto; }
+
+  /* Sección / módulo */
+  .modulo { margin-bottom: 48px; page-break-inside: avoid; }
+  .modulo-header {
+    background: linear-gradient(90deg, #1a2e5a, #2a4a8a);
+    color: #fff;
+    padding: 14px 22px;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .modulo-header .icono { font-size: 1.6rem; }
+  .modulo-header h2 { font-size: 1.2rem; font-weight: 700; margin: 0; }
+  .modulo-header .badge-admin {
+    margin-left: auto;
+    background: #ffd700;
+    color: #1a2e5a;
+    font-size: .72rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 12px;
+  }
+
+  h3 { font-size: 1rem; font-weight: 700; color: #1a2e5a; margin: 20px 0 8px; border-left: 4px solid #2a4a8a; padding-left: 10px; }
+  h4 { font-size: .9rem; font-weight: 600; color: #2a4a8a; margin: 14px 0 6px; }
+  p { margin-bottom: 10px; color: #333; }
+
+  /* Tabla de campos */
+  .tabla-campos { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: .87rem; }
+  .tabla-campos th { background: #1a2e5a; color: #fff; padding: 8px 12px; text-align: left; }
+  .tabla-campos td { padding: 7px 12px; border-bottom: 1px solid #e8ecf0; vertical-align: top; }
+  .tabla-campos tr:nth-child(even) td { background: #f5f7fb; }
+  .tabla-campos .req { color: #d32f2f; font-weight: 700; }
+  .tabla-campos .opt { color: #888; }
+
+  /* Notas y alertas */
+  .nota { background: #e8f4fd; border-left: 4px solid #2a4a8a; padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 12px 0; font-size: .88rem; }
+  .nota strong { color: #1a2e5a; }
+  .alerta { background: #fff8e1; border-left: 4px solid #ffc107; padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 12px 0; font-size: .88rem; }
+  .alerta strong { color: #b8860b; }
+  .peligro { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 12px 0; font-size: .88rem; }
+  .peligro strong { color: #d32f2f; }
+
+  /* Pasos numerados */
+  .pasos { counter-reset: paso; list-style: none; padding: 0; margin: 12px 0; }
+  .pasos li { counter-increment: paso; display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start; }
+  .pasos li::before {
+    content: counter(paso);
+    min-width: 26px; height: 26px;
+    background: #1a2e5a; color: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+  }
+  .pasos li span { color: #333; font-size: .9rem; }
+
+  /* Botones representados */
+  .btn-rep { display: inline-block; background: #2a4a8a; color: #fff; padding: 2px 10px; border-radius: 5px; font-size: .78rem; font-weight: 600; white-space: nowrap; }
+  .btn-rep.verde { background: #2e7d32; }
+  .btn-rep.rojo { background: #c62828; }
+  .btn-rep.gris { background: #555; }
+  .btn-rep.amarillo { background: #e65100; color: #fff; }
+
+  /* Chips de estado */
+  .chip { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: .76rem; font-weight: 600; }
+  .chip.verde { background: #c8e6c9; color: #1b5e20; }
+  .chip.rojo { background: #ffcdd2; color: #b71c1c; }
+  .chip.gris { background: #e0e0e0; color: #333; }
+  .chip.azul { background: #bbdefb; color: #0d47a1; }
+  .chip.amarillo { background: #fff9c4; color: #827717; }
+
+  /* Captura de pantalla simulada */
+  .pantalla { background: #f0f4ff; border: 2px solid #c5d5f0; border-radius: 10px; padding: 16px 20px; margin: 14px 0; font-size: .86rem; }
+  .pantalla .barra { background: #1a2e5a; color: #fff; padding: 6px 12px; border-radius: 6px; margin-bottom: 10px; font-size: .8rem; display: flex; align-items: center; gap: 8px; }
+
+  /* Separador de sección */
+  .sep { border: none; border-top: 1px solid #dde4ef; margin: 28px 0; }
+
+  /* Print */
+  @media print {
+    .portada { min-height: 100vh; }
+    .toc, .modulo { page-break-inside: avoid; }
+    .no-print { display: none; }
+    a { color: inherit; text-decoration: none; }
+    body { font-size: 12px; }
+    .contenido { padding: 20px 30px; }
+  }
+
+  /* Boton imprimir */
+  .btn-imprimir {
+    position: fixed; bottom: 28px; right: 28px; z-index: 999;
+    background: #1a2e5a; color: #fff; border: none;
+    padding: 14px 22px; border-radius: 30px; font-size: .9rem; font-weight: 600;
+    cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .btn-imprimir:hover { background: #2a4a8a; }
+</style>
+</head>
+<body>
+
+<button class="btn-imprimir no-print" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+
+<!-- ════════════ PORTADA ════════════ -->
+<div class="portada">
+  <img src="logo.jpg" alt="El Castillo del Queso">
+  <div class="empresa">El Castillo del Queso</div>
+  <h1>ASERP</h1>
+  <div class="sub">Sistema de Gestión Empresarial</div>
+  <div class="divider"></div>
+  <div style="color:#fff;font-size:1.05rem;font-weight:600;margin-bottom:8px">Manual de Usuario</div>
+  <div class="meta">Versión 1.0 &nbsp;·&nbsp; Mayo 2026</div>
+  <div class="meta" style="margin-top:6px">Documento de uso interno — confidencial</div>
+</div>
+
+<!-- ════════════ ÍNDICE ════════════ -->
+<div class="toc">
+  <h2>Tabla de Contenido</h2>
+  <ol>
+    <li><a href="#intro">Introducción y acceso al sistema</a></li>
+    <li><a href="#dashboard">Dashboard — Panel principal</a></li>
+    <li><a href="#inventario">Inventario de Productos</a></li>
+    <li><a href="#lotes">Lotes de Producción</a></li>
+    <li><a href="#ventas">Ventas y Facturas</a>
+      <ul class="sub-list">
+        <li>Crear nueva venta</li>
+        <li>Ver e imprimir factura</li>
+        <li>Filtros y búsqueda</li>
+      </ul>
+    </li>
+    <li><a href="#proveedores">Proveedores de Leche</a>
+      <ul class="sub-list">
+        <li>Registro semanal de litros</li>
+        <li>Control semanal</li>
+        <li>Pagos a proveedores</li>
+        <li>Reporte semanal (PDF / Excel)</li>
+      </ul>
+    </li>
+    <li><a href="#productores">Productores de Leche</a>
+      <ul class="sub-list">
+        <li>Entregas y abonos</li>
+        <li>Reporte semanal</li>
+      </ul>
+    </li>
+    <li><a href="#finanzas">Finanzas / Caja</a>
+      <ul class="sub-list">
+        <li>Movimientos de caja</li>
+        <li>Tasa de cambio Bs/USD</li>
+      </ul>
+    </li>
+    <li><a href="#empleados">Empleados</a></li>
+    <li><a href="#transporte">Transporte / Vehículos</a></li>
+    <li><a href="#usuarios">Usuarios y Permisos</a> <span style="color:#d32f2f;font-size:.78rem">(solo Admin)</span></li>
+    <li><a href="#auditoria">Auditoría del Sistema</a> <span style="color:#d32f2f;font-size:.78rem">(solo Admin)</span></li>
+    <li><a href="#descargas">Respaldos y Descargas</a></li>
+    <li><a href="#faq">Preguntas frecuentes</a></li>
+  </ol>
+</div>
+
+<!-- ════════════ CONTENIDO ════════════ -->
+<div class="contenido">
+
+<!-- ─── 1. INTRODUCCIÓN ─── -->
+<div class="modulo" id="intro">
+  <div class="modulo-header">
+    <span class="icono">🏠</span>
+    <h2>1. Introducción y Acceso al Sistema</h2>
+  </div>
+
+  <p>ASERP es el sistema de gestión empresarial de <strong>El Castillo del Queso</strong>. Centraliza el control de proveedores, productores, inventario, ventas, finanzas, transporte y empleados en una sola aplicación web accesible desde cualquier navegador.</p>
+
+  <h3>Requisitos para usar el sistema</h3>
+  <p>Solo necesitas un navegador web actualizado (Google Chrome, Mozilla Firefox, Microsoft Edge o Safari) y conexión a internet. No es necesario instalar ningún programa.</p>
+
+  <h3>Iniciar sesión</h3>
+  <ol class="pasos">
+    <li><span>Abre tu navegador y escribe la dirección del sistema que te proporcionó el administrador.</span></li>
+    <li><span>Aparecerá la pantalla de inicio de sesión. Escribe tu <strong>correo electrónico</strong> y tu <strong>contraseña</strong>.</span></li>
+    <li><span>Haz clic en <span class="btn-rep">Iniciar sesión</span>. Si los datos son correctos, entrarás al dashboard.</span></li>
+  </ol>
+
+  <div class="nota"><strong>Nota:</strong> Si olvidaste tu contraseña, contacta al administrador del sistema para que la restablezca. No existe opción de recuperación automática por correo.</div>
+
+  <h3>Cerrar sesión</h3>
+  <p>Para cerrar sesión de forma segura, haz clic en el botón <span class="btn-rep rojo">Cerrar sesión</span> que aparece en la parte superior derecha de la pantalla, junto al reloj. Siempre cierra sesión al terminar de trabajar, especialmente si usas un equipo compartido.</p>
+
+  <h3>Roles de usuario</h3>
+  <table class="tabla-campos">
+    <tr><th>Rol</th><th>Descripción</th></tr>
+    <tr><td><span class="chip rojo">Admin</span></td><td>Acceso total a todos los módulos, incluyendo usuarios, permisos y auditoría.</td></tr>
+    <tr><td><span class="chip azul">Empleado</span></td><td>Acceso solo a los módulos que el administrador haya habilitado para esa cuenta.</td></tr>
+  </table>
+
+  <h3>Navegación</h3>
+  <p>El menú lateral izquierdo contiene los accesos a todos los módulos. Los módulos que no tengas habilitados no aparecerán en tu menú. En la barra superior encontrarás el reloj en tiempo real y el botón de cerrar sesión.</p>
+</div>
+
+<hr class="sep">
+
+<!-- ─── 2. DASHBOARD ─── -->
+<div class="modulo" id="dashboard">
+  <div class="modulo-header">
+    <span class="icono">📊</span>
+    <h2>2. Dashboard — Panel Principal</h2>
+  </div>
+
+  <p>El dashboard es la primera pantalla que ves al iniciar sesión. Muestra un resumen general del estado de la empresa de un vistazo.</p>
+
+  <h3>Tarjetas de resumen</h3>
+  <table class="tabla-campos">
+    <tr><th>Tarjeta</th><th>Qué muestra</th></tr>
+    <tr><td>📦 Productos</td><td>Total de productos registrados en inventario.</td></tr>
+    <tr><td>🗂️ Lotes</td><td>Total de lotes de producción registrados.</td></tr>
+    <tr><td>🧾 Ventas</td><td>Número total de facturas emitidas.</td></tr>
+    <tr><td>👷 Empleados</td><td>Empleados activos.</td></tr>
+    <tr><td>🏭 Proveedores</td><td>Total de proveedores registrados.</td></tr>
+    <tr><td>🥛 Productores</td><td>Productores de leche activos.</td></tr>
+  </table>
+  <p>Haz clic en cualquier tarjeta para ir directamente a ese módulo.</p>
+
+  <h3>Resumen financiero</h3>
+  <p>Debajo de las tarjetas se muestran los <strong>ingresos totales</strong>, los <strong>egresos totales</strong> y el <strong>balance</strong> acumulado en caja, expresados en USD y en Bolívares (usando la última tasa de cambio registrada).</p>
+
+  <h3>Ventas recientes</h3>
+  <p>Tabla con las últimas 5 facturas emitidas: número, cliente, monto total y fecha.</p>
+
+  <h3>Alertas de stock bajo</h3>
+  <p>Lista de productos cuyo stock actual es igual o inferior al umbral mínimo configurado. Aparecen resaltados en amarillo como advertencia para hacer un pedido a tiempo.</p>
+
+  <h3>Tasa de cambio</h3>
+  <p>Se muestra la última tasa Bs/USD registrada en el sistema.</p>
+</div>
+
+<hr class="sep">
+
+<!-- ─── 3. INVENTARIO ─── -->
+<div class="modulo" id="inventario">
+  <div class="modulo-header">
+    <span class="icono">📦</span>
+    <h2>3. Inventario de Productos</h2>
+  </div>
+
+  <p>Gestiona todos los productos que fabrica o vende la empresa: quesos, subproductos y cualquier otro artículo con stock y precio.</p>
+
+  <h3>Lista de productos</h3>
+  <p>La tabla principal muestra: código, nombre, stock actual con unidad de medida, precio en USD, precio en Bs (calculado con la tasa vigente) y el estado del stock.</p>
+
+  <table class="tabla-campos">
+    <tr><th>Indicador</th><th>Significado</th></tr>
+    <tr><td><span class="chip verde">Normal</span></td><td>El stock está por encima del umbral mínimo configurado.</td></tr>
+    <tr><td><span class="chip rojo">Stock bajo</span></td><td>El stock es igual o inferior al umbral mínimo. Se recomienda reabastecer.</td></tr>
+  </table>
+
+  <h3>Crear un producto nuevo</h3>
+  <ol class="pasos">
+    <li><span>Haz clic en <span class="btn-rep verde">+ Nuevo</span> en la esquina superior derecha.</span></li>
+    <li><span>Completa el formulario con los datos del producto.</span></li>
+    <li><span>Haz clic en <span class="btn-rep">Guardar</span>.</span></li>
+  </ol>
+
+  <h4>Campos del formulario</h4>
+  <table class="tabla-campos">
+    <tr><th>Campo</th><th>Descripción</th><th></th></tr>
+    <tr><td>Nombre</td><td>Nombre del producto. Ej: Queso Mano, Queso Telita.</td><td class="req">*</td></tr>
+    <tr><td>Código</td><td>Código interno de identificación (opcional pero recomendado).</td><td class="opt">opt</td></tr>
+    <tr><td>Descripción</td><td>Descripción detallada del producto.</td><td class="opt">opt</td></tr>
+    <tr><td>Precio</td><td>Precio unitario de venta.</td><td class="req">*</td></tr>
+    <tr><td>Moneda</td><td>USD o VES (Bolívares). El sistema convierte automáticamente.</td><td class="req">*</td></tr>
+    <tr><td>Stock inicial</td><td>Cantidad disponible al momento de crear el producto.</td><td class="req">*</td></tr>
+    <tr><td>Alerta mínima</td><td>Nivel mínimo de stock antes de activar la alerta en el dashboard.</td><td class="opt">opt</td></tr>
+    <tr><td>Unidad de medida</td><td>Ej: kg, unidad, litros, bolsas.</td><td class="opt">opt</td></tr>
+    <tr><td>Presentación</td><td>Formato comercial. Ej: 500g, 1kg, empaque individual.</td><td class="opt">opt</td></tr>
+  </table>
+
+  <h3>Editar un producto</h3>
+  <p>Haz clic en <span class="btn-rep">Editar</span> junto al producto que deseas modificar. Se abrirá el formulario con los datos actuales. Modifica lo que necesites y guarda.</p>
+
+  <div class="alerta"><strong>Atención:</strong> El stock se reduce automáticamente al registrar una venta. No edites el stock manualmente a menos que sea para una corrección de inventario justificada.</div>
+
+  <h3>Eliminar un producto</h3>
+  <p>Haz clic en <span class="btn-rep rojo">Eliminar</span>. El sistema pedirá confirmación. Solo elimina productos que no tengan ventas asociadas.</p>
+
+  <h3>Buscar productos</h3>
+  <p>Usa la barra de búsqueda en la parte superior para filtrar por nombre o código.</p>
+</div>
+
+<hr class="sep">
+
+<!-- ─── 4. LOTES ─── -->
+<div class="modulo" id="lotes">
+  <div class="modulo-header">
+    <span class="icono">🗂️</span>
+    <h2>4. Lotes de Producción</h2>
+  </div>
+
+  <p>Los lotes permiten registrar cada proceso de elaboración de queso u otros productos: qué se fabricó, cuándo, con qué cantidad de leche y cuánto se obtuvo.</p>
+
+  <h3>¿Para qué sirven los lotes?</h3>
+  <p>Tener trazabilidad completa de la producción: saber de qué insumos salió cada lote, controlar rendimientos y tener un historial de producción por fecha.</p>
+
+  <h3>Registrar un lote</h3>
+  <ol class="pasos">
+    <li><span>Haz clic en <span class="btn-rep verde">+ Nuevo</span>.</span></li>
+    <li><span>Completa los datos: producto fabricado, fecha, cantidad de leche usada, cantidad producida, costo y notas.</span></li>
+    <li><span>Guarda el lote.</span></li>
+  </ol>
+
+  <div class="nota"><strong>Nota:</strong> Los lotes son informativos para trazabilidad. El ajuste de stock del producto terminado se realiza en el módulo de Inventario.</div>
+</div>
+
+<hr class="sep">
+
+<!-- ─── 5. VENTAS ─── -->
+<div class="modulo" id="ventas">
+  <div class="modulo-header">
+    <span class="icono">🧾</span>
+    <h2>5. Ventas y Facturas</h2>
+  </div>
+
+  <p>Registra todas las ventas de productos, genera facturas y controla el historial de clientes. El stock se descuenta automáticamente al crear una venta.</p>
+
+  <h3>Resumen estadístico</h3>
+  <p>En la parte superior de la pantalla se muestran tres tarjetas: total de ventas en USD, total en Bolívares y número de facturas en la vista actual (según los filtros aplicados).</p>
+
+  <h3>Crear una nueva venta</h3>
+  <ol class="pasos">
+    <li><span>Haz clic en <span class="btn-rep verde">+ Nueva Venta</span>. Se abrirá un formulario.</span></li>
+    <li><span>Escribe el <strong>nombre del cliente</strong>.</span></li>
+    <li><span>Selecciona la <strong>moneda</strong> (USD o Bolívares) y verifica la <strong>tasa de cambio</strong>.</span></li>
+    <li><span>Confirma o ajusta la <strong>fecha</strong> de la venta.</span></li>
+    <li><span>Haz clic en <span class="btn-rep verde">+ Agregar producto</span> para añadir artículos a la factura.</span></li>
+    <li><span>Para cada producto: selecciona el artículo, verifica el stock disponible, indica la <strong>cantidad</strong> y el <strong>precio</strong> (se llena automáticamente desde el inventario).</span></li>
+    <li><span>Agrega todos los productos necesarios. El total se calcula en tiempo real.</span></li>
+    <li><span>Haz clic en <span class="btn-rep">Guardar Factura</span>.</span></li>
+  </ol>
+
+  <div class="alerta"><strong>Importante:</strong> Si la cantidad pedida supera el stock disponible, aparecerá un mensaje de error en rojo y el botón de guardar se bloqueará hasta corregirlo.</div>
+
+  <h3>Ver el detalle de una factura</h3>
+  <p>En la lista de facturas, haz clic en <span class="btn-rep gris">Ver</span>. Se abrirá un resumen con el cliente, fecha, moneda, tasa aplicada y todos los productos con cantidades y precios.</p>
+
+  <h3>Imprimir o guardar como PDF</h3>
+  <p>Desde el detalle de la factura o desde el botón 🖨 en la tabla, haz clic en <span class="btn-rep">🖨 Imprimir / PDF</span>. Se abrirá una ventana de impresión con el formato oficial de El Castillo del Queso, incluyendo logo y sello.</p>
+
+  <h3>Filtrar facturas</h3>
+  <p>Usa los campos de búsqueda para filtrar por nombre de cliente, fecha de inicio y fecha de fin. Haz clic en ✕ para limpiar los filtros.</p>
+
+  <h3>Eliminar una factura</h3>
+  <p>Haz clic en <span class="btn-rep rojo">Eliminar</span> en la fila correspondiente. El sistema <strong>reintegrará automáticamente el stock</strong> de todos los productos de esa factura al inventario.</p>
+</div>
+
+<hr class="sep">
+
+<!-- ─── 6. PROVEEDORES ─── -->
+<div class="modulo" id="proveedores">
+  <div class="modulo-header">
+    <span class="icono">🏭</span>
+    <h2>6. Proveedores de Leche</h2>
+  </div>
+
+  <p>Gestiona los proveedores que suministran leche a la empresa: datos de contacto, precio pactado por litro, registro semanal de entregas, pagos y saldos pendientes.</p>
+
+  <h3>Lista de proveedores</h3>
+  <p>La tabla muestra: nombre, contacto, teléfono, email, total suministrado en USD, total pagado y el saldo pendiente. El saldo en rojo indica deuda pendiente de pago.</p>
+
+  <h3>Registrar un proveedor nuevo</h3>
+  <ol class="pasos">
+    <li><span>Haz clic en <span class="btn-rep verde">+ Nuevo Proveedor</span>.</span></li>
+    <li><span>Completa los datos en el formulario.</span></li>
+    <li><span>Guarda.</span></li>
+  </ol>
+
+  <table class="tabla-campos">
+    <tr><th>Campo</th><th>Descripción</th><th></th></tr>
+    <tr><td>Nombre</td><td>Nombre o razón social del proveedor.</td><td class="req">*</td></tr>
+    <tr><td>Persona de contacto</td><td>Nombre del representante o responsable.</td><td class="opt">opt</td></tr>
+    <tr><td>Teléfono</td><td>Número de contacto directo.</td><td class="opt">opt</td></tr>
+    <tr><td>Email</td><td>Correo electrónico.</td><td class="opt">opt</td></tr>
+    <tr><td>Precio por litro (USD)</td><td>Precio acordado. Se usará automáticamente al registrar entregas.</td><td class="opt">opt</td></tr>
+    <tr><td>Dirección</td><td>Ubicación del proveedor.</td><td class="opt">opt</td></tr>
+  </table>
+
+  <h3>Registro semanal de litros</h3>
+  <p>Esta función permite registrar cuántos litros entregó un proveedor cada día de la semana.</p>
+  <ol class="pasos">
+    <li><span>Haz clic en <span class="btn-rep verde">🥛 Registro de Litros</span>.</span></li>
+    <li><span>Selecciona el <strong>proveedor</strong>. El precio pactado se cargará automáticamente.</span></li>
+    <li><span>Si necesitas registrar una semana distinta a la actual, cambia la fecha en el campo <em>Semana del</em>. Los días se actualizan solos.</span></li>
+    <li><span>Escribe los <strong>litros entregados</strong> para cada día. Los días con cero litros se omiten.</span></li>
+    <li><span>El subtotal y total se calculan en tiempo real.</span></li>
+    <li><span>Agrega una nota opcional y haz clic en <span class="btn-rep verde">💾 Guardar Registro Semanal</span>.</span></li>
+  </ol>
+
+  <div class="nota"><strong>Nota:</strong> Si el proveedor no entregó un día determinado, deja el campo en 0 o en blanco. Solo se guardan los días con litros mayores a cero.</div>
+
+  <h3>Control semanal de proveedores</h3>
+  <p>Haz clic en <span class="btn-rep">📋 Control Semanal</span> para ver un cuadro comparativo de todas las entregas de la semana: litros por día, totales y montos. Desde esta pantalla puedes <strong>exportar a PDF</strong> o <strong>descargar en Excel (CSV)</strong>.</p>
+
+  <h3>Ver detalle y registrar pagos</h3>
+  <p>Haz clic en <span class="btn-rep">📋 Control</span> junto al proveedor para ver su historial completo de entregas y registrar pagos. La pantalla de detalle muestra el balance actualizado.</p>
+
+  <h3>Reporte semanal</h3>
+  <p>Haz clic en <span class="btn-rep">📄 Reporte</span> para generar el reporte formal del proveedor con sello de la empresa. Puedes descargarlo como <strong>PDF</strong> o como <strong>Excel/CSV</strong>.</p>
+
+  <h3>Buscar proveedores</h3>
+  <p>Usa la barra de búsqueda para filtrar por nombre, contacto o email.</p>
+</div>
+
+<hr class="sep">
+
+<!-- ─── 7. PRODUCTORES ─── -->
+<div class="modulo" id="productores">
+  <div class="modulo-header">
+    <span class="icono">🥛</span>
+    <h2>7. Productores de Leche</h2>
+  </div>
+
+  <p>Gestiona los productores independientes de leche: sus datos personales, precio acordado, crédito, historial de entregas, abonos y descuentos.</p>
+
+  <h3>Lista de productores</h3>
+  <p>Muestra nombre, documento, teléfono, precio por litro, días de crédito y estado (Activo / Inactivo).</p>
+
+  <h3>Registrar un productor nuevo</h3>
+  <ol class="pasos">
+    <li><span>Haz clic en <span class="btn-rep verde">+ Nuevo</span>.</span></li>
+    <li><span>Completa el formulario y guarda.</span></li>
+  </ol>
+
+  <table class="tabla-campos">
+    <tr><th>Campo</th><th>Descripción</th><th></th></tr>
+    <tr><td>Nombre</td><td>Nombre completo del productor.</td><td class="req">*</td></tr>
+    <tr><td>Documento</td><td>Cédula de identidad u otro documento.</td><td class="opt">opt</td></tr>
+    <tr><td>Teléfono</td><td>Número de contacto.</td><td class="opt">opt</td></tr>
+    <tr><td>Correo</td><td>Email del productor.</td><td class="opt">opt</td></tr>
+    <tr><td>Dirección</td><td>Lugar de residencia o finca.</td><td class="opt">opt</td></tr>
+    <tr><td>Precio/L (USD)</td><td>Precio pactado por litro de leche en dólares.</td><td class="opt">opt</td></tr>
+    <tr><td>Crédito (días)</td><td>Días de crédito acordados para el pago.</td><td class="opt">opt</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo. Solo los activos aparecen en el dashboard.</td><td class="req">*</td></tr>
+  </table>
+
+  <h3>Ver historial del productor</h3>
+  <p>Haz clic en <span class="btn-rep gris">Ver</span> para acceder al panel de detalle. Desde allí puedes registrar <strong>entregas diarias</strong>, <strong>abonos</strong> (pagos recibidos), <strong>descuentos</strong> y ver el balance actualizado.</p>
+
+  <h3>Reporte semanal del productor</h3>
+  <p>Haz clic en <span class="btn-rep">📄 Reporte</span> para generar el comprobante oficial con el sello de la empresa. Exportable en PDF y CSV.</p>
+
+  <h3>Filtros</h3>
+  <p>Puedes filtrar la lista por nombre/documento o por estado (Activos / Inactivos / Todos). Usa el botón ✕ para limpiar los filtros.</p>
+</div>
+
+<hr class="sep">
+
+<!-- ─── 8. FINANZAS ─── -->
+<div class="modulo" id="finanzas">
+  <div class="modulo-header">
+    <span class="icono">💰</span>
+    <h2>8. Finanzas / Caja</h2>
+  </div>
+
+  <p>Registra y consulta todos los movimientos de dinero de la empresa: ingresos, egresos y el balance general de caja. También es el lugar para actualizar la tasa de cambio Bs/USD.</p>
+
+  <h3>Resumen financiero</h3>
+  <p>Cuatro tarjetas en la parte superior muestran: ingresos totales del filtro activo, egresos totales, balance (ingresos menos egresos) y la tasa de cambio vigente con su fecha.</p>
+
+  <h3>Registrar un movimiento de caja</h3>
+  <ol class="pasos">
+    <li><span>Haz clic en <span class="btn-rep verde">+ Movimiento</span>.</span></li>
+    <li><span>Selecciona el tipo: <strong>Ingreso</strong> (entrada de dinero) o <strong>Egreso</strong> (salida de dinero).</span></li>
+    <li><span>Elige la <strong>moneda</strong> (USD o Bolívares) e ingresa el <strong>monto</strong>.</span></li>
+    <li><span>Selecciona el <strong>origen</strong>: Manual, Venta, Productor, Banco u Otro.</span></li>
+    <li><span>Escribe una <strong>descripción</strong> clara del movimiento.</span></li>
+    <li><span>Confirma la <strong>fecha</strong> y guarda.</span></li>
+  </ol>
+
+  <h3>Actualizar la tasa de cambio</h3>
+  <ol class="pasos">
+    <li><span>En la tarjeta de tasa de cambio, haz clic en <span class="btn-rep">Actualizar</span>.</span></li>
+    <li><span>Escribe el valor actual de la tasa (Bs por 1 USD) y la fecha.</span></li>
+    <li><span>Guarda. La nueva tasa se usará en todos los cálculos del sistema.</span></li>
+  </ol>
+
+  <div class="nota"><strong>Buena práctica:</strong> Actualiza la tasa de cambio al inicio de cada jornada de trabajo para que los precios en Bolívares reflejen el valor del día.</div>
+
+  <h3>Filtrar movimientos</h3>
+  <p>Puedes filtrar por descripción, tipo (ingreso/egreso) y rango de fechas. Útil para ver el flujo de caja de un período específico.</p>
+
+  <h3>Editar o eliminar movimientos</h3>
+  <p>Usa los botones <span class="btn-rep">Editar</span> y <span class="btn-rep rojo">Eliminar</span> en la fila del movimiento correspondiente. Confirma la eliminación cuando el sistema lo solicite.</p>
+</div>
+
+<hr class="sep">
+
+<!-- ─── 9. EMPLEADOS ─── -->
+<div class="modulo" id="empleados">
+  <div class="modulo-header">
+    <span class="icono">👷</span>
+    <h2>9. Empleados</h2>
+  </div>
+
+  <p>Mantiene el directorio de personal de la empresa. Los empleados activos también pueden ser asignados como conductores en el módulo de Transporte.</p>
+
+  <h3>Lista de empleados</h3>
+  <p>Muestra nombre, cargo, teléfono, email, fecha de ingreso y estado.</p>
+
+  <h3>Registrar un empleado nuevo</h3>
+  <ol class="pasos">
+    <li><span>Haz clic en <span class="btn-rep verde">+ Nuevo</span>.</span></li>
+    <li><span>Completa el formulario y guarda.</span></li>
+  </ol>
+
+  <table class="tabla-campos">
+    <tr><th>Campo</th><th>Descripción</th><th></th></tr>
+    <tr><td>Nombre</td><td>Nombre completo del empleado.</td><td class="req">*</td></tr>
+    <tr><td>Cargo</td><td>Puesto de trabajo. Ej: Operador, Conductor, Vendedor.</td><td class="opt">opt</td></tr>
+    <tr><td>Teléfono</td><td>Contacto directo.</td><td class="opt">opt</td></tr>
+    <tr><td>Email</td><td>Correo del empleado.</td><td class="opt">opt</td></tr>
+    <tr><td>Fecha de ingreso</td><td>Fecha en que comenzó a trabajar en la empresa.</td><td class="opt">opt</td></tr>
+    <tr><td>Estado</td><td>Activo (aparece en el dashboard) o Inactivo.</td><td class="req">*</td></tr>
+  </table>
+
+  <h3>Editar o eliminar empleados</h3>
+  <p>Usa los botones de la fila correspondiente. Si el empleado está asignado como conductor de un vehículo, desvincúlalo antes de eliminarlo.</p>
+
+  <h3>Filtros</h3>
+  <p>Busca por nombre, cargo o email. Filtra por estado Activo/Inactivo.</p>
+</div>
+
+<hr class="sep">
+
+<!-- ─── 10. TRANSPORTE ─── -->
+<div class="modulo" id="transporte">
+  <div class="modulo-header">
+    <span class="icono">🚛</span>
+    <h2>10. Transporte / Vehículos</h2>
+  </div>
+
+  <p>Controla la flota de vehículos de la empresa: camiones, camionetas y cualquier unidad de transporte. Permite asignar conductores y llevar el estado de cada vehículo.</p>
+
+  <h3>Lista de vehículos</h3>
+  <p>Muestra nombre del vehículo, placa, capacidad en kg, estado actual y conductor asignado.</p>
+
+  <table class="tabla-campos">
+    <tr><th>Estado</th><th>Significado</th></tr>
+    <tr><td><span class="chip verde">Disponible</span></td><td>El vehículo está listo para ser asignado a una ruta.</td></tr>
+    <tr><td><span class="chip azul">En ruta</span></td><td>El vehículo se encuentra actualmente en una entrega o recogida.</td></tr>
+    <tr><td><span class="chip amarillo">Mantenimiento</span></td><td>El vehículo está en revisión o reparación y no puede usarse.</td></tr>
+  </table>
+
+  <h3>Registrar un vehículo</h3>
+  <ol class="pasos">
+    <li><span>Haz clic en <span class="btn-rep verde">+ Nuevo</span>.</span></li>
+    <li><span>Completa el formulario.</span></li>
+    <li><span>Guarda.</span></li>
+  </ol>
+
+  <table class="tabla-campos">
+    <tr><th>Campo</th><th>Descripción</th><th></th></tr>
+    <tr><td>Nombre vehículo</td><td>Descripción del vehículo. Ej: Camión Ford 350.</td><td class="req">*</td></tr>
+    <tr><td>Placa</td><td>Placa de circulación.</td><td class="opt">opt</td></tr>
+    <tr><td>Capacidad (kg)</td><td>Capacidad máxima de carga en kilogramos.</td><td class="opt">opt</td></tr>
+    <tr><td>Estado</td><td>Disponible, En ruta o En mantenimiento.</td><td class="req">*</td></tr>
+    <tr><td>Conductor</td><td>Empleado asignado como conductor (selecciona de la lista de empleados activos).</td><td class="opt">opt</td></tr>
+  </table>
+
+  <h3>Actualizar el estado de un vehículo</h3>
+  <p>Haz clic en <span class="btn-rep">Editar</span> y cambia el estado según corresponda. Mantén el estado actualizado para un control real de la flota.</p>
+</div>
+
+<hr class="sep">
+
+<!-- ─── 11. USUARIOS ─── -->
+<div class="modulo" id="usuarios">
+  <div class="modulo-header">
+    <span class="icono">👤</span>
+    <h2>11. Usuarios y Permisos</h2>
+    <span class="badge-admin">Solo Admin</span>
+  </div>
+
+  <p>Gestiona las cuentas de acceso al sistema y controla qué módulos puede ver cada usuario. Solo los administradores pueden crear, editar o eliminar usuarios.</p>
+
+  <h3>Lista de usuarios</h3>
+  <p>Muestra nombre, correo, rol, estado, módulos con acceso y fecha de creación.</p>
+
+  <h3>Crear un usuario nuevo</h3>
+  <ol class="pasos">
+    <li><span>Haz clic en <span class="btn-rep verde">+ Nuevo Usuario</span>.</span></li>
+    <li><span>Completa nombre, correo, contraseña, rol y estado.</span></li>
+    <li><span>Guarda. Luego usa el botón <span class="btn-rep amarillo">🔑 Permisos</span> para asignar los módulos.</span></li>
+  </ol>
+
+  <table class="tabla-campos">
+    <tr><th>Campo</th><th>Descripción</th><th></th></tr>
+    <tr><td>Nombre completo</td><td>Nombre que aparecerá en el sistema.</td><td class="req">*</td></tr>
+    <tr><td>Correo electrónico</td><td>Se usa para iniciar sesión. Debe ser único.</td><td class="req">*</td></tr>
+    <tr><td>Contraseña</td><td>Mínimo recomendado: 8 caracteres con letras y números.</td><td class="req">*</td></tr>
+    <tr><td>Rol</td><td><strong>Admin:</strong> acceso total. <strong>Empleado:</strong> acceso según permisos asignados.</td><td class="req">*</td></tr>
+    <tr><td>Estado</td><td>Activo (puede iniciar sesión) o Inactivo (bloqueado).</td><td class="req">*</td></tr>
+  </table>
+
+  <h3>Asignar permisos de módulos</h3>
+  <ol class="pasos">
+    <li><span>En la lista de usuarios, haz clic en <span class="btn-rep amarillo">🔑 Permisos</span> junto al usuario.</span></li>
+    <li><span>Se abrirá una cuadrícula con todos los módulos del sistema.</span></li>
+    <li><span>Marca o desmarca los módulos según lo que ese empleado deba ver.</span></li>
+    <li><span>Usa <span class="btn-rep verde">✅ Marcar todo</span> para dar acceso completo o <span class="btn-rep gris">❌ Quitar todo</span> para revocar todo.</span></li>
+    <li><span>Haz clic en <span class="btn-rep">💾 Guardar Permisos</span>.</span></li>
+  </ol>
+
+  <div class="nota"><strong>Nota:</strong> Los usuarios con rol <em>Admin</em> tienen acceso automático a todos los módulos sin necesidad de configurar permisos. El botón de guardar estará deshabilitado para ellos.</div>
+
+  <h3>Cambiar contraseña de un usuario</h3>
+  <p>Haz clic en <span class="btn-rep">✏️ Editar</span>, escribe la nueva contraseña en el campo correspondiente y guarda. Si dejas el campo vacío, la contraseña no cambia.</p>
+
+  <h3>Desactivar un usuario</h3>
+  <p>Edita el usuario y cambia el estado a <strong>Inactivo</strong>. El usuario no podrá iniciar sesión pero su historial se conserva. Esta opción es preferible a eliminar.</p>
+
+  <h3>Eliminar un usuario</h3>
+  <p>Haz clic en <span class="btn-rep rojo">🗑️ Eliminar</span>. No puedes eliminarte a ti mismo.</p>
+
+  <div class="peligro"><strong>Precaución:</strong> La eliminación es permanente. Usa la opción de desactivar cuando sea posible para conservar el historial de auditoría.</div>
+</div>
+
+<hr class="sep">
+
+<!-- ─── 12. AUDITORÍA ─── -->
+<div class="modulo" id="auditoria">
+  <div class="modulo-header">
+    <span class="icono">🔍</span>
+    <h2>12. Auditoría del Sistema</h2>
+    <span class="badge-admin">Solo Admin</span>
+  </div>
+
+  <p>Registro automático de todas las acciones realizadas en el sistema: quién hizo qué, cuándo y desde qué dirección IP. Útil para detectar errores, cambios no autorizados o irregularidades.</p>
+
+  <h3>¿Qué se registra?</h3>
+  <p>Cada vez que un usuario crea, edita o elimina un registro en cualquier módulo, el sistema guarda automáticamente esa acción en el log de auditoría.</p>
+
+  <h3>Consultar el registro</h3>
+  <p>La tabla muestra hasta 200 registros recientes con: módulo afectado, acción realizada, usuario responsable, ruta del sistema, dirección IP y fecha/hora exacta.</p>
+
+  <h3>Filtros de búsqueda</h3>
+  <p>Puedes filtrar por texto libre (acción, ruta, IP), por módulo específico y por rango de fechas. Combina los filtros para investigaciones puntuales.</p>
+
+  <h3>Purgar registros antiguos</h3>
+  <ol class="pasos">
+    <li><span>Haz clic en el botón de purga (parte superior derecha de la pantalla).</span></li>
+    <li><span>Selecciona el rango de fechas a eliminar.</span></li>
+    <li><span>Confirma la operación escribiendo la palabra de confirmación solicitada.</span></li>
+  </ol>
+
+  <div class="peligro"><strong>Advertencia:</strong> La purga elimina permanentemente los registros de auditoría del período seleccionado. Esta acción no se puede deshacer. Solo hazlo cuando sea estrictamente necesario para liberar espacio.</div>
+</div>
+
+<hr class="sep">
+
+<!-- ─── 13. DESCARGAS ─── -->
+<div class="modulo" id="descargas">
+  <div class="modulo-header">
+    <span class="icono">💾</span>
+    <h2>13. Respaldos y Descargas</h2>
+  </div>
+
+  <p>La página de descargas te permite obtener una copia de seguridad del sistema y de la base de datos. Accede desde el menú o directamente en la URL <code>?p=descargas</code>.</p>
+
+  <h3>Archivos disponibles</h3>
+
+  <table class="tabla-campos">
+    <tr><th>Archivo</th><th>Contenido</th><th>Uso recomendado</th></tr>
+    <tr>
+      <td>📦 Sistema PHP (.tar.gz)</td>
+      <td>Todo el código fuente de la aplicación comprimido.</td>
+      <td>Restaurar el sistema en otro servidor. Ábrelo con 7-Zip o WinRAR en Windows.</td>
+    </tr>
+    <tr>
+      <td>🗄️ Base de datos (.sql)</td>
+      <td>Respaldo completo de todos los datos en formato SQL de PostgreSQL.</td>
+      <td>Restaurar en un servidor PostgreSQL con el comando <code>psql</code>.</td>
+    </tr>
+    <tr>
+      <td>📊 Tablas CSV (.zip)</td>
+      <td>Las 23 tablas del sistema en archivos CSV individuales dentro de un ZIP.</td>
+      <td>Importar en MySQL/phpMyAdmin tabla por tabla, o abrir en Excel para análisis.</td>
+    </tr>
+  </table>
+
+  <h3>Importar CSV en phpMyAdmin</h3>
+  <ol class="pasos">
+    <li><span>Descarga el archivo <strong>ASERP-Tablas-CSV.zip</strong> y descomprímelo.</span></li>
+    <li><span>Abre phpMyAdmin y crea una base de datos nueva (Ej: <code>aserp</code>).</span></li>
+    <li><span>Crea las tablas manualmente o usa el SQL de estructura si lo tienes disponible.</span></li>
+    <li><span>Para cada tabla: haz clic en la tabla → pestaña <strong>Importar</strong> → selecciona el archivo CSV → formato CSV, delimitador coma, primera fila como nombres de columna → Ejecutar.</span></li>
+  </ol>
+
+  <div class="nota"><strong>Recomendación:</strong> Realiza respaldos periódicamente, al menos una vez por semana, y guarda las copias en un lugar seguro fuera del servidor (USB, Google Drive, etc.).</div>
+</div>
+
+<hr class="sep">
+
+<!-- ─── 14. FAQ ─── -->
+<div class="modulo" id="faq">
+  <div class="modulo-header">
+    <span class="icono">❓</span>
+    <h2>14. Preguntas Frecuentes</h2>
+  </div>
+
+  <h3>No puedo iniciar sesión, ¿qué hago?</h3>
+  <p>Verifica que estás escribiendo correctamente el correo y la contraseña. Las contraseñas distinguen mayúsculas de minúsculas. Si el problema persiste, contacta al administrador para que revise si tu cuenta está activa.</p>
+
+  <h3>¿Por qué no veo algunos módulos en el menú?</h3>
+  <p>Solo ves los módulos que el administrador habilitó para tu usuario. Si necesitas acceso a un módulo adicional, solicítalo al administrador.</p>
+
+  <h3>Registré una venta incorrecta, ¿cómo la corrijo?</h3>
+  <p>Elimina la factura incorrecta (el stock se restaurará automáticamente) y créala nuevamente con los datos correctos.</p>
+
+  <h3>El precio en Bolívares se ve muy diferente al esperado</h3>
+  <p>Actualiza la tasa de cambio en el módulo de Finanzas. El sistema usa la última tasa registrada para todos los cálculos de conversión.</p>
+
+  <h3>¿Cómo agrego un proveedor que entrega leche todos los días?</h3>
+  <p>Usa el botón <strong>🥛 Registro de Litros</strong> en el módulo de Proveedores. Puedes registrar todos los días de la semana en un solo formulario.</p>
+
+  <h3>¿Puedo exportar los reportes a Excel?</h3>
+  <p>Sí. En los módulos de Proveedores y Productores, usa el botón <strong>Exportar CSV</strong> de los reportes. Los archivos CSV se abren directamente en Microsoft Excel o Google Sheets.</p>
+
+  <h3>El sistema muestra "Acceso restringido" en un módulo</h3>
+  <p>Tu usuario no tiene permiso para ese módulo. Contacta al administrador para que te asigne el acceso.</p>
+
+  <h3>¿Cómo imprimo una factura como PDF?</h3>
+  <p>Abre la factura → haz clic en <strong>🖨 Imprimir / PDF</strong> → en el diálogo de impresión del navegador, en "Destino" selecciona <strong>Guardar como PDF</strong> → clic en Guardar.</p>
+
+  <h3>¿Quién puede ver la auditoría?</h3>
+  <p>Solo los usuarios con rol <strong>Admin</strong>. Los empleados no tienen acceso a ese módulo.</p>
+
+  <h3>¿Cómo contacto soporte técnico?</h3>
+  <p>Comunícate con el administrador del sistema o con el equipo de desarrollo que configuró ASERP para tu empresa.</p>
+
+</div>
+
+</div><!-- fin contenido -->
+
+<!-- ════════════ PIE DE PÁGINA ════════════ -->
+<div style="background:#1a2e5a;color:#fff;text-align:center;padding:22px;margin-top:40px;font-size:.82rem;">
+  <strong>ASERP — Sistema de Gestión Empresarial</strong><br>
+  El Castillo del Queso &nbsp;·&nbsp; Manual de Usuario v1.0 &nbsp;·&nbsp; Mayo 2026<br>
+  <span style="color:rgba(255,255,255,.5)">Documento confidencial de uso interno</span>
+</div>
+
+</body>
+</html>

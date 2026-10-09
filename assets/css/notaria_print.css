@@ -1,0 +1,39 @@
+/* Impresión ASERP: oficios legal horizontal. Solo en hojas de notaría. */
+@page { size: legal landscape; margin: 10mm; }
+
+body.notaria { padding: 0; }
+
+.notaria .titulo {
+    background-color: #1e3a8a;
+    color: #fff;
+    font-weight: bold;
+    text-align: center;
+    font-size: 14pt;
+    padding: 6px;
+    border: 1px solid #000;
+}
+.notaria th {
+    background-color: #1e3a8a;
+    color: #fff;
+    text-align: center;
+}
+.notaria th, .notaria td {
+    border: 1px solid #000;
+    min-height: 40px;
+    height: 40px;
+}
+
+@media print {
+    .no-print { display: none !important; }
+    .notaria .titulo, .notaria th {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        background-color: #1e3a8a !important;
+        color: #fff !important;
+    }
+    .notaria th, .notaria td {
+        border: 1px solid #000 !important;
+        min-height: 40px;
+        height: 40px;
+    }
+}

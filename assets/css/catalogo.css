@@ -1,0 +1,21 @@
+/* Admin del catálogo. Sin atributos style="". */
+.cat-thumb {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 8px;
+    background: #eef1f5;
+}
+.cat-thumb-vacio {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    background: #eef1f5;
+    color: #889;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.cat-precio { max-width: 7.5rem; margin-left: auto; }
+.cat-file { max-width: 12rem; }

@@ -1,0 +1,32 @@
+@page { size: A4 portrait; margin: 12mm; }
+html, body { margin: 0; }
+body { background: #eef1f5; color: #1a1f2b; }
+.hoja { background: #fff; box-sizing: border-box; width: 100%; max-width: 190mm; margin: 0 auto 1rem; padding: 8mm; }
+.logo { width: 44px; height: 44px; object-fit: contain; }
+
+.mayor {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 10px;
+    margin: 0;
+}
+.mayor th, .mayor td {
+    border: 1px solid #9aa3b5;
+    padding: 3px 5px;
+    vertical-align: middle;
+    word-wrap: break-word;
+}
+.mayor thead th { background: #1a2e5a; color: #fff; text-align: center; font-size: 9px; font-weight: 700; }
+.mayor tfoot th { background: #fff3cd; color: #000; }
+.mayor thead { display: table-header-group; }
+.mayor tfoot { display: table-footer-group; }
+.mayor tr { break-inside: avoid; page-break-inside: avoid; }
+.mayor .num { font-variant-numeric: tabular-nums; }
+
+@media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .hoja { max-width: none; width: 100%; margin: 0; padding: 0; }
+    .mayor thead th, .mayor tfoot th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
