@@ -41,6 +41,22 @@
     inyectarPrestamo(ev.relatedTarget && ev.relatedTarget.closest ? ev.relatedTarget.closest('.btn-prestamo') : ev.relatedTarget);
   });
 
+  document.addEventListener('show.bs.modal', function (ev) {
+    if (!ev.target || ev.target.id !== 'modalPrestamoEditar') return;
+    var btn = ev.relatedTarget;
+    if (!btn || !btn.getAttribute) return;
+    var id = document.getElementById('editPrestamoId');
+    var nombre = document.getElementById('editPrestamoNombre');
+    var monto = document.getElementById('editPrestamoMonto');
+    var fecha = document.getElementById('editPrestamoFecha');
+    var aviso = document.getElementById('editPrestamoMercancia');
+    if (id) id.value = btn.getAttribute('data-id') || '';
+    if (nombre) nombre.textContent = btn.getAttribute('data-nombre') || '';
+    if (monto) monto.value = btn.getAttribute('data-monto') || '';
+    if (fecha) fecha.value = btn.getAttribute('data-fecha') || '';
+    if (aviso) aviso.classList.toggle('d-none', btn.getAttribute('data-tipo') !== 'mercancia');
+  });
+
   function tasaCambio() {
     var formCobro = document.getElementById('formCobranza');
     var tasaDom = formCobro ? parseFloat(formCobro.getAttribute('data-tasa') || '0') : 0;

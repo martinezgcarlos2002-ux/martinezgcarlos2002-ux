@@ -18,14 +18,15 @@ final class VentasController
 
     public function create(): void
     {
-        view('ventas_nueva', [
-            'productos' => $this->productos->disponiblesParaVenta(),
-            'clientes'  => $this->ventas->clientesActivos(),
-            'tasa'      => TasaCambio::vigente(get_db())['tasa'] ?? null,
-            'tipos'     => Venta::TIPOS_CLIENTE,
-            'entidades' => Venta::ENTIDADES,
-            'metodos'   => Venta::METODOS_PAGO,
-            'buscarUrl' => url('ventas_buscar_entidades'),
+        view('ventas_nueva', $this->varsFormulario());
+    }
+
+    public function historial(): void
+    {
+        view('ventas_historial', [
+            'filas'   => $this->ventas->historial(),
+            'tipos'   => Venta::TIPOS_CLIENTE,
+            'metodos' => Venta::METODOS_PAGO,
         ]);
     }
 
@@ -40,6 +41,65 @@ final class VentasController
             json_response(200, ['ok' => true, 'items' => []]);
         }
         json_response(200, ['ok' => true, 'items' => $this->ventas->buscarEntidades($tipo, $q)]);
+    }
+
+    public function clienteStore(): void
+    {
+        try {
+            $nombre = trim(post_string('nombre', 120));
+            if (mb_strlen($nombre) < 2) {
+                throw new ValidationException(['nombre' => 'Indica el nombre del cliente (mínimo 2 caracteres).']);
+            }
+            $docRaw = trim(post_string('documento', 14));
+            $documento = null;
+            if ($docRaw !== '') {
+                $documento = normalize_documento($docRaw);
+                if ($documento === null) {
+                    throw new ValidationException(['documento' => 'Documento inválido. Ej.: V-12345678.']);
+                }
+            }
+            $id = $this->ventas->crearClientePos($nombre, $documento, 'frecuente');
+            audit_log('ventas', 'crear_cliente_pos', ['nombre' => $nombre, 'documento' => $documento], 'ventas_clientes', $id);
+            $fila = $this->ventas->clientePos($id);
+            json_response(201, ['ok' => true, 'cliente' => $fila, 'frecuentes' => $this->ventas->clientesFrecuentes()]);
+        } catch (ValidationException $e) {
+            json_response(422, ['ok' => false, 'errores' => $e->errors]);
+        }
+    }
+
+    public function ascenderExclusivo(): void
+    {
+        try {
+            $id = parse_int_range($_POST['id'] ?? null, 1, PHP_INT_MAX);
+            if ($id === null) {
+                throw new ValidationException(['id' => 'Selecciona un cliente frecuente.']);
+            }
+            $out = Database::transaction(function () use ($id): array {
+                $cli = $this->ventas->clientePos($id);
+                if ($cli === null) {
+                    throw new ValidationException(['id' => 'El cliente no existe.']);
+                }
+                $cxcId = (int) ($cli['cxc_cliente_id'] ?? 0);
+                if ($cxcId < 1) {
+                    $cxc = new CxCService(get_db(), new CorrelativoService(get_db()));
+                    $cxcId = $cxc->guardarCliente([
+                        'nombre'    => $cli['nombre'],
+                        'documento' => $cli['documento'] !== null && $cli['documento'] !== '' ? $cli['documento'] : null,
+                        'telefono'  => null,
+                        'domicilio' => null,
+                    ], null, current_user()['id']);
+                }
+                $this->ventas->marcarExclusivo($id, $cxcId);
+                audit_log('ventas', 'ascender_exclusivo', [
+                    'ventas_cliente_id' => $id,
+                    'cxc_cliente_id'    => $cxcId,
+                ], 'ventas_clientes', $id);
+                return ['cxc_cliente_id' => $cxcId, 'cliente' => $this->ventas->clientePos($id)];
+            });
+            json_response(200, ['ok' => true] + $out + ['frecuentes' => $this->ventas->clientesFrecuentes()]);
+        } catch (ValidationException $e) {
+            json_response(422, ['ok' => false, 'errores' => $e->errors]);
+        }
     }
 
     public function ticket(): void
@@ -60,23 +120,10 @@ final class VentasController
             ]);
         } catch (ValidationException $e) {
             flash('error', implode(' ', $e->errors));
-            redirect('ventas_nueva');
+            redirect('ventas_historial');
         }
     }
 
-    private function logoDataUri(): string
-    {
-        $path = ADARA_ROOT . '/assets/' . LOGO_EMPRESA;
-        if (!is_file($path)) {
-            return '';
-        }
-        return 'data:image/jpeg;base64,' . base64_encode((string) file_get_contents($path));
-    }
-
-    /**
-     * Factura + descuento de stock + kardex + ingreso en caja + auditoría en una sola transacción.
-     * Si cualquier paso falla se revierte todo y el intento fallido se audita fuera de la transacción.
-     */
     public function store(): void
     {
         $userId = current_user()['id'];
@@ -100,9 +147,13 @@ final class VentasController
             throw $e;
         }
 
-        $cajaTxt = in_array($venta['metodo_pago'], Venta::METODOS_SIN_CAJA, true)
-            ? 'Sin asiento de caja (crédito, cortesía o descuento).'
-            : sprintf('Ingreso asentado en caja a %s Bs/USD.', num($venta['tasa_bs_por_usd'], 4));
+        $cajaTxt = match (true) {
+            $venta['metodo_pago'] === 'mercancia_descuento' && ($venta['entidad_tipo'] ?? '') === 'empleado'
+                => 'Descuento cargado a la nómina del empleado.',
+            in_array($venta['metodo_pago'], Venta::METODOS_SIN_CAJA, true)
+                => 'Sin asiento en Finanzas (crédito, cortesía o descuento).',
+            default => 'Ingreso asentado en Finanzas.',
+        };
         flash('success', sprintf(
             'Venta %s registrada: $%s (Bs. %s). %s',
             $venta['numero'],
@@ -113,10 +164,37 @@ final class VentasController
         redirect('ventas_ticket', ['id' => (int) $venta['id']]);
     }
 
+    /** @return array<string, mixed> */
+    private function varsFormulario(): array
+    {
+        return [
+            'productos'   => $this->productos->disponiblesParaVenta(),
+            'frecuentes'  => $this->ventas->clientesFrecuentes(),
+            'tasa'        => TasaCambio::vigente(get_db())['tasa'] ?? null,
+            'tipos'       => Venta::TIPOS_CLIENTE,
+            'entidades'   => Venta::ENTIDADES,
+            'metodos'     => Venta::METODOS_PAGO,
+            'semanas'     => self::semanasDescuento(),
+            'buscarUrl'   => url('ventas_buscar_entidades'),
+            'nuevoUrl'    => url('ventas_cliente_nuevo'),
+            'ascenderUrl' => url('ventas_ascender_exclusivo'),
+        ];
+    }
+
+    private function logoDataUri(): string
+    {
+        $path = ADARA_ROOT . '/assets/' . LOGO_EMPRESA;
+        if (!is_file($path)) {
+            return '';
+        }
+        return 'data:image/jpeg;base64,' . base64_encode((string) file_get_contents($path));
+    }
+
     /**
      * @return array{
-     *   cliente_id:?int, tipo_cliente:string, entidad_tipo:?string, entidad_id:?int,
-     *   fecha:string, moneda_pago:string, metodo_pago:string,
+     *   cliente_id:int, ventas_cliente_id:?int, cliente_nombre:string, tipo_cliente:string,
+     *   entidad_tipo:?string, entidad_id:?int, fecha:string, moneda_pago:string, metodo_pago:string,
+     *   referencia:?string, descripcion_pago:?string, semana_aplicacion:?string,
      *   lineas:array<int, array{cantidad:string, precio:string}>
      * }
      */
@@ -131,16 +209,24 @@ final class VentasController
 
         $entidadTipo = null;
         $entidadId = null;
-        $clienteId = parse_int_range($_POST['cliente_id'] ?? null, 1, PHP_INT_MAX);
+        $ventasClienteId = null;
+        $clienteNombre = trim(post_string('cliente_nombre', 120));
 
-        if ($tipoCliente === 'exclusivo') {
+        if ($tipoCliente === 'generico') {
+            if (mb_strlen($clienteNombre) < 2) {
+                $errors['cliente_nombre'] = 'Escribe el nombre del cliente genérico.';
+            }
+        } elseif ($tipoCliente === 'frecuente') {
+            $ventasClienteId = parse_int_range($_POST['ventas_cliente_id'] ?? null, 1, PHP_INT_MAX);
+            if ($ventasClienteId === null) {
+                $errors['ventas_cliente_id'] = 'Selecciona un cliente frecuente.';
+            }
+        } elseif ($tipoCliente === 'exclusivo') {
             $entidadTipo = (string) ($_POST['entidad_tipo'] ?? '');
             $entidadId = parse_int_range($_POST['entidad_id'] ?? null, 1, PHP_INT_MAX);
             if (!isset(Venta::ENTIDADES[$entidadTipo]) || $entidadId === null) {
-                $errors['entidad_id'] = 'Busca y selecciona el productor, empleado o cliente exclusivo.';
+                $errors['entidad_id'] = 'Busca y selecciona productor, empleado, transportista o cliente CxC.';
             }
-        } elseif ($clienteId === null) {
-            $errors['cliente_id'] = 'Selecciona un cliente.';
         }
 
         $hoy = date('Y-m-d');
@@ -159,8 +245,32 @@ final class VentasController
         $metodo = (string) ($_POST['metodo_pago'] ?? '');
         if (!isset(Venta::METODOS_PAGO[$metodo])) {
             $errors['metodo_pago'] = 'Método de pago inválido.';
-        } elseif (in_array($metodo, Venta::METODOS_DEUDA, true) && $tipoCliente !== 'exclusivo') {
-            $errors['metodo_pago'] = 'Crédito y mercancía a descuento requieren un cliente exclusivo (productor, empleado o CxC).';
+        }
+
+        $referencia = trim(post_string('referencia', 40));
+        $descripcion = trim(post_string('descripcion_pago', 255));
+        if (in_array($metodo, ['pago_movil', 'transferencia'], true)) {
+            if ($referencia === '') {
+                $errors['referencia'] = 'La referencia es obligatoria para Pago Móvil y Transferencia.';
+            }
+            if ($descripcion === '') {
+                $errors['descripcion_pago'] = 'La descripción es obligatoria para Pago Móvil y Transferencia.';
+            }
+        }
+
+        $semana = $this->parseSemana($_POST['semana_aplicacion'] ?? null);
+        $deudaInterna = in_array($metodo, Venta::METODOS_DEUDA, true)
+            && in_array($entidadTipo, ['productor', 'empleado', 'transportista'], true);
+        if ($metodo === 'mercancia_descuento' && $deudaInterna) {
+            $permitidas = array_column(self::semanasDescuento(), 'value');
+            if ($semana === null || !in_array($semana, $permitidas, true)) {
+                $errors['semana_aplicacion'] = 'Selecciona una semana de trabajo ya iniciada. No se permiten semanas futuras.';
+            }
+        } else {
+            $semana = null;
+        }
+        if (in_array($metodo, Venta::METODOS_DEUDA, true) && $tipoCliente !== 'exclusivo') {
+            $errors['metodo_pago'] = 'Crédito y mercancía a descuento requieren un cliente exclusivo.';
         }
 
         $items = $_POST['items'] ?? null;
@@ -205,21 +315,63 @@ final class VentasController
         }
 
         return [
-            'cliente_id'   => $clienteId,
-            'tipo_cliente' => $tipoCliente,
-            'entidad_tipo' => $entidadTipo,
-            'entidad_id'   => $entidadId,
-            'fecha'        => $fecha,
-            'moneda_pago'  => $moneda,
-            'metodo_pago'  => $metodo,
-            'lineas'       => array_map(static fn (array $l): array => [
+            'cliente_id'        => 0,
+            'ventas_cliente_id' => $ventasClienteId,
+            'cliente_nombre'    => $clienteNombre,
+            'tipo_cliente'      => $tipoCliente,
+            'entidad_tipo'      => $entidadTipo,
+            'entidad_id'        => $entidadId,
+            'fecha'             => $fecha,
+            'moneda_pago'       => $moneda,
+            'metodo_pago'       => $metodo,
+            'referencia'        => $referencia !== '' ? $referencia : null,
+            'descripcion_pago'  => $descripcion !== '' ? $descripcion : null,
+            'semana_aplicacion' => $semana,
+            'lineas'            => array_map(static fn (array $l): array => [
                 'cantidad' => Producto::desdeMilesimas($l['milesimas']),
                 'precio'   => $l['precio'],
             ], $lineas),
         ];
     }
 
-    /** Corre dentro de Database::transaction(): cualquier excepción revierte factura, stock, kardex y caja. */
+    private function parseSemana(mixed $raw): ?string
+    {
+        $fecha = parse_date(is_string($raw) ? $raw : '');
+        if ($fecha === null) {
+            return null;
+        }
+        $dia = new DateTimeImmutable($fecha);
+        $lunes = $dia->modify('-' . ((int) $dia->format('N') - 1) . ' days')->format('Y-m-d');
+        return $lunes > date('Y-m-d') ? null : $lunes;
+    }
+
+    /**
+     * Últimas semanas lunes–domingo ya iniciadas. El lunes de la semana en curso es el tope:
+     * ninguna opción tiene fecha de inicio posterior a hoy.
+     *
+     * @return list<array{value:string, label:string}>
+     */
+    private static function semanasDescuento(int $cantidad = 5): array
+    {
+        $cantidad = max(4, min(5, $cantidad));
+        $hoy = new DateTimeImmutable('today');
+        $lunes = $hoy->modify('-' . ((int) $hoy->format('N') - 1) . ' days');
+        $out = [];
+        for ($i = 0; $i < $cantidad; $i++) {
+            $ini = $lunes->modify("-{$i} weeks");
+            if ($ini->format('Y-m-d') > $hoy->format('Y-m-d')) {
+                continue;
+            }
+            $fin = $ini->modify('+6 days');
+            $out[] = [
+                'value' => $ini->format('Y-m-d'),
+                'label' => 'Semana del Lunes ' . $ini->format('d/m/Y') . ' al Domingo ' . $fin->format('d/m/Y'),
+            ];
+        }
+        return $out;
+    }
+
+    /** Corre dentro de Database::transaction(): venta + stock + Finanzas + deuda se revierten juntas. */
     private function procesar(array $pedido, int $userId): array
     {
         $momento = $pedido['fecha'] === date('Y-m-d') ? date('Y-m-d H:i:s') : $pedido['fecha'] . ' 23:59:59';
@@ -228,7 +380,7 @@ final class VentasController
         if ($tasa === null) {
             throw new ValidationException(['tasa' => 'No hay tasa de cambio vigente para esa fecha. Registra la tasa BCV antes de facturar.']);
         }
-        $cliente = $this->resolverCliente($pedido);
+        [$pos, $nombre] = $this->resolverCliente($pedido);
         $this->asegurarEntidad($pedido);
 
         $bloqueados = $this->productos->bloquearActivos(array_keys($pedido['lineas']));
@@ -251,16 +403,21 @@ final class VentasController
         }
 
         $ventaId = $this->ventas->create([
-            'cliente_id'      => $cliente['id'],
-            'tipo_cliente'    => $pedido['tipo_cliente'],
-            'entidad_tipo'    => $pedido['entidad_tipo'],
-            'entidad_id'      => $pedido['entidad_id'],
-            'fecha'           => $momento,
-            'moneda_pago'     => $pedido['moneda_pago'],
-            'metodo_pago'     => $pedido['metodo_pago'],
-            'tasa_id'         => $tasa['id'],
-            'tasa_bs_por_usd' => $tasa['tasa'],
-            'emitida_por'     => $userId,
+            'cliente_id'        => $pos['id'],
+            'ventas_cliente_id' => $pedido['ventas_cliente_id'],
+            'cliente_nombre'    => $nombre,
+            'tipo_cliente'      => $pedido['tipo_cliente'],
+            'entidad_tipo'      => $pedido['entidad_tipo'],
+            'entidad_id'        => $pedido['entidad_id'],
+            'fecha'             => $momento,
+            'moneda_pago'       => $pedido['moneda_pago'],
+            'metodo_pago'       => $pedido['metodo_pago'],
+            'referencia'        => $pedido['referencia'],
+            'descripcion_pago'  => $pedido['descripcion_pago'],
+            'semana_aplicacion' => $pedido['semana_aplicacion'],
+            'tasa_id'           => $tasa['id'],
+            'tasa_bs_por_usd'   => $tasa['tasa'],
+            'emitida_por'       => $userId,
         ]);
 
         $detalle = [];
@@ -273,8 +430,6 @@ final class VentasController
                 'producto_id'     => $productoId,
                 'cantidad'        => $linea['cantidad'],
                 'precio_unit_usd' => $linea['precio'],
-                'precio_catalogo' => (string) $bloqueados[$productoId]['precio_usd'],
-                'stock_previo'    => (string) $bloqueados[$productoId]['stock'],
                 'almacenes'       => $salidas,
             ];
         }
@@ -286,23 +441,21 @@ final class VentasController
 
         $cajaId = null;
         if (!in_array($pedido['metodo_pago'], Venta::METODOS_SIN_CAJA, true)) {
-            $cajaId = $this->ventas->registrarIngresoCaja($ventaId, $userId);
+            $cajaId = $this->ventas->registrarIngresoCaja($ventaId, $userId, $nombre);
         }
 
-        $deuda = $this->asentarDeuda($venta, $pedido, $userId);
+        $deuda = $this->asentarDeuda($venta, $pedido, $userId, $nombre);
 
         audit_log('ventas', 'crear', [
             'numero'              => $venta['numero'],
-            'cliente_id'          => $cliente['id'],
             'tipo_cliente'        => $pedido['tipo_cliente'],
+            'cliente'             => $nombre,
             'entidad_tipo'        => $pedido['entidad_tipo'],
             'entidad_id'          => $pedido['entidad_id'],
             'metodo_pago'         => $pedido['metodo_pago'],
-            'moneda_pago'         => $venta['moneda_pago'],
-            'tasa_id'             => $tasa['id'],
-            'tasa_bs_por_usd'     => $tasa['tasa'],
+            'referencia'          => $pedido['referencia'],
+            'semana_aplicacion'   => $pedido['semana_aplicacion'],
             'total_usd'           => (string) $venta['total_usd'],
-            'total_bs'            => (string) $venta['total_bs'],
             'caja_movimiento_id'  => $cajaId,
             'deuda'               => $deuda,
             'items'               => $detalle,
@@ -311,17 +464,29 @@ final class VentasController
         return $venta;
     }
 
-    /** @param array<string, mixed> $pedido */
+    /** @param array<string, mixed> $pedido @return array{0:array{id:int,nombre:string},1:string} */
     private function resolverCliente(array $pedido): array
     {
-        if ($pedido['tipo_cliente'] === 'exclusivo') {
-            return $this->ventas->clienteContado();
+        $pos = $this->ventas->clienteContado();
+        if ($pedido['tipo_cliente'] === 'generico') {
+            return [$pos, $pedido['cliente_nombre']];
         }
-        $cliente = $this->ventas->clienteActivo((int) $pedido['cliente_id']);
-        if ($cliente === null) {
-            throw new ValidationException(['cliente_id' => 'El cliente no existe o está inactivo.']);
+        if ($pedido['tipo_cliente'] === 'frecuente') {
+            $cli = $this->ventas->clientePos((int) $pedido['ventas_cliente_id']);
+            if ($cli === null || $cli['tipo'] !== 'frecuente') {
+                throw new ValidationException(['ventas_cliente_id' => 'El cliente frecuente no existe.']);
+            }
+            return [$pos, (string) $cli['nombre']];
         }
-        return $cliente;
+        $nombre = $this->ventas->nombreEntidad([
+            'entidad_tipo'   => $pedido['entidad_tipo'],
+            'entidad_id'     => $pedido['entidad_id'],
+            'cliente_nombre' => '',
+        ]);
+        if ($nombre === '') {
+            throw new ValidationException(['entidad_id' => 'No se encontró el nombre de la entidad exclusiva.']);
+        }
+        return [$pos, $nombre];
     }
 
     /** @param array<string, mixed> $pedido */
@@ -332,10 +497,11 @@ final class VentasController
         }
         $id = (int) $pedido['entidad_id'];
         $ok = match ($pedido['entidad_tipo']) {
-            'productor' => (new Productor(get_db()))->find($id) !== null,
-            'empleado'  => (new Empleado(get_db()))->find($id) !== null,
-            'cxc'       => (new CxCService(get_db(), new CorrelativoService(get_db())))->cliente($id) !== null,
-            default     => false,
+            'productor'     => (new Productor(get_db()))->find($id) !== null,
+            'empleado'      => (new Empleado(get_db()))->find($id) !== null,
+            'transportista' => (new TransporteService(get_db()))->existeActivo($id),
+            'cxc'           => (new CxCService(get_db(), new CorrelativoService(get_db())))->cliente($id) !== null,
+            default         => false,
         };
         if (!$ok) {
             throw new ValidationException(['entidad_id' => 'La entidad exclusiva no existe.']);
@@ -343,12 +509,11 @@ final class VentasController
     }
 
     /**
-     * Crédito o mercancía a descuento: asienta la deuda en productor, nómina o CxC.
      * @param array<string, mixed> $venta
      * @param array<string, mixed> $pedido
      * @return array<string, mixed>|null
      */
-    private function asentarDeuda(array $venta, array $pedido, int $userId): ?array
+    private function asentarDeuda(array $venta, array $pedido, int $userId, string $nombreCliente): ?array
     {
         if ($pedido['tipo_cliente'] !== 'exclusivo' || !in_array($pedido['metodo_pago'], Venta::METODOS_DEUDA, true)) {
             return null;
@@ -357,15 +522,15 @@ final class VentasController
         $id = (int) $pedido['entidad_id'];
         $fecha = substr((string) $venta['fecha'], 0, 10);
         $monto = (string) $venta['total_usd'];
-        $concepto = 'Venta ' . $venta['numero'];
+        $factura = 'Factura Nro: ' . $venta['numero'];
+        $semanaRef = $pedido['semana_aplicacion'] ?? $fecha;
 
         if ($tipo === 'productor') {
-            $productor = new Productor(get_db());
-            $row = $productor->find($id);
+            $row = (new Productor(get_db()))->find($id);
             if ($row === null) {
                 throw new ValidationException(['entidad_id' => 'El productor no existe.']);
             }
-            $semana = CierreSemanal::semanaDe($fecha, CierreSemanal::diaCierreValido($row['dia_cierre']));
+            $semana = CierreSemanal::semanaDe($semanaRef, CierreSemanal::diaCierreValido($row['dia_cierre']));
             $abonoId = (new PagoProductor(get_db()))->create([
                 'productor_id'    => $id,
                 'fecha'           => $fecha,
@@ -376,11 +541,11 @@ final class VentasController
                 'tasa_bs_por_usd' => null,
                 'monto_usd'       => $monto,
                 'referencia'      => $venta['numero'],
-                'descripcion'     => $concepto . ' (mercancía / crédito POS)',
+                'descripcion'     => $factura . ' — ' . $nombreCliente,
                 'cierre_id'       => null,
                 'registrado_por'  => $userId,
             ]);
-            return ['destino' => 'productores_abonos', 'id' => $abonoId];
+            return ['destino' => 'productores_abonos', 'id' => $abonoId, 'semana' => $semana];
         }
 
         if ($tipo === 'empleado') {
@@ -388,15 +553,30 @@ final class VentasController
             if ($emp === null || !(int) $emp['activo']) {
                 throw new ValidationException(['entidad_id' => 'El empleado no existe o está inactivo.']);
             }
+            // La factura ya quedó en ventas. Aquí se carga el mismo total USD a la nómina:
+            // cuota_semanal = monto para que el cierre semanal lo descuente completo.
             $prestamoId = (new PrestamoEmpleado(get_db()))->create([
-                'empleado_id'   => $id,
+                'empleado_id'   => (int) $emp['id'],
                 'monto_total'   => $monto,
-                'cuota_semanal' => '0.00',
+                'cuota_semanal' => $monto,
                 'tipo'          => 'mercancia',
-                'fecha'         => $fecha,
-                'concepto'      => $concepto,
+                'fecha'         => $semanaRef,
+                'concepto'      => mb_substr('Mercancía - Factura Nro: ' . $venta['numero'], 0, 120),
             ], $userId);
             return ['destino' => 'hr_prestamos', 'id' => $prestamoId];
+        }
+
+        if ($tipo === 'transportista') {
+            $log = new TransporteService(get_db());
+            $semana = CierreSemanal::semanaDe($semanaRef, CierreSemanal::DIA_CIERRE_DEFAULT);
+            $cierreId = $log->cierreParaSemana($id, $semana, $userId);
+            $pagoId = $log->registrarPagoCierre($cierreId, [
+                'fecha'                 => $fecha,
+                'monto'                 => $monto,
+                'tipo'                  => 'mercancia',
+                'descripcion_mercancia' => $factura . ' — semana ' . $semana,
+            ], $userId);
+            return ['destino' => 'log_pagos_transporte', 'id' => $pagoId, 'semana' => $semana];
         }
 
         $cxc = new CxCService(get_db(), new CorrelativoService(get_db()));
@@ -414,7 +594,7 @@ final class VentasController
             'numero'            => $venta['numero'],
             'es_aleatorio'      => false,
             'domicilio'         => null,
-            'observaciones'     => $concepto . ' POS',
+            'observaciones'     => $factura . ' POS',
             'fecha_emision'     => $fecha,
             'fecha_vencimiento' => $vence,
             'monto_total'       => $monto,
@@ -422,24 +602,19 @@ final class VentasController
         return ['destino' => 'cxc_facturas', 'id' => $out['factura_id'], 'numero' => $out['numero']];
     }
 
-    /** Se llama tras el rollback, así el registro del fallo sobrevive aunque la venta no. */
     private function auditarFallo(array $motivo): void
     {
-        $items = $_POST['items'] ?? null;
-        $moneda = $_POST['moneda_pago'] ?? null;
         try {
             audit_log('ventas', 'crear_fallida', [
-                'cliente_id'  => parse_int_range($_POST['cliente_id'] ?? null, 1, PHP_INT_MAX),
-                'moneda_pago' => is_string($moneda) && in_array($moneda, Venta::MONEDAS, true) ? $moneda : null,
-                'lineas'      => is_array($items) ? count($items) : 0,
-                'motivo'      => $motivo,
+                'tipo_cliente' => $_POST['tipo_cliente'] ?? null,
+                'metodo_pago'  => $_POST['metodo_pago'] ?? null,
+                'motivo'       => $motivo,
             ], 'ventas');
         } catch (Throwable $e) {
             error_log('[ADARA][ventas] No se pudo auditar el fallo: ' . $e->getMessage());
         }
     }
 
-    /** El POS no pinta errores por campo: se muestran como flash. */
     private function fallar(array $errors): never
     {
         foreach ($errors as $mensaje) {

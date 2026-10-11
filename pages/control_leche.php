@@ -222,8 +222,11 @@ $puedeEditarHoja = $puedeCrear ?? false;
   <a class="btn btn-planilla" target="_blank" rel="noopener" href="<?= e(url('control_leche_planilla', ['fecha' => $fechaHoja])) ?>">
     <i class="bi bi-printer"></i> Imprimir planilla
   </a>
+  <?php if ($puedeEditarHoja): ?>
+  <button type="submit" class="btn btn-success" form="formHojaDia">💾 Guardar Cambios</button>
+  <?php endif; ?>
 </form>
-<form method="post" action="<?= e(url('control_leche_diario')) ?>" autocomplete="off">
+<form id="formHojaDia" method="post" action="<?= e(url('control_leche_diario')) ?>" autocomplete="off">
   <?= csrf_field() ?>
   <input type="hidden" name="fecha" value="<?= e($fechaHoja) ?>">
   <?php require ADARA_ROOT . '/pages/partials/control_diario_hoja.php'; ?>
@@ -411,7 +414,10 @@ $puedeEditarHoja = $puedeCrear ?? false;
     </div>
 
     <div class="card mt-3">
-      <div class="card-header cc-head">Lista de precios por tipo de queso (margen <span id="cc_margen_lbl"><?= e((string) $costos['margen']) ?></span>%)</div>
+      <div class="card-header cc-head d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span>Lista de precios por tipo de queso (margen <span id="cc_margen_lbl"><?= e((string) $costos['margen']) ?></span>%)</span>
+        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalFormulas">📖 Asistente de Fórmulas Técnicas</button>
+      </div>
       <div class="card-body">
         <p class="cc-note">Rendimiento: cuántos kg salen por cada cantidad de litros. Litros del día: cuánta leche procesada va a ese queso (vacío en todos = reparto parejo; si lo llenas, llénalo en todos y que sume la leche procesada). Sal, empaque y otros son montos del día propios de ese queso. Precio de venta = costo por kg × (1 + margen).</p>
         <div class="table-responsive">
@@ -496,6 +502,57 @@ $puedeEditarHoja = $puedeCrear ?? false;
     <td><button type="button" class="btn btn-sm btn-outline-danger cc-delrow" aria-label="Quitar tipo de queso"><i class="bi bi-x-lg"></i></button></td>
   </tr>
 </template>
+
+<div class="modal fade" id="modalFormulas" tabindex="-1" aria-labelledby="tituloFormulas" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="tituloFormulas">📖 Asistente de Fórmulas Técnicas</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted">Guía de solo lectura. Aplicar referencia copia litros y kg en la lista de precios cuando el manual los indica. No guarda nada: puedes corregir los números antes de guardar la fotografía del día.</p>
+        <p class="small fw-semibold mb-2" id="formulaAviso" hidden></p>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Queso</th>
+                <th>Referencia técnica</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="fw-semibold">Queso Blanco Llanero</td>
+                <td>Rendimiento: 20 L = 3 kg. Cuajo líquido: 40 ml × 100 L. Cloruro de calcio: 20 g × 100 L.</td>
+                <td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary btn-aplicar-ref" data-clave="llanero" data-nombre="Queso Blanco Llanero" data-litros="20" data-kg="3">Aplicar referencia</button></td>
+              </tr>
+              <tr>
+                <td class="fw-semibold">Queso Guayanés / Telita</td>
+                <td>Rendimiento estandarizado. Cuajo: 8–10 ml × 100 L. pH de corte: 5.2 – 5.3.</td>
+                <td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary btn-aplicar-ref" data-clave="guayanes" data-nombre="Queso Guayanés / Telita">Aplicar referencia</button></td>
+              </tr>
+              <tr>
+                <td class="fw-semibold">Ricotta</td>
+                <td>1 L de vinagre por cada 100 L de suero, a 85–90 °C.</td>
+                <td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary btn-aplicar-ref" data-clave="ricotta" data-nombre="Ricotta">Aplicar referencia</button></td>
+              </tr>
+              <tr>
+                <td class="fw-semibold">Mozzarella</td>
+                <td>Cultivo TPF: 0.8 g por cada 20 L de leche.</td>
+                <td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary btn-aplicar-ref" data-clave="mozzarella" data-nombre="Mozzarella">Aplicar referencia</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
 <?php endif; ?>
 
 <div class="modal fade" id="modalEntrega" tabindex="-1" aria-labelledby="tituloEntrega" aria-hidden="true">
@@ -755,6 +812,53 @@ $puedeEditarHoja = $puedeCrear ?? false;
       calcular();
     });
   }
+
+  function sinAcento(s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+  function coincideQueso(clave, nombre) {
+    var n = sinAcento(nombre);
+    if (clave === 'llanero') return n.indexOf('llanero') !== -1 || (n.indexOf('blanco') !== -1 && n.indexOf('guayan') === -1 && n.indexOf('telita') === -1);
+    if (clave === 'guayanes') return n.indexOf('guayan') !== -1 || n.indexOf('telita') !== -1;
+    if (clave === 'ricotta') return n.indexOf('ricot') !== -1;
+    if (clave === 'mozzarella') return n.indexOf('mozza') !== -1 || n.indexOf('muzza') !== -1;
+    return false;
+  }
+  document.querySelectorAll('.btn-aplicar-ref').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var clave = btn.getAttribute('data-clave') || '';
+      var nombre = btn.getAttribute('data-nombre') || '';
+      var litros = btn.getAttribute('data-litros');
+      var kgRef = btn.getAttribute('data-kg');
+      var fila = null;
+      body.querySelectorAll('tr').forEach(function (tr) {
+        if (fila) return;
+        var inp = tr.querySelector('[data-campo="nombre"]');
+        if (inp && coincideQueso(clave, inp.value)) fila = tr;
+      });
+      if (!fila && tpl) {
+        body.appendChild(tpl.content.cloneNode(true));
+        fila = body.querySelector('tr:last-child');
+        var nom = fila.querySelector('[data-campo="nombre"]');
+        if (nom) nom.value = nombre;
+      }
+      var aviso = document.getElementById('formulaAviso');
+      if (fila && litros && kgRef) {
+        var inL = fila.querySelector('[data-campo="litros_ref"]');
+        var inK = fila.querySelector('[data-campo="kg_ref"]');
+        if (inL) inL.value = litros;
+        if (inK) inK.value = kgRef;
+        if (aviso) {
+          aviso.hidden = false;
+          aviso.textContent = 'Se copiaron ' + litros + ' L y ' + kgRef + ' kg en «' + nombre + '». Puedes cambiarlos antes de guardar.';
+        }
+      } else if (aviso) {
+        aviso.hidden = false;
+        aviso.textContent = '«' + nombre + '» no trae litros ni kg en el manual. El rendimiento de la lista no se modificó.';
+      }
+      calcular();
+    });
+  });
   var guardar = document.getElementById('cc_guardar');
   if (guardar) {
     guardar.addEventListener('click', function () {

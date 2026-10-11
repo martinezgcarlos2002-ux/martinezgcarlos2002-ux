@@ -13,7 +13,7 @@ declare(strict_types=1);
 $v = $venta;
 $items = $v['items'] ?? [];
 $metodos = $metodos ?? Venta::METODOS_PAGO;
-$cliente = trim((string) ($v['entidad_nombre'] ?? $v['cliente_nombre'] ?? 'CONSUMIDOR FINAL'));
+$cliente = trim((string) (($v['cliente_nombre'] ?? '') !== '' ? $v['cliente_nombre'] : ($v['entidad_nombre'] ?? 'CONSUMIDOR FINAL')));
 $metodo = $metodos[$v['metodo_pago'] ?? ''] ?? (string) ($v['metodo_pago'] ?? '—');
 $fecha = (new DateTimeImmutable((string) $v['fecha']))->format('d/m/Y H:i');
 ?>

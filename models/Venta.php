@@ -12,9 +12,10 @@ final class Venta
     ];
 
     public const ENTIDADES = [
-        'productor' => 'Productor',
-        'empleado'  => 'Empleado',
-        'cxc'       => 'Cliente CxC',
+        'productor'     => 'Productor',
+        'empleado'      => 'Empleado',
+        'transportista' => 'Transportista',
+        'cxc'           => 'Cliente CxC',
     ];
 
     public const METODOS_PAGO = [
@@ -86,11 +87,14 @@ final class Venta
             'productor' => 'SELECT id, nombre, documento FROM productores
                             WHERE activo = 1 AND (nombre LIKE :q OR IFNULL(documento, \'\') LIKE :q2)
                             ORDER BY nombre LIMIT 20',
-            'empleado'  => 'SELECT id, TRIM(CONCAT(nombres, \' \', apellidos)) AS nombre, cedula AS documento
+            'empleado'      => 'SELECT id, TRIM(CONCAT(nombres, \' \', apellidos)) AS nombre, cedula AS documento
                             FROM empleados
                             WHERE activo = 1 AND (nombres LIKE :q OR apellidos LIKE :q2 OR IFNULL(cedula, \'\') LIKE :q3)
                             ORDER BY apellidos, nombres LIMIT 20',
-            'cxc'       => 'SELECT id, nombre, documento FROM cxc_clientes
+            'transportista' => 'SELECT id, nombre, documento FROM log_transportistas
+                            WHERE estado = \'activo\' AND (nombre LIKE :q OR IFNULL(documento, \'\') LIKE :q2)
+                            ORDER BY nombre LIMIT 20',
+            'cxc'           => 'SELECT id, nombre, documento FROM cxc_clientes
                             WHERE nombre LIKE :q OR IFNULL(documento, \'\') LIKE :q2
                             ORDER BY nombre LIMIT 20',
             default     => throw new ValidationException(['tipo' => 'Tipo de entidad inválido.']),
@@ -109,24 +113,31 @@ final class Venta
     {
         $stmt = $this->db->prepare(
             'INSERT INTO ventas
-                 (numero, cliente_id, tipo_cliente, entidad_tipo, entidad_id, fecha, moneda_pago, metodo_pago,
+                 (numero, cliente_id, ventas_cliente_id, cliente_nombre, tipo_cliente, entidad_tipo, entidad_id,
+                  fecha, moneda_pago, metodo_pago, referencia, descripcion_pago, semana_aplicacion,
                   tasa_id, tasa_bs_por_usd, total_usd, total_bs, emitida_por)
              VALUES
-                 (:numero, :cliente_id, :tipo_cliente, :entidad_tipo, :entidad_id, :fecha, :moneda_pago, :metodo_pago,
+                 (:numero, :cliente_id, :ventas_cliente_id, :cliente_nombre, :tipo_cliente, :entidad_tipo, :entidad_id,
+                  :fecha, :moneda_pago, :metodo_pago, :referencia, :descripcion_pago, :semana_aplicacion,
                   :tasa_id, :tasa_bs_por_usd, 0, 0, :emitida_por)'
         );
         $stmt->execute([
-            'numero'          => 'TMP-' . bin2hex(random_bytes(8)),
-            'cliente_id'      => $data['cliente_id'],
-            'tipo_cliente'    => $data['tipo_cliente'],
-            'entidad_tipo'    => $data['entidad_tipo'],
-            'entidad_id'      => $data['entidad_id'],
-            'fecha'           => $data['fecha'],
-            'moneda_pago'     => $data['moneda_pago'],
-            'metodo_pago'     => $data['metodo_pago'],
-            'tasa_id'         => $data['tasa_id'],
-            'tasa_bs_por_usd' => $data['tasa_bs_por_usd'],
-            'emitida_por'     => $data['emitida_por'],
+            'numero'            => 'TMP-' . bin2hex(random_bytes(8)),
+            'cliente_id'        => $data['cliente_id'],
+            'ventas_cliente_id' => $data['ventas_cliente_id'],
+            'cliente_nombre'    => $data['cliente_nombre'],
+            'tipo_cliente'      => $data['tipo_cliente'],
+            'entidad_tipo'      => $data['entidad_tipo'],
+            'entidad_id'        => $data['entidad_id'],
+            'fecha'             => $data['fecha'],
+            'moneda_pago'       => $data['moneda_pago'],
+            'metodo_pago'       => $data['metodo_pago'],
+            'referencia'        => $data['referencia'],
+            'descripcion_pago'  => $data['descripcion_pago'],
+            'semana_aplicacion' => $data['semana_aplicacion'],
+            'tasa_id'           => $data['tasa_id'],
+            'tasa_bs_por_usd'   => $data['tasa_bs_por_usd'],
+            'emitida_por'       => $data['emitida_por'],
         ]);
         return (int) $this->db->lastInsertId();
     }
@@ -178,7 +189,9 @@ final class Venta
     public function ticket(int $id): array
     {
         $stmt = $this->db->prepare(
-            'SELECT v.*, c.nombre AS cliente_nombre, c.documento AS cliente_documento
+            'SELECT v.*,
+                    COALESCE(NULLIF(v.cliente_nombre, \'\'), c.nombre) AS cliente_nombre,
+                    c.documento AS cliente_documento
              FROM ventas v
              JOIN clientes c ON c.id = v.cliente_id
              WHERE v.id = :id'
@@ -214,10 +227,11 @@ final class Venta
             return (string) ($venta['cliente_nombre'] ?? '');
         }
         $sql = match ($tipo) {
-            'productor' => 'SELECT nombre FROM productores WHERE id = :id',
-            'empleado'  => 'SELECT TRIM(CONCAT(nombres, \' \', apellidos)) FROM empleados WHERE id = :id',
-            'cxc'       => 'SELECT nombre FROM cxc_clientes WHERE id = :id',
-            default     => null,
+            'productor'     => 'SELECT nombre FROM productores WHERE id = :id',
+            'empleado'      => 'SELECT TRIM(CONCAT(nombres, \' \', apellidos)) FROM empleados WHERE id = :id',
+            'transportista' => 'SELECT nombre FROM log_transportistas WHERE id = :id',
+            'cxc'           => 'SELECT nombre FROM cxc_clientes WHERE id = :id',
+            default         => null,
         };
         if ($sql === null) {
             return (string) ($venta['cliente_nombre'] ?? '');
@@ -228,25 +242,122 @@ final class Venta
         return $nombre !== false && $nombre !== '' ? (string) $nombre : (string) ($venta['cliente_nombre'] ?? '');
     }
 
-    /** El asiento se deriva de la factura ya persistida, así caja y venta no pueden discrepar. */
-    public function registrarIngresoCaja(int $ventaId, int $usuarioId): int
+    /**
+     * Ingreso en Finanzas (caja_movimientos). Efectivo/punto → gaveta; PM/transferencia → banco.
+     * Cortesía, crédito y mercancía no deben llamar este método.
+     */
+    public function registrarIngresoCaja(int $ventaId, int $usuarioId, string $nombreCliente): int
     {
+        $venta = $this->find($ventaId);
+        $cuenta = in_array($venta['metodo_pago'], ['pago_movil', 'transferencia'], true) ? 'banco' : 'caja';
+        $concepto = mb_substr(
+            sprintf('Venta POS - Factura Nro %s - Cliente: %s', $venta['numero'], $nombreCliente),
+            0,
+            160
+        );
+        $ref = trim((string) ($venta['referencia'] ?? ''));
+        if ($ref !== '') {
+            $concepto = mb_substr($concepto . ' Ref ' . $ref, 0, 160);
+        }
         $stmt = $this->db->prepare(
             "INSERT INTO caja_movimientos
-                 (fecha, tipo, moneda, monto, tasa_bs_por_usd, monto_usd, concepto, origen, venta_id, registrado_por)
-             SELECT v.fecha, 'ingreso', v.moneda_pago,
-                    IF(v.moneda_pago = 'USD', v.total_usd, v.total_bs),
-                    v.tasa_bs_por_usd, v.total_usd,
-                    LEFT(CONCAT('Venta ', v.numero, ' - ', c.nombre), 160),
-                    'venta', v.id, :usuario_id
-             FROM ventas v
-             JOIN clientes c ON c.id = v.cliente_id
-             WHERE v.id = :id"
+                 (fecha, tipo, cuenta, moneda, monto, tasa_bs_por_usd, monto_usd, concepto, origen, venta_id, registrado_por)
+             VALUES
+                 (:fecha, 'ingreso', :cuenta, :moneda, :monto, :tasa, :usd, :concepto, 'venta', :venta_id, :usuario)"
         );
-        $stmt->execute(['usuario_id' => $usuarioId, 'id' => $ventaId]);
-        if ($stmt->rowCount() !== 1) {
-            throw new RuntimeException(sprintf('No se pudo asentar en caja la venta #%d.', $ventaId));
+        $stmt->execute([
+            'fecha'    => $venta['fecha'],
+            'cuenta'   => $cuenta,
+            'moneda'   => $venta['moneda_pago'],
+            'monto'    => $venta['moneda_pago'] === 'USD' ? $venta['total_usd'] : $venta['total_bs'],
+            'tasa'     => $venta['tasa_bs_por_usd'],
+            'usd'      => $venta['total_usd'],
+            'concepto' => $concepto,
+            'venta_id' => $ventaId,
+            'usuario'  => $usuarioId,
+        ]);
+        return (int) $this->db->lastInsertId();
+    }
+
+    /** @return list<array{id:int, nombre:string, documento:?string, tipo:string, cxc_cliente_id:?int}> */
+    public function clientesFrecuentes(): array
+    {
+        return $this->db->query(
+            "SELECT id, nombre, documento, tipo, cxc_cliente_id
+             FROM ventas_clientes WHERE tipo = 'frecuente' ORDER BY nombre"
+        )->fetchAll();
+    }
+
+    /** @return list<array{id:int, nombre:string, documento:?string, tipo:string}> */
+    public function clientesPos(): array
+    {
+        return $this->db->query(
+            'SELECT id, nombre, documento, tipo FROM ventas_clientes ORDER BY tipo, nombre'
+        )->fetchAll();
+    }
+
+    public function clientePos(int $id): ?array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM ventas_clientes WHERE id = :id');
+        $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch();
+        return $row === false ? null : $row;
+    }
+
+    public function crearClientePos(string $nombre, ?string $documento, string $tipo = 'frecuente'): int
+    {
+        $stmt = $this->db->prepare(
+            'INSERT INTO ventas_clientes (nombre, documento, tipo) VALUES (:n, :d, :t)'
+        );
+        try {
+            $stmt->execute(['n' => $nombre, 'd' => $documento, 't' => $tipo]);
+        } catch (PDOException $e) {
+            if (duplicate_key($e) === 'uq_vcli_documento') {
+                throw new ValidationException(['documento' => 'Ya existe un cliente POS con ese documento.']);
+            }
+            throw $e;
         }
         return (int) $this->db->lastInsertId();
+    }
+
+    public function marcarExclusivo(int $id, int $cxcId): void
+    {
+        $this->db->prepare(
+            "UPDATE ventas_clientes SET tipo = 'exclusivo', cxc_cliente_id = :cxc WHERE id = :id"
+        )->execute(['cxc' => $cxcId, 'id' => $id]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function historial(int $limite = 200): array
+    {
+        $limite = max(1, min(500, $limite));
+        return $this->db->query(
+            "SELECT v.id, v.fecha, v.numero, v.tipo_cliente, v.entidad_tipo, v.metodo_pago,
+                    v.total_usd, v.total_bs, v.moneda_pago,
+                    COALESCE(
+                        NULLIF(v.cliente_nombre, ''),
+                        CASE v.entidad_tipo
+                            WHEN 'productor' THEN pr.nombre
+                            WHEN 'empleado' THEN TRIM(CONCAT(emp.nombres, ' ', emp.apellidos))
+                            WHEN 'transportista' THEN tr.nombre
+                            WHEN 'cxc' THEN cx.nombre
+                        END,
+                        vc.nombre,
+                        c.nombre,
+                        '—'
+                    ) AS cliente,
+                    COALESCE(u.nombre, '—') AS emisor
+             FROM ventas v
+             LEFT JOIN clientes c ON c.id = v.cliente_id
+             LEFT JOIN ventas_clientes vc ON vc.id = v.ventas_cliente_id
+             LEFT JOIN usuarios u ON u.id = v.emitida_por
+             LEFT JOIN productores pr ON v.entidad_tipo = 'productor' AND pr.id = v.entidad_id
+             LEFT JOIN empleados emp ON v.entidad_tipo = 'empleado' AND emp.id = v.entidad_id
+             LEFT JOIN log_transportistas tr ON v.entidad_tipo = 'transportista' AND tr.id = v.entidad_id
+             LEFT JOIN cxc_clientes cx ON v.entidad_tipo = 'cxc' AND cx.id = v.entidad_id
+             WHERE v.estado = 'emitida'
+             ORDER BY v.fecha DESC, v.id DESC
+             LIMIT {$limite}"
+        )->fetchAll();
     }
 }

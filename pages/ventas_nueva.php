@@ -3,17 +3,21 @@ declare(strict_types=1);
 
 /**
  * @var list<array{id:int, nombre:string, unidad:string, precio_usd:string, stock:string}> $productos
- * @var list<array{id:int, nombre:string}> $clientes
- * @var float|null $tasa  Bs por USD vigente; null si aún no hay tasa
+ * @var list<array{id:int, nombre:string, documento:?string}> $frecuentes
+ * @var float|null $tasa
  * @var array<string, string> $tipos
  * @var array<string, string> $entidades
  * @var array<string, string> $metodos
+ * @var list<array{value:string, label:string}> $semanas
  * @var string $buscarUrl
+ * @var string $nuevoUrl
+ * @var string $ascenderUrl
  */
+$semanas = $semanas ?? [];
 $tipos = $tipos ?? Venta::TIPOS_CLIENTE;
 $entidades = $entidades ?? Venta::ENTIDADES;
 $metodos = $metodos ?? Venta::METODOS_PAGO;
-$buscarUrl = $buscarUrl ?? url('ventas_buscar_entidades');
+$frecuentes = $frecuentes ?? [];
 $catalogo = array_map(static fn (array $p): array => [
     'id'      => (int) $p['id'],
     'nombre'  => $p['nombre'],
@@ -24,6 +28,11 @@ $catalogo = array_map(static fn (array $p): array => [
 
 layout_start('Nueva venta', 'ventas');
 ?>
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><a class="nav-link active" href="<?= e(url('ventas_nueva')) ?>">Nueva venta</a></li>
+  <li class="nav-item"><a class="nav-link" href="<?= e(url('ventas_historial')) ?>">Historial de facturación</a></li>
+</ul>
+
 <form method="post" action="<?= e(url('ventas_nueva')) ?>" id="formVenta" autocomplete="off">
   <?= csrf_field() ?>
   <div class="row g-3">
@@ -40,27 +49,54 @@ layout_start('Nueva venta', 'ventas');
                 <?php endforeach; ?>
               </select>
             </div>
-            <div class="col-md-4" id="wrapClientePos">
-              <label class="form-label fw-semibold" for="cliente_id">Cliente <span class="text-danger">*</span></label>
-              <select name="cliente_id" id="cliente_id" class="form-select">
-                <option value="">— Seleccionar —</option>
-                <?php foreach ($clientes as $c): ?>
-                  <option value="<?= (int) $c['id'] ?>"><?= e($c['nombre']) ?></option>
-                <?php endforeach; ?>
-              </select>
+
+            <div class="col-md-8" id="wrapGenerico">
+              <label class="form-label fw-semibold" for="cliente_nombre">Nombre del cliente</label>
+              <input type="text" name="cliente_nombre" id="cliente_nombre" class="form-control" maxlength="120" placeholder="Consumidor ocasional">
             </div>
-            <div class="col-md-4 d-none position-relative" id="wrapEntidad">
+
+            <div class="col-md-8 d-none" id="wrapFrecuente">
+              <label class="form-label fw-semibold" for="ventas_cliente_id">Cliente frecuente</label>
+              <div class="d-flex gap-2 flex-wrap">
+                <select name="ventas_cliente_id" id="ventas_cliente_id" class="form-select" style="min-width:220px">
+                  <option value="">— Seleccionar —</option>
+                  <?php foreach ($frecuentes as $c): ?>
+                    <option value="<?= (int) $c['id'] ?>"><?= e($c['nombre']) ?><?= !empty($c['documento']) ? ' · ' . e($c['documento']) : '' ?></option>
+                  <?php endforeach; ?>
+                </select>
+                <button type="button" class="btn btn-outline-primary" id="btnNuevoFrecuente">+ Nuevo cliente frecuente</button>
+                <button type="button" class="btn btn-outline-warning" id="btnAscender">Ascender a exclusivo</button>
+              </div>
+              <div id="boxNuevoFrecuente" class="border rounded p-2 mt-2 d-none">
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-5">
+                    <label class="form-label small mb-0" for="nf_nombre">Nombre</label>
+                    <input type="text" id="nf_nombre" class="form-control form-control-sm" maxlength="120">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label small mb-0" for="nf_documento">Cédula / RIF (opc.)</label>
+                    <input type="text" id="nf_documento" class="form-control form-control-sm" placeholder="V-12345678">
+                  </div>
+                  <div class="col-md-3">
+                    <button type="button" class="btn btn-sm btn-success w-100" id="btnGuardarFrecuente">Guardar</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-8 d-none position-relative" id="wrapEntidad">
               <label class="form-label fw-semibold" for="entidad_tipo">Entidad exclusiva</label>
               <select name="entidad_tipo" id="entidad_tipo" class="form-select mb-2">
                 <?php foreach ($entidades as $k => $lbl): ?>
                   <option value="<?= e($k) ?>"><?= e($lbl) ?></option>
                 <?php endforeach; ?>
               </select>
-              <input type="search" id="entidad_q" class="form-control" placeholder="Buscar nombre o documento…" autocomplete="off">
+              <input type="search" id="entidad_q" class="form-control" placeholder="Buscar productor, empleado, transportista o CxC…" autocomplete="off">
               <input type="hidden" name="entidad_id" id="entidad_id" value="">
               <div id="entidadSel" class="small text-muted mt-1">Sin selección.</div>
               <div id="entidadList" class="list-group position-absolute shadow-sm d-none" style="z-index:20;max-height:220px;overflow:auto;min-width:240px"></div>
             </div>
+
             <div class="col-md-4">
               <label class="form-label fw-semibold" for="fecha">Fecha</label>
               <input type="date" name="fecha" id="fecha" class="form-control" value="<?= e(date('Y-m-d')) ?>" required>
@@ -79,6 +115,24 @@ layout_start('Nueva venta', 'ventas');
                 <option value="USD">USD</option>
                 <option value="VES">VES (Bs)</option>
               </select>
+            </div>
+
+            <div class="col-md-4 d-none" id="wrapRef">
+              <label class="form-label fw-semibold" for="referencia">Nro. referencia <span class="text-danger">*</span></label>
+              <input type="text" name="referencia" id="referencia" class="form-control" maxlength="40">
+            </div>
+            <div class="col-md-8 d-none" id="wrapDesc">
+              <label class="form-label fw-semibold" for="descripcion_pago">Descripción <span class="text-danger">*</span></label>
+              <input type="text" name="descripcion_pago" id="descripcion_pago" class="form-control" maxlength="255">
+            </div>
+            <div class="col-md-8 d-none" id="wrapSemana">
+              <label class="form-label fw-semibold" for="semana_aplicacion">Semana a descontar</label>
+              <select name="semana_aplicacion" id="semana_aplicacion" class="form-select">
+                <?php foreach ($semanas as $sem): ?>
+                  <option value="<?= e($sem['value']) ?>"><?= e($sem['label']) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <div class="form-text">Solo semanas ya iniciadas, de lunes a domingo. No hay fechas futuras.</div>
             </div>
           </div>
         </div>
@@ -164,7 +218,10 @@ layout_start('Nueva venta', 'ventas');
 (function () {
   var PRODS = <?= json_encode($catalogo, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_THROW_ON_ERROR) ?>;
   var TASA = <?= json_encode($tasa, JSON_THROW_ON_ERROR) ?>;
-  var BUSCAR = <?= json_encode($buscarUrl, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?>;
+  var BUSCAR = <?= json_encode($buscarUrl ?? url('ventas_buscar_entidades'), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?>;
+  var NUEVO = <?= json_encode($nuevoUrl ?? url('ventas_cliente_nuevo'), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?>;
+  var ASCENDER = <?= json_encode($ascenderUrl ?? url('ventas_ascender_exclusivo'), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?>;
+  var CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
   var prodMap = {};
   PRODS.forEach(function (p) { prodMap[p.id] = p; });
 
@@ -178,7 +235,6 @@ layout_start('Nueva venta', 'ventas');
       return '<option value="' + p.id + '">' + p.nombre + ' (' + p.unidad + ')</option>';
     }).join('');
   }
-
   function fila(tr) { return tr.closest('tr'); }
 
   function agregar() {
@@ -200,9 +256,7 @@ layout_start('Nueva venta', 'ventas');
     var cant = parseFloat(tr.querySelector('.inp-cant').value) || 0;
     var precio = parseFloat(tr.querySelector('.inp-precio').value) || 0;
     var disp = tr.querySelector('.stock-disp');
-    var input = tr.querySelector('.inp-cant');
     var excede = false;
-
     if (p) {
       disp.textContent = p.stock + ' ' + p.unidad;
       disp.className = 'stock-disp ' + (p.stock <= 0 ? 'text-danger fw-bold' : 'text-success');
@@ -211,7 +265,7 @@ layout_start('Nueva venta', 'ventas');
       disp.textContent = '—';
       disp.className = 'stock-disp text-muted';
     }
-    input.classList.toggle('is-invalid', excede);
+    tr.querySelector('.inp-cant').classList.toggle('is-invalid', excede);
     tr.querySelector('.subtotal').textContent = '$' + money.format(cant * precio);
     tr.dataset.excede = excede ? '1' : '0';
     tr.dataset.subtotal = String(cant * precio);
@@ -220,9 +274,7 @@ layout_start('Nueva venta', 'ventas');
 
   function calcular() {
     var filas = body.querySelectorAll('tr');
-    var total = 0;
-    var excede = false;
-    var incompleta = filas.length === 0;
+    var total = 0, excede = false, incompleta = filas.length === 0;
     filas.forEach(function (tr) {
       pintarFila(tr);
       total += parseFloat(tr.dataset.subtotal) || 0;
@@ -246,45 +298,57 @@ layout_start('Nueva venta', 'ventas');
   });
   body.addEventListener('change', function (e) {
     if (!e.target.classList.contains('sel-prod')) return;
-    var tr = fila(e.target);
     var p = prodMap[e.target.value];
-    if (p) tr.querySelector('.inp-precio').value = p.precio.toFixed(2);
+    if (p) fila(e.target).querySelector('.inp-precio').value = p.precio.toFixed(2);
     calcular();
   });
   body.addEventListener('input', function (e) {
     if (e.target.classList.contains('inp-cant') || e.target.classList.contains('inp-precio')) calcular();
   });
-  document.getElementById('formVenta').addEventListener('submit', function (e) {
-    if (!body.children.length) {
-      e.preventDefault();
-      document.getElementById('vacio').classList.remove('d-none');
-    }
-  });
-
-  if (PRODS.length) agregar();
 
   var tipoSel = document.getElementById('tipo_cliente');
-  var wrapPos = document.getElementById('wrapClientePos');
+  var metodoSel = document.getElementById('metodo_pago');
+  var wrapGen = document.getElementById('wrapGenerico');
+  var wrapFre = document.getElementById('wrapFrecuente');
   var wrapEnt = document.getElementById('wrapEntidad');
-  var clienteSel = document.getElementById('cliente_id');
+  var wrapRef = document.getElementById('wrapRef');
+  var wrapDesc = document.getElementById('wrapDesc');
+  var wrapSem = document.getElementById('wrapSemana');
   var q = document.getElementById('entidad_q');
   var hid = document.getElementById('entidad_id');
   var list = document.getElementById('entidadList');
   var selLbl = document.getElementById('entidadSel');
   var tBuscar = null;
 
-  function modoExclusivo() { return tipoSel.value === 'exclusivo'; }
-
   function syncTipo() {
-    var ex = modoExclusivo();
-    wrapEnt.classList.toggle('d-none', !ex);
-    wrapPos.classList.toggle('d-none', ex);
-    clienteSel.required = !ex;
-    if (!ex) {
+    var t = tipoSel.value;
+    wrapGen.classList.toggle('d-none', t !== 'generico');
+    wrapFre.classList.toggle('d-none', t !== 'frecuente');
+    wrapEnt.classList.toggle('d-none', t !== 'exclusivo');
+    if (t !== 'exclusivo') {
       hid.value = '';
       selLbl.textContent = 'Sin selección.';
       list.classList.add('d-none');
     }
+    syncPago();
+  }
+
+  function syncPago() {
+    var m = metodoSel.value;
+    var banco = m === 'pago_movil' || m === 'transferencia';
+    var mercancia = m === 'mercancia_descuento';
+    var ent = document.getElementById('entidad_tipo').value;
+    var exclusivoInterno = tipoSel.value === 'exclusivo'
+      && (ent === 'productor' || ent === 'transportista' || ent === 'empleado');
+    var pideSemana = mercancia && exclusivoInterno;
+    wrapRef.classList.toggle('d-none', !banco);
+    wrapDesc.classList.toggle('d-none', !banco);
+    wrapSem.classList.toggle('d-none', !pideSemana);
+    document.getElementById('referencia').required = banco;
+    document.getElementById('descripcion_pago').required = banco;
+    var semana = document.getElementById('semana_aplicacion');
+    semana.required = pideSemana;
+    semana.disabled = !pideSemana;
   }
 
   function elegir(id, nombre, doc) {
@@ -292,16 +356,14 @@ layout_start('Nueva venta', 'ventas');
     selLbl.textContent = nombre + (doc ? ' · ' + doc : '');
     q.value = nombre;
     list.classList.add('d-none');
+    syncPago();
   }
 
   function buscar() {
     var term = q.value.trim();
     hid.value = '';
     selLbl.textContent = 'Sin selección.';
-    if (term.length < 1) {
-      list.classList.add('d-none');
-      return;
-    }
+    if (term.length < 1) { list.classList.add('d-none'); return; }
     var url = BUSCAR + (BUSCAR.indexOf('?') >= 0 ? '&' : '?') + 'tipo=' + encodeURIComponent(document.getElementById('entidad_tipo').value) + '&q=' + encodeURIComponent(term);
     fetch(url, { headers: { 'Accept': 'application/json' } })
       .then(function (r) { return r.json(); })
@@ -320,20 +382,75 @@ layout_start('Nueva venta', 'ventas');
       .catch(function () { list.classList.add('d-none'); });
   }
 
+  function jsonPost(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, body: j }; }); });
+  }
+
+  function pintarFrecuentes(items, selected) {
+    var sel = document.getElementById('ventas_cliente_id');
+    sel.innerHTML = '<option value="">— Seleccionar —</option>';
+    (items || []).forEach(function (c) {
+      var o = document.createElement('option');
+      o.value = String(c.id);
+      o.textContent = c.nombre + (c.documento ? ' · ' + c.documento : '');
+      if (String(c.id) === String(selected)) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
+  document.getElementById('btnNuevoFrecuente').addEventListener('click', function () {
+    document.getElementById('boxNuevoFrecuente').classList.toggle('d-none');
+  });
+  document.getElementById('btnGuardarFrecuente').addEventListener('click', function () {
+    jsonPost(NUEVO, { nombre: document.getElementById('nf_nombre').value, documento: document.getElementById('nf_documento').value })
+      .then(function (res) {
+        if (!res.body.ok) {
+          alert((res.body.errores && (res.body.errores.nombre || res.body.errores.documento)) || 'No se pudo guardar.');
+          return;
+        }
+        pintarFrecuentes(res.body.frecuentes, res.body.cliente.id);
+        document.getElementById('boxNuevoFrecuente').classList.add('d-none');
+        document.getElementById('nf_nombre').value = '';
+        document.getElementById('nf_documento').value = '';
+      });
+  });
+  document.getElementById('btnAscender').addEventListener('click', function () {
+    var id = document.getElementById('ventas_cliente_id').value;
+    if (!id) { alert('Selecciona un cliente frecuente.'); return; }
+    if (!confirm('¿Ascender este cliente a exclusivo y crear su ficha en Control de Facturas (CxC)?')) return;
+    jsonPost(ASCENDER, { id: id })
+      .then(function (res) {
+        if (!res.body.ok) {
+          alert((res.body.errores && res.body.errores.id) || 'No se pudo ascender.');
+          return;
+        }
+        pintarFrecuentes(res.body.frecuentes, '');
+        tipoSel.value = 'exclusivo';
+        document.getElementById('entidad_tipo').value = 'cxc';
+        syncTipo();
+        if (res.body.cliente) {
+          elegir(res.body.cxc_cliente_id, res.body.cliente.nombre, res.body.cliente.documento);
+        }
+        alert('Cliente exclusivo creado en CxC.');
+      });
+  });
+
   tipoSel.addEventListener('change', syncTipo);
+  metodoSel.addEventListener('change', syncPago);
   document.getElementById('entidad_tipo').addEventListener('change', function () {
-    hid.value = '';
-    q.value = '';
-    selLbl.textContent = 'Sin selección.';
-    list.classList.add('d-none');
+    hid.value = ''; q.value = ''; selLbl.textContent = 'Sin selección.'; list.classList.add('d-none'); syncPago();
   });
-  q.addEventListener('input', function () {
-    clearTimeout(tBuscar);
-    tBuscar = setTimeout(buscar, 220);
+  q.addEventListener('input', function () { clearTimeout(tBuscar); tBuscar = setTimeout(buscar, 220); });
+  document.addEventListener('click', function (e) { if (!wrapEnt.contains(e.target)) list.classList.add('d-none'); });
+  document.getElementById('formVenta').addEventListener('submit', function (e) {
+    if (!body.children.length) { e.preventDefault(); document.getElementById('vacio').classList.remove('d-none'); }
   });
-  document.addEventListener('click', function (e) {
-    if (!wrapEnt.contains(e.target)) list.classList.add('d-none');
-  });
+
+  if (PRODS.length) agregar();
   syncTipo();
 })();
 </script>

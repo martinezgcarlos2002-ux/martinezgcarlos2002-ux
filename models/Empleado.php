@@ -14,6 +14,41 @@ final class Empleado
     {
     }
 
+    /**
+     * Una fila por empleado activo. Sin JOIN: GROUP BY id evita que un cruce futuro duplique personas.
+     * El estado activo de esta tabla es activo = 1 (no existe la columna estado).
+     *
+     * @return list<array{id:int, nombre:string, cargo:string}>
+     */
+    public function paraPlanilla(): array
+    {
+        $rows = $this->db->query(
+            "SELECT e.id,
+                    TRIM(CONCAT(e.nombres, ' ', e.apellidos)) AS nombre,
+                    e.cargo
+             FROM empleados e
+             WHERE e.activo = 1
+             GROUP BY e.id
+             ORDER BY e.nombres ASC, e.apellidos ASC"
+        )->fetchAll();
+
+        $vistos = [];
+        $out = [];
+        foreach ($rows as $row) {
+            $id = (int) $row['id'];
+            if (isset($vistos[$id])) {
+                continue;
+            }
+            $vistos[$id] = true;
+            $out[] = [
+                'id'     => $id,
+                'nombre' => (string) $row['nombre'],
+                'cargo'  => (string) ($row['cargo'] ?? ''),
+            ];
+        }
+        return $out;
+    }
+
     /** @return list<array<string, mixed>> */
     public function listar(): array
     {

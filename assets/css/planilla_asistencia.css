@@ -1,0 +1,106 @@
+/* Planilla de asistencia semanal. Blanco y negro, hoja horizontal. */
+@page {
+    size: landscape;
+    margin: 15mm;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: #fff;
+    color: #000;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+}
+
+.barra {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    background: #f4f4f4;
+    border-bottom: 1px solid #ccc;
+}
+
+.barra a, .barra button {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+}
+
+.hoja { padding: 8px 4px 0; }
+
+.cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.logo {
+    width: 72px;
+    height: auto;
+    object-fit: contain;
+}
+
+.cabecera h1 {
+    flex: 1;
+    margin: 0;
+    text-align: center;
+    font-size: 16px;
+    letter-spacing: 0.04em;
+}
+
+.semana {
+    width: 220px;
+    text-align: right;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: nowrap;
+}
+
+table.grid {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.grid th, .grid td {
+    border: 1px solid #000;
+    padding: 4px 5px;
+    vertical-align: middle;
+}
+
+.grid tbody td {
+    height: 40px;
+}
+
+.grid td.nombre {
+    text-align: left;
+    padding-left: 10px;
+}
+
+.grid th {
+    font-size: 10px;
+    text-align: center;
+    font-weight: 700;
+}
+
+.c-n { width: 4%; text-align: center; }
+.c-nom { width: 22%; }
+.c-cargo { width: 14%; }
+.c-dia { width: 6%; }
+.c-total { width: 8%; }
+.c-firma { width: 10%; }
+
+.num, .dia, .total, .firma { text-align: center; }
+
+@media print {
+    .no-print { display: none !important; }
+    body { margin: 0; background: #fff; }
+    .hoja { padding: 0; }
+    .grid th, .grid td { border: 1px solid #000; }
+    .grid tbody td { height: 40px; }
+    .grid td.nombre { text-align: left; padding-left: 10px; }
+    .dia, .total, .firma, .num { text-align: center; vertical-align: middle; }
+}

@@ -4,7 +4,7 @@ declare(strict_types=1);
 /** Recursos Humanos: pantalla integrada y ficha del empleado. */
 final class EmpleadosController
 {
-    public const TABS = ['nomina', 'directorio', 'libres', 'cobranzas'];
+    public const TABS = ['nomina', 'directorio', 'prestamos', 'libres', 'cobranzas'];
 
     private Empleado $empleados;
 
@@ -62,6 +62,7 @@ final class EmpleadosController
             'cobranzas'      => $cobranzas->listar($estadoCobranza),
             'totalesCobro'   => $cobranzas->totales(),
             'totalesPrestamo'=> (new PrestamoEmpleado($db))->totales(),
+            'prestamos'      => (new PrestamoEmpleado($db))->activos(),
             'tiposPrestamo'  => PrestamoEmpleado::TIPOS,
             'estadoCobranza' => $estadoCobranza,
             'puedeCrear'     => has_permiso($user, 'empleados', 'crear'),
@@ -301,6 +302,15 @@ final class EmpleadosController
             form_fail($_POST + ['id' => (string) ($id ?? '')], ['cedula' => 'Ya existe un empleado con esa cédula.'], 'empleados', ['tab' => 'directorio']);
         }
         throw $e;
+    }
+
+    /** Planilla física de asistencia: solo empleados activos, sin el menú del ERP. */
+    public function planillaAsistencia(): void
+    {
+        header('Content-Disposition: inline; filename="planilla_asistencia.html"');
+        view('planilla_asistencia', [
+            'empleados' => $this->empleados->paraPlanilla(),
+        ]);
     }
 
     public function cvPdf(): void

@@ -76,6 +76,56 @@ final class ControlLecheDiario
         ]);
     }
 
+    /** @return array<int, array{densidad:string, faltante:string}> */
+    public function detalleProductores(string $fecha): array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT productor_id, densidad, faltante
+             FROM prod_control_leche_productor
+             WHERE fecha = :fecha'
+        );
+        $stmt->execute(['fecha' => $fecha]);
+        $out = [];
+        foreach ($stmt as $row) {
+            $out[(int) $row['productor_id']] = [
+                'densidad' => $row['densidad'] === null ? '' : (string) $row['densidad'],
+                'faltante' => (string) $row['faltante'],
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Guarda densidad y faltante de cada productor. El faltante del día es la suma.
+     *
+     * @param array<int|string, array{densidad?:string, faltante?:string}> $filas
+     */
+    public function guardarProductores(string $fecha, array $filas): string
+    {
+        $stmt = $this->db->prepare(
+            'INSERT INTO prod_control_leche_productor (fecha, productor_id, densidad, faltante)
+             VALUES (:fecha, :productor, :densidad, :faltante)
+             ON DUPLICATE KEY UPDATE densidad = VALUES(densidad), faltante = VALUES(faltante)'
+        );
+        $suma = 0;
+        foreach ($filas as $id => $fila) {
+            $productorId = (int) $id;
+            if ($productorId < 1) {
+                continue;
+            }
+            $faltante = $fila['faltante'] ?? '0.00';
+            $densidad = ($fila['densidad'] ?? '') === '' ? null : $fila['densidad'];
+            $stmt->execute([
+                'fecha'     => $fecha,
+                'productor' => $productorId,
+                'densidad'  => $densidad,
+                'faltante'  => $faltante,
+            ]);
+            $suma += (int) round((float) $faltante * 100);
+        }
+        return number_format($suma / 100, 2, '.', '');
+    }
+
     /** @param array<string, string>|null $fila */
     public static function neta(string $recibida, ?array $fila): string
     {

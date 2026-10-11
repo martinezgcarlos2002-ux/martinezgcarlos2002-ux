@@ -83,14 +83,105 @@ final class ControlLecheController
             flash('error', 'Fecha inválida.');
             redirect('control_leche', ['vista' => 'diaria']);
         }
-        (new ControlLecheDiario(get_db()))->upsert($fecha, [
-            'ventas_leche'    => $_POST['ventas_leche'] ?? '0',
-            'cortesias_leche' => $_POST['cortesias_leche'] ?? '0',
-            'vales_leche'     => $_POST['vales_leche'] ?? '0',
-            'leche_faltante'  => $_POST['leche_faltante'] ?? '0',
-        ], (int) current_user()['id']);
+        $userId = (int) current_user()['id'];
+        try {
+            Database::transaction(function () use ($fecha, $userId): void {
+                $diario = new ControlLecheDiario(get_db());
+                $faltante = $diario->guardarProductores($fecha, $this->filasPlanilla($_POST));
+                $diario->upsert($fecha, [
+                    'ventas_leche'    => $_POST['ventas_leche'] ?? '0',
+                    'cortesias_leche' => $_POST['cortesias_leche'] ?? '0',
+                    'vales_leche'     => $_POST['vales_leche'] ?? '0',
+                    'leche_faltante'  => $faltante,
+                ], $userId);
+                $this->guardarLitrosPlanilla($fecha, $_POST['litros'] ?? [], $userId);
+            });
+        } catch (ValidationException $e) {
+            flash('error', implode(' ', $e->errors));
+            redirect('control_leche', ['vista' => 'diaria', 'desde' => $fecha, 'hasta' => $fecha, 'fecha' => $fecha]);
+        } catch (PDOException $e) {
+            $detalle = (string) ($e->errorInfo[2] ?? '');
+            if (str_contains($detalle, 'cerrada')) {
+                flash('error', 'No se pudo guardar: esa entrega pertenece a una semana cerrada.');
+                redirect('control_leche', ['vista' => 'diaria', 'desde' => $fecha, 'hasta' => $fecha, 'fecha' => $fecha]);
+            }
+            throw $e;
+        }
         flash('success', 'Resumen del día guardado.');
         redirect('control_leche', ['vista' => 'diaria', 'desde' => $fecha, 'hasta' => $fecha, 'fecha' => $fecha]);
+    }
+
+    /**
+     * Densidad y faltante por productor. El total de faltante no se tipea: es la suma.
+     *
+     * @param array<string, mixed> $post
+     * @return array<int, array{densidad:string, faltante:string}>
+     */
+    private function filasPlanilla(array $post): array
+    {
+        $densidad = is_array($post['densidad'] ?? null) ? $post['densidad'] : [];
+        $faltante = is_array($post['faltante'] ?? null) ? $post['faltante'] : [];
+        $ids = array_unique(array_merge(array_keys($densidad), array_keys($faltante)));
+        $out = [];
+        foreach ($ids as $idRaw) {
+            $id = parse_int_range(is_scalar($idRaw) ? (string) $idRaw : null, 1, PHP_INT_MAX);
+            if ($id === null || $this->productores->paraEntrega($id) === null) {
+                continue;
+            }
+            $denRaw = is_scalar($densidad[$idRaw] ?? null) ? trim((string) $densidad[$idRaw]) : '';
+            $falRaw = is_scalar($faltante[$idRaw] ?? null) ? trim((string) $faltante[$idRaw]) : '';
+            $den = $denRaw === '' ? '' : parse_decimal($denRaw, 3, 100000, true);
+            $fal = $falRaw === '' ? '0.00' : parse_decimal($falRaw, 2, 1000000, true);
+            if ($denRaw !== '' && $den === null) {
+                throw new ValidationException(['densidad' => 'Densidad inválida: 0 o más, hasta 3 decimales.']);
+            }
+            if ($fal === null) {
+                throw new ValidationException(['faltante' => 'Faltante inválido: 0 o más, hasta 2 decimales.']);
+            }
+            $out[$id] = ['densidad' => $den, 'faltante' => $fal];
+        }
+        return $out;
+    }
+
+    /** Litros escritos en la planilla: crean o actualizan la entrega de ese productor en la fecha. */
+    private function guardarLitrosPlanilla(string $fecha, mixed $posted, int $userId): void
+    {
+        if (!is_array($posted)) {
+            return;
+        }
+        foreach ($posted as $idRaw => $valor) {
+            $id = parse_int_range(is_scalar($idRaw) ? (string) $idRaw : null, 1, PHP_INT_MAX);
+            $raw = is_scalar($valor) ? trim((string) $valor) : '';
+            if ($id === null || $raw === '') {
+                continue;
+            }
+            $litros = parse_decimal($raw, 3, 100000);
+            if ($litros === null) {
+                throw new ValidationException(['litros' => 'Litros inválidos: mayor que 0, hasta 3 decimales.']);
+            }
+            $productor = $this->productores->paraEntrega($id);
+            if ($productor === null) {
+                throw new ValidationException(['litros' => 'Hay un productor de la planilla que ya no está activo.']);
+            }
+            $actual = $this->entregas->findPorFecha($id, $fecha, true);
+            if ($actual === null) {
+                $this->entregas->create([
+                    'productor_id'     => $id,
+                    'fecha'            => $fecha,
+                    'litros'           => $litros,
+                    'precio_litro_usd' => $productor['precio_litro_usd'],
+                    'traslado_usd'     => '0',
+                    'cuajada_kg'       => '0',
+                    'observaciones'    => null,
+                    'registrado_por'   => $userId,
+                ]);
+                continue;
+            }
+            if (Producto::aMilesimas((string) $actual['litros']) === Producto::aMilesimas($litros)) {
+                continue;
+            }
+            $this->entregas->actualizar((int) $actual['id'], ['litros' => $litros]);
+        }
     }
 
     /** Planilla física de recolección: productores activos en orden alfabético, lista para imprimir o guardar como PDF. */
@@ -403,33 +494,66 @@ final class ControlLecheController
         foreach ($this->entregas->delDia($fecha) as $row) {
             $entregas[(int) $row['productor_id']] = $row;
         }
+        $detalle = (new ControlLecheDiario(get_db()))->detalleProductores($fecha);
         $filas = [];
         $recibido = 0.0;
-        foreach ($this->productores->activos() as $n => $p) {
-            $entrega = $entregas[(int) $p['id']] ?? null;
+        $productores = $this->productores->activos();
+        foreach ($entregas as $pid => $entrega) {
+            $ya = false;
+            foreach ($productores as $p) {
+                if ((int) $p['id'] === (int) $pid) {
+                    $ya = true;
+                    break;
+                }
+            }
+            if ($ya) {
+                continue;
+            }
+            $extra = $this->productores->find((int) $pid);
+            if ($extra !== null) {
+                $productores[] = ['id' => (int) $extra['id'], 'nombre' => (string) $extra['nombre']];
+            }
+        }
+        usort($productores, static fn (array $a, array $b): int => strcasecmp((string) $a['nombre'], (string) $b['nombre']));
+        foreach ($productores as $n => $p) {
+            $pid = (int) $p['id'];
+            $entrega = $entregas[$pid] ?? null;
             $litros = $entrega['litros'] ?? '';
             $recibido += (float) $litros;
+            $marca = $detalle[$pid] ?? ['densidad' => '', 'faltante' => ''];
             $filas[] = [
-                'n'        => $n + 1,
-                'nombre'   => (string) $p['nombre'],
-                'litros'   => $litros,
-                'densidad' => '',
-                'faltante' => '',
+                'n'            => $n + 1,
+                'productor_id' => $pid,
+                'nombre'       => (string) $p['nombre'],
+                'litros'       => $litros,
+                'densidad'     => $marca['densidad'],
+                'faltante'     => $marca['faltante'],
             ];
         }
-        $min = max(count($filas), 24);
+        $min = max(count($filas) + 8, 24);
         for ($i = count($filas); $i < $min; $i++) {
-            $filas[] = ['n' => $i + 1, 'nombre' => '', 'litros' => '', 'densidad' => '', 'faltante' => ''];
+            $filas[] = ['n' => $i + 1, 'productor_id' => null, 'nombre' => '', 'litros' => '', 'densidad' => '', 'faltante' => ''];
         }
         $merma = (new ControlLecheDiario(get_db()))->find($fecha) ?? [
             'ventas_leche' => '', 'cortesias_leche' => '', 'vales_leche' => '', 'leche_faltante' => '',
         ];
+        $faltanteFilas = 0.0;
+        foreach ($filas as $fila) {
+            $faltanteFilas += (float) ($fila['faltante'] ?? 0);
+        }
+        $faltante = $faltanteFilas > 0 ? $faltanteFilas : (float) ($merma['leche_faltante'] ?? 0);
+        $neto = max(0, $recibido
+            - (float) ($merma['ventas_leche'] ?? 0)
+            - (float) ($merma['cortesias_leche'] ?? 0)
+            - (float) ($merma['vales_leche'] ?? 0)
+            - $faltante);
         return [
             'fechaHoja'      => $fecha,
             'filasHoja'      => $filas,
             'seccionesHoja'  => self::seccionesDerecha(count($filas)),
             'mermaHoja'      => $merma,
             'totalRecibido'  => $recibido,
+            'totalNeto'      => $neto,
         ];
     }
 

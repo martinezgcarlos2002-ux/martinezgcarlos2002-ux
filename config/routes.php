@@ -385,9 +385,23 @@ return [
         'GET'     => [VentasController::class, 'create'],
         'POST'    => [VentasController::class, 'store'],
     ],
+    'ventas_historial' => [
+        'modulo'  => 'ventas',
+        'GET'     => [VentasController::class, 'historial'],
+    ],
     'ventas_buscar_entidades' => [
         'modulo'  => 'ventas',
         'GET'     => [VentasController::class, 'buscarEntidades'],
+    ],
+    'ventas_cliente_nuevo' => [
+        'modulo'  => 'ventas',
+        'accion'  => 'crear',
+        'POST'    => [VentasController::class, 'clienteStore'],
+    ],
+    'ventas_ascender_exclusivo' => [
+        'modulo'  => 'ventas',
+        'accion'  => 'editar',
+        'POST'    => [VentasController::class, 'ascenderExclusivo'],
     ],
     'ventas_ticket' => [
         'modulo'  => 'ventas',
@@ -431,6 +445,16 @@ return [
         'accion'  => 'crear',
         'POST'    => [NominaController::class, 'prestamoStore'],
     ],
+    'prestamos_editar' => [
+        'modulo'  => 'empleados',
+        'accion'  => 'editar',
+        'POST'    => [NominaController::class, 'prestamoUpdate'],
+    ],
+    'prestamos_eliminar' => [
+        'modulo'  => 'empleados',
+        'accion'  => 'editar',
+        'POST'    => [NominaController::class, 'prestamoDestroy'],
+    ],
     'nomina_excel' => [
         'modulo'  => 'empleados',
         'GET'     => [NominaController::class, 'excel'],
@@ -446,6 +470,10 @@ return [
     'rrhh_notaria' => [
         'modulo'  => 'empleados',
         'GET'     => [NominaController::class, 'notariaPdf'],
+    ],
+    'hr_planilla_asistencia' => [
+        'modulo'  => 'empleados',
+        'GET'     => [EmpleadosController::class, 'planillaAsistencia'],
     ],
     'cargos_nuevo' => [
         'modulo'  => 'empleados',

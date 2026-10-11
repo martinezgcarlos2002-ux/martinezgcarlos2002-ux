@@ -4,7 +4,7 @@ declare(strict_types=1);
 /**
  * Recursos Humanos: nómina semanal, directorio, días libres y cobranzas a terceros.
  *
- * @var string $tab                         nomina|directorio|libres|cobranzas
+ * @var string $tab                         nomina|directorio|prestamos|libres|cobranzas
  * @var string $empresa
  * @var string $rif
  * @var string $tipoNomina
@@ -21,6 +21,7 @@ declare(strict_types=1);
  * @var list<array<string, mixed>> $cobranzas
  * @var array{pendiente:string, descontado:string, cobrado_historico:string, por_cobrar:string} $totalesCobro
  * @var array{por_cobrar:string, cobrado:string} $totalesPrestamo
+ * @var list<array<string, mixed>> $prestamos
  * @var array<string, string> $tiposPrestamo
  * @var ?string $estadoCobranza
  * @var bool $puedeCrear
@@ -66,6 +67,7 @@ foreach ($libres as $emp) {
 
 $totalesPrestamo = $totalesPrestamo ?? ['por_cobrar' => '0.00', 'cobrado' => '0.00'];
 $tiposPrestamo = $tiposPrestamo ?? PrestamoEmpleado::TIPOS;
+$prestamos = $prestamos ?? [];
 $formEmpleado = ($old['_form'] ?? '') !== 'cobranza' && isset($old['nombres']);
 $formCobranza = ($old['_form'] ?? '') === 'cobranza';
 $editarNomina = $puedeEditar && $nomina['estado'] !== 'cerrada' && $nomina['estado'] !== 'pagada';
@@ -74,13 +76,15 @@ $estadoBadge = ['borrador' => 'text-bg-secondary', 'cerrada' => 'text-bg-success
 $pestanas = [
     'nomina'     => ['Nómina Semanal', 'bi-cash-stack'],
     'directorio' => ['Directorio de Empleados', 'bi-person-vcard'],
+    'prestamos'  => ['Préstamos', 'bi-cash'],
     'libres'     => ['Control de Días Libres', 'bi-sun'],
     'cobranzas'  => ['Cobranzas a Terceros', 'bi-shop'],
 ];
 
 layout_start('Recursos Humanos', 'empleados');
 ?>
-<ul class="nav nav-tabs rh-tabs mb-3" id="rhTabs" role="tablist">
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+<ul class="nav nav-tabs rh-tabs mb-0" id="rhTabs" role="tablist">
   <?php foreach ($pestanas as $clave => [$etiqueta, $icono]): ?>
   <li class="nav-item" role="presentation">
     <button class="nav-link<?= $tab === $clave ? ' active' : '' ?>" id="tab-<?= e($clave) ?>"
@@ -91,6 +95,8 @@ layout_start('Recursos Humanos', 'empleados');
   </li>
   <?php endforeach; ?>
 </ul>
+<a class="btn btn-sm btn-outline-dark mb-1" href="<?= e(url('hr_planilla_asistencia')) ?>" target="_blank" rel="noopener">🖨️ Imprimir Planilla de Asistencia</a>
+</div>
 
 <div class="tab-content" id="rhPanes">
 
@@ -413,7 +419,8 @@ layout_start('Recursos Humanos', 'empleados');
               <label class="form-label" for="prestamoTipo">Tipo</label>
               <select class="form-select" id="prestamoTipo" name="tipo" required>
                 <?php foreach ($tiposPrestamo as $k => $lbl): ?>
-                <option value="<?= e($k) ?>"><?= e($lbl) ?></option>
+                <?php if ($k === 'mercancia') continue; ?>
+                <option value="<?= e($k) ?>"<?= $k === 'prestamo' ? ' selected' : '' ?>><?= e($lbl) ?></option>
                 <?php endforeach; ?>
               </select>
             </div>
@@ -429,6 +436,105 @@ layout_start('Recursos Humanos', 'empleados');
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
             <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Registrar préstamo</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <?php endif; ?>
+  </div>
+
+  <!-- Préstamos activos -->
+  <div class="tab-pane fade<?= $tab === 'prestamos' ? ' show active' : '' ?>" id="pane-prestamos" role="tabpanel" aria-labelledby="tab-prestamos" tabindex="0">
+    <p class="small text-muted">Por cobrar: <strong><?= e($usd($totalesPrestamo['por_cobrar'] ?? '0')) ?></strong>. Un registro de mercancía nace en Ventas; quitarlo aquí solo saca el descuento de la nómina.</p>
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Empleado</th>
+              <th>Concepto</th>
+              <th>Categoría</th>
+              <th class="text-end">Monto USD</th>
+              <th class="text-end">Cuota semanal</th>
+              <th class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+          <?php if ($prestamos === []): ?>
+            <tr><td colspan="7" class="text-center text-muted py-4">No hay préstamos activos.</td></tr>
+          <?php endif; ?>
+          <?php foreach ($prestamos as $pr): ?>
+            <?php $esMercancia = ($pr['tipo'] ?? '') === 'mercancia'; ?>
+            <tr>
+              <td class="text-nowrap"><?= e($fmtFecha((string) $pr['fecha'])) ?></td>
+              <td class="fw-semibold"><?= e($pr['empleado']) ?></td>
+              <td><?= e($pr['concepto']) ?></td>
+              <td>
+                <?php if ($esMercancia): ?>
+                  <span class="badge" style="background:#e8590c;color:#fff">Mercancía</span>
+                <?php else: ?>
+                  <span class="badge text-bg-primary">Préstamo</span>
+                <?php endif; ?>
+              </td>
+              <td class="text-end"><?= e($usd($pr['monto_total'])) ?></td>
+              <td class="text-end"><?= e($usd($pr['cuota_semanal'])) ?></td>
+              <td class="text-end text-nowrap">
+                <?php if ($puedeEditar): ?>
+                <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalPrestamoEditar"
+                        data-id="<?= (int) $pr['id'] ?>"
+                        data-nombre="<?= e((string) $pr['empleado']) ?>"
+                        data-monto="<?= e((string) $pr['monto_total']) ?>"
+                        data-fecha="<?= e(substr((string) $pr['fecha'], 0, 10)) ?>"
+                        data-tipo="<?= e((string) $pr['tipo']) ?>">
+                  <i class="bi bi-pencil"></i> Editar
+                </button>
+                <form method="post" action="<?= e(url('prestamos_eliminar')) ?>" class="d-inline">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="id" value="<?= (int) $pr['id'] ?>">
+                  <button type="submit" class="btn btn-sm btn-outline-danger" data-confirmar="<?= e($esMercancia
+                      ? 'Este registro viene de una venta (Mercancía). Eliminarlo aquí no borra la factura; solo quita el descuento de la nómina. ¿Continuar?'
+                      : '¿Eliminar este préstamo? Dejará de descontarse en el cierre de nómina.') ?>">
+                    <i class="bi bi-trash"></i> Eliminar
+                  </button>
+                </form>
+                <?php else: ?>
+                <span class="text-muted">—</span>
+                <?php endif; ?>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <?php if ($puedeEditar): ?>
+    <div class="modal fade" id="modalPrestamoEditar" tabindex="-1" aria-labelledby="tituloPrestamoEditar" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="<?= e(url('prestamos_editar')) ?>" class="modal-content">
+          <?= csrf_field() ?>
+          <input type="hidden" name="id" id="editPrestamoId" value="">
+          <div class="modal-header">
+            <h5 class="modal-title" id="tituloPrestamoEditar"><i class="bi bi-pencil"></i> Editar préstamo de <span id="editPrestamoNombre"></span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body row g-3">
+            <div class="col-12">
+              <div id="editPrestamoMercancia" class="alert alert-warning py-2 mb-0 d-none">Este descuento viene de Ventas. Cambiar el monto o la fecha no modifica la factura.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="editPrestamoMonto">Monto total USD</label>
+              <input class="form-control" id="editPrestamoMonto" name="monto_usd" inputmode="decimal" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="editPrestamoFecha">Fecha</label>
+              <input class="form-control" id="editPrestamoFecha" name="fecha" type="date" max="<?= e($hoyIso) ?>" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar</button>
           </div>
         </form>
       </div>

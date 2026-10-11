@@ -5,6 +5,7 @@ declare(strict_types=1);
 final class PrestamoEmpleado
 {
     public const TIPOS = [
+        'prestamo'      => 'Préstamo',
         'efectivo'      => 'Efectivo',
         'transferencia' => 'Transferencia',
         'pago_movil'    => 'Pago móvil',
@@ -176,5 +177,73 @@ final class PrestamoEmpleado
         }
         $pin = implode(',', array_map('intval', $ids));
         $this->db->exec("UPDATE hr_prestamos SET estado = 'activo' WHERE id IN ($pin)");
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function activos(): array
+    {
+        return $this->db->query(
+            "SELECT p.id, p.empleado_id, p.monto_total, p.cuota_semanal, p.tipo, p.fecha, p.estado, p.concepto,
+                    TRIM(CONCAT(e.nombres, ' ', e.apellidos)) AS empleado,
+                    COALESCE(c.pagado, 0) AS pagado
+             FROM hr_prestamos p
+             JOIN empleados e ON e.id = p.empleado_id
+             LEFT JOIN (
+                 SELECT prestamo_id, SUM(monto_cuota) AS pagado
+                 FROM hr_prestamos_cuotas
+                 GROUP BY prestamo_id
+             ) c ON c.prestamo_id = p.id
+             WHERE p.estado = 'activo'
+             ORDER BY p.fecha DESC, p.id DESC"
+        )->fetchAll();
+    }
+
+    /** @return array<string, mixed> */
+    public function bloqueado(int $id): array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM hr_prestamos WHERE id = :id FOR UPDATE');
+        $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch();
+        if ($row === false || $row['estado'] !== 'activo') {
+            throw new ValidationException(['prestamo' => 'El préstamo no existe o ya no está activo.']);
+        }
+        $pag = $this->db->prepare(
+            'SELECT COALESCE(SUM(monto_cuota), 0) FROM hr_prestamos_cuotas WHERE prestamo_id = :id FOR UPDATE'
+        );
+        $pag->execute(['id' => $id]);
+        $row['pagado'] = (string) $pag->fetchColumn();
+        return $row;
+    }
+
+    public function actualizar(int $id, string $monto, string $fecha): void
+    {
+        $row = $this->bloqueado($id);
+        $pagado = Caja::aCentavos($row['pagado']);
+        $nuevo = Caja::aCentavos($monto);
+        if ($nuevo < $pagado) {
+            throw new ValidationException(['monto_usd' => 'El monto no puede quedar por debajo de lo ya descontado en nómina.']);
+        }
+        $cuota = Caja::desdeCentavos(min(Caja::aCentavos($row['cuota_semanal']), $nuevo));
+        $estado = $pagado > 0 && $nuevo <= $pagado ? 'pagado' : 'activo';
+        $this->db->prepare(
+            'UPDATE hr_prestamos
+             SET monto_total = :monto, cuota_semanal = :cuota, fecha = :fecha, estado = :estado
+             WHERE id = :id'
+        )->execute([
+            'monto'  => $monto,
+            'cuota'  => $cuota,
+            'fecha'  => $fecha,
+            'estado' => $estado,
+            'id'     => $id,
+        ]);
+    }
+
+    public function eliminar(int $id): void
+    {
+        $row = $this->bloqueado($id);
+        if (Caja::aCentavos($row['pagado']) > 0) {
+            throw new ValidationException(['prestamo' => 'Este préstamo ya tiene cuotas descontadas en nómina. Reabre esa nómina antes de eliminarlo.']);
+        }
+        $this->db->prepare('DELETE FROM hr_prestamos WHERE id = :id AND estado = \'activo\'')->execute(['id' => $id]);
     }
 }

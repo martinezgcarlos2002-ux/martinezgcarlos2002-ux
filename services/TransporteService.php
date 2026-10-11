@@ -1023,4 +1023,47 @@ final class TransporteService
             ],
         ];
     }
+
+    /** @return list<array{id:int, nombre:string, documento:?string}> */
+    public function buscarActivos(string $q): array
+    {
+        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], mb_substr(trim($q), 0, 80)) . '%';
+        $stmt = $this->db->prepare(
+            'SELECT id, nombre, documento FROM log_transportistas
+             WHERE estado = \'activo\' AND (nombre LIKE :q OR IFNULL(documento, \'\') LIKE :q2)
+             ORDER BY nombre LIMIT 20'
+        );
+        $stmt->execute(['q' => $like, 'q2' => $like]);
+        return $stmt->fetchAll();
+    }
+
+    public function existeActivo(int $id): bool
+    {
+        $stmt = $this->db->prepare('SELECT 1 FROM log_transportistas WHERE id = :id AND estado = \'activo\'');
+        $stmt->execute(['id' => $id]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    /** Cierre semanal del transportista que cubre $semanaInicio; lo crea vacío si no existe. */
+    public function cierreParaSemana(int $transportistaId, string $semanaInicio, int $userId): int
+    {
+        $fin = CierreSemanal::finDe($semanaInicio);
+        $this->bloquearTransportista($transportistaId);
+        $stmt = $this->db->prepare(
+            'SELECT id FROM log_pagos_semanales
+             WHERE transportista_id = :t AND fecha_inicio = :a
+             LIMIT 1 FOR UPDATE'
+        );
+        $stmt->execute(['t' => $transportistaId, 'a' => $semanaInicio]);
+        $id = $stmt->fetchColumn();
+        if ($id !== false) {
+            return (int) $id;
+        }
+        $this->db->prepare(
+            'INSERT INTO log_pagos_semanales
+                (transportista_id, fecha_inicio, fecha_fin, total_litros, total_pagar, estado, registrado_por)
+             VALUES (:t, :a, :b, 0, 0, \'pendiente\', :u)'
+        )->execute(['t' => $transportistaId, 'a' => $semanaInicio, 'b' => $fin, 'u' => $userId]);
+        return (int) $this->db->lastInsertId();
+    }
 }

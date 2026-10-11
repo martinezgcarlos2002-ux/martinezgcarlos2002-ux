@@ -100,7 +100,10 @@ final class NominaController
             $errors['cuota_semanal'] = 'La cuota no puede superar el monto del préstamo.';
         }
         $tipo = post_string('tipo', 20);
-        if (!isset(PrestamoEmpleado::TIPOS[$tipo])) {
+        if ($tipo === '') {
+            $tipo = 'prestamo';
+        }
+        if (!isset(PrestamoEmpleado::TIPOS[$tipo]) || $tipo === 'mercancia') {
             $errors['tipo'] = 'Selecciona el tipo de préstamo.';
         }
         $fecha = parse_date($_POST['fecha'] ?? null);
@@ -139,7 +142,72 @@ final class NominaController
             $emp['apellidos'],
             num($cuota)
         ));
-        redirect('empleados', ['tab' => 'directorio']);
+        redirect('empleados', ['tab' => 'prestamos']);
+    }
+
+    /** Ajusta monto o fecha de un préstamo activo. El tipo (préstamo o mercancía) no se reescribe. */
+    public function prestamoUpdate(): void
+    {
+        $id = parse_int_range($_POST['id'] ?? null, 1, PHP_INT_MAX);
+        $monto = parse_decimal($_POST['monto_usd'] ?? null, 2, 100000);
+        $fecha = parse_date($_POST['fecha'] ?? null);
+        $errors = [];
+        if ($id === null) {
+            $errors['id'] = 'Préstamo inválido.';
+        }
+        if ($monto === null) {
+            $errors['monto_usd'] = 'Monto inválido: mayor que 0, hasta 2 decimales.';
+        }
+        if ($fecha === null || $fecha > date('Y-m-d')) {
+            $errors['fecha'] = 'Fecha inválida o futura.';
+        }
+        if ($errors) {
+            flash('error', implode(' ', $errors));
+            redirect('empleados', ['tab' => 'prestamos']);
+        }
+        try {
+            Database::transaction(function () use ($id, $monto, $fecha): void {
+                $antes = (new PrestamoEmpleado(get_db()))->bloqueado($id);
+                (new PrestamoEmpleado(get_db()))->actualizar($id, $monto, $fecha);
+                audit_log('empleados', 'editar_prestamo', [
+                    'antes'  => ['monto' => $antes['monto_total'], 'fecha' => $antes['fecha'], 'tipo' => $antes['tipo']],
+                    'monto'  => $monto,
+                    'fecha'  => $fecha,
+                ], 'hr_prestamos', $id);
+            });
+        } catch (ValidationException $e) {
+            flash('error', implode(' ', $e->errors));
+            redirect('empleados', ['tab' => 'prestamos']);
+        }
+        flash('success', 'Préstamo actualizado. El descuento de nómina usa el monto y la fecha nuevos.');
+        redirect('empleados', ['tab' => 'prestamos']);
+    }
+
+    /** Quita el descuento de la nómina. No borra la factura si el origen fue una venta de mercancía. */
+    public function prestamoDestroy(): void
+    {
+        $id = parse_int_range($_POST['id'] ?? null, 1, PHP_INT_MAX);
+        if ($id === null) {
+            flash('error', 'Préstamo inválido.');
+            redirect('empleados', ['tab' => 'prestamos']);
+        }
+        try {
+            Database::transaction(function () use ($id): void {
+                $antes = (new PrestamoEmpleado(get_db()))->bloqueado($id);
+                (new PrestamoEmpleado(get_db()))->eliminar($id);
+                audit_log('empleados', 'eliminar_prestamo', [
+                    'empleado_id' => $antes['empleado_id'],
+                    'monto'       => $antes['monto_total'],
+                    'tipo'        => $antes['tipo'],
+                    'concepto'    => $antes['concepto'],
+                ], 'hr_prestamos', $id);
+            });
+        } catch (ValidationException $e) {
+            flash('error', implode(' ', $e->errors));
+            redirect('empleados', ['tab' => 'prestamos']);
+        }
+        flash('success', 'Registro eliminado. Ya no se descontará en el cierre de nómina.');
+        redirect('empleados', ['tab' => 'prestamos']);
     }
 
     /** Dos hojas: nómina completa (oficial) y pago neto para caja. Una página de ancho al imprimir. */
