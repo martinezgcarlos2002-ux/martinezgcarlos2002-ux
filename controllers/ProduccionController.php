@@ -27,16 +27,22 @@ final class ProduccionController
         }
 
         $filas = array_map(static fn (array $r): array => [
-            'id'            => (int) $r['id'],
-            'nombre'        => $r['nombre'],
-            'unidad'        => $r['unidad'],
-            'unidad_medida' => Producto::uom((string) ($r['unidad_medida'] ?? 'KG')),
-            'produccion_id' => $r['produccion_id'] === null ? null : (int) $r['produccion_id'],
-            'precio'        => (string) ($r['precio_unit_usd'] ?? $r['precio_usd']),
-            'cantidad'      => $r['cantidad'] === null ? '' : rtrim(rtrim((string) $r['cantidad'], '0'), '.'),
-            'distribuido'   => (string) ($r['distribuido'] ?? '0'),
-            'pendiente'     => (string) ($r['pendiente'] ?? '0'),
-            'inventario'    => (string) ($r['inventario'] ?? $r['nombre']),
+            'id'                     => (int) $r['id'],
+            'nombre'                 => $r['nombre'],
+            'unidad'                 => $r['unidad'],
+            'unidad_medida'          => Producto::uom((string) ($r['unidad_medida'] ?? 'KG')),
+            'unidad_secundaria'      => Producto::unidadSecundaria(isset($r['unidad_secundaria']) ? (string) $r['unidad_secundaria'] : null),
+            'produccion_id'          => $r['produccion_id'] === null ? null : (int) $r['produccion_id'],
+            'precio'                 => (string) ($r['precio_unit_usd'] ?? $r['precio_usd']),
+            'cantidad'               => $r['cantidad'] === null ? '' : rtrim(rtrim((string) $r['cantidad'], '0'), '.'),
+            'cantidad_secundaria'    => (int) ($r['cantidad_secundaria'] ?? 0),
+            'peso_bruto'             => $r['peso_bruto'] === null ? '' : rtrim(rtrim((string) $r['peso_bruto'], '0'), '.'),
+            'tara_unitaria'          => (string) ($r['tara_unitaria'] ?? '0.000'),
+            'tara_total'             => (string) ($r['tara_total'] ?? '0.000'),
+            'distribuido'            => (string) ($r['distribuido'] ?? '0'),
+            'distribuido_secundario' => (int) ($r['distribuido_secundario'] ?? 0),
+            'pendiente'              => (string) ($r['pendiente'] ?? '0'),
+            'inventario'             => (string) ($r['inventario'] ?? $r['nombre']),
         ], $this->produccion->planillaDelDia($fecha));
 
         view('produccion_diaria', [
@@ -63,9 +69,15 @@ final class ProduccionController
                 $cambios = [];
                 $errors = [];
 
-                foreach ($lineas as $productoId => $cantidad) {
+                foreach ($lineas as $productoId => $linea) {
+                    $cantidad = is_array($linea) ? $linea['cantidad'] : null;
+                    $empaques = is_array($linea) ? (int) $linea['empaques'] : 0;
+                    $bruto = is_array($linea) ? ($linea['peso_bruto'] ?? null) : null;
+                    $taraU = is_array($linea) ? (string) ($linea['tara_unitaria'] ?? '0.000') : '0.000';
+                    $taraT = is_array($linea) ? (string) ($linea['tara_total'] ?? '0.000') : '0.000';
                     $actual = $existentes[$productoId] ?? null;
                     $distribuido = $actual === null ? 0 : Producto::aMilesimas((string) $actual['distribuido']);
+                    $distEmp = $actual === null ? 0 : (int) ($actual['distribuido_secundario'] ?? 0);
 
                     if ($cantidad === null) {
                         if ($actual === null) {
@@ -86,12 +98,15 @@ final class ProduccionController
                             $errors["p$productoId"] = sprintf('El producto #%d no existe o está inactivo.', $productoId);
                             continue;
                         }
-                        $id = $this->produccion->crearLinea($fecha, $productoId, $cantidad, (string) $producto['precio_usd'], $userId);
-                        $cambios[] = ['producto_id' => $productoId, 'produccion_id' => $id, 'antes' => null, 'despues' => $cantidad];
+                        $id = $this->produccion->crearLinea($fecha, $productoId, $cantidad, (string) $producto['precio_usd'], $userId, $empaques, $bruto, $taraU, $taraT);
+                        $cambios[] = ['producto_id' => $productoId, 'produccion_id' => $id, 'antes' => null, 'despues' => $cantidad, 'empaques' => $empaques];
                         continue;
                     }
 
-                    if (Producto::aMilesimas($cantidad) === Producto::aMilesimas((string) $actual['cantidad'])) {
+                    if (
+                        Producto::aMilesimas($cantidad) === Producto::aMilesimas((string) $actual['cantidad'])
+                        && $empaques === (int) ($actual['cantidad_secundaria'] ?? 0)
+                    ) {
                         continue;
                     }
                     if (Producto::aMilesimas($cantidad) < $distribuido) {
@@ -102,8 +117,16 @@ final class ProduccionController
                         );
                         continue;
                     }
-                    $this->produccion->actualizarCantidad((int) $actual['id'], $cantidad);
-                    $cambios[] = ['producto_id' => $productoId, 'produccion_id' => (int) $actual['id'], 'antes' => (string) $actual['cantidad'], 'despues' => $cantidad];
+                    if ($empaques < $distEmp) {
+                        $errors["p$productoId"] = sprintf(
+                            'Producto #%d: los empaques no pueden ser menores a los ya distribuidos (%d).',
+                            $productoId,
+                            $distEmp
+                        );
+                        continue;
+                    }
+                    $this->produccion->actualizarCantidad((int) $actual['id'], $cantidad, $empaques, $bruto, $taraU, $taraT);
+                    $cambios[] = ['producto_id' => $productoId, 'produccion_id' => (int) $actual['id'], 'antes' => (string) $actual['cantidad'], 'despues' => $cantidad, 'empaques' => $empaques];
                 }
 
                 if ($errors) {
@@ -185,7 +208,7 @@ final class ProduccionController
                         throw new ValidationException(["p$productoId" => sprintf('El producto #%d está archivado: no puede recibir stock.', $productoId)]);
                     }
                     foreach ($porAlmacen as $almacenId => $cantidad) {
-                        $distId = $this->produccion->registrarDistribucion($produccionId, $almacenId, $cantidad, $userId);
+                        $distId = $this->produccion->registrarDistribucion($produccionId, $almacenId, $cantidad, $userId, 0);
                         $this->productos->sumarStockGlobal($productoId, $cantidad);
                         $this->almacenes->aplicarDelta($productoId, $almacenId, $cantidad);
                         $this->productos->registrarKardex([
@@ -213,16 +236,21 @@ final class ProduccionController
             $this->auditarFallo('distribuir_fallida', $fecha, $e->errors);
             $this->fallar($e->errors, $fecha);
         } catch (PDOException $e) {
+            error_log('[ADARA][produccion] distribuir: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
             if (Producto::violaCheck($e, 'ck_prod_diaria_dist', 'ck_productos_stock', 'ck_inv_alm_stock')) {
                 $errors = ['dist' => 'Otro usuario distribuyó esta producción al mismo tiempo. Revisa los pendientes.'];
                 $this->auditarFallo('distribuir_fallida', $fecha, $errors);
                 $this->fallar($errors, $fecha);
             }
-            $this->auditarFallo('distribuir_fallida', $fecha, ['sqlstate' => (string) ($e->errorInfo[0] ?? $e->getCode())]);
-            throw $e;
+            $this->auditarFallo('distribuir_fallida', $fecha, [
+                'sqlstate' => (string) ($e->errorInfo[0] ?? $e->getCode()),
+                'mensaje'  => $e->getMessage(),
+            ]);
+            $this->fallar(['dist' => 'No se pudo distribuir: ' . $e->getMessage()], $fecha);
         } catch (Throwable $e) {
-            $this->auditarFallo('distribuir_fallida', $fecha, ['error' => $e::class]);
-            throw $e;
+            error_log('[ADARA][produccion] distribuir: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+            $this->auditarFallo('distribuir_fallida', $fecha, ['error' => $e::class, 'mensaje' => $e->getMessage()]);
+            $this->fallar(['dist' => 'No se pudo distribuir: ' . $e->getMessage()], $fecha);
         }
 
         $total = array_sum(array_map(static fn (array $d): int => Producto::aMilesimas($d['cantidad']), $detalle));
@@ -426,7 +454,9 @@ final class ProduccionController
         return $fecha;
     }
 
-    /** @return array<int, ?string>  producto_id => cantidad (null = borrar la línea del día) */
+    /**
+     * @return array<int, ?array{cantidad:string, empaques:int}>
+     */
     private function validarPlanilla(): array
     {
         $items = $_POST['items'] ?? null;
@@ -437,29 +467,118 @@ final class ProduccionController
 
         $lineas = [];
         $errors = [];
+        $ids = [];
         foreach ($items as $productoId => $item) {
             $pid = parse_int_range($productoId, 1, PHP_INT_MAX);
-            $raw = is_array($item) ? ($item['cantidad'] ?? '') : null;
-            if ($pid === null || !is_string($raw)) {
+            if ($pid === null || !is_array($item)) {
                 $errors['items'] = 'Planilla con datos inválidos.';
                 continue;
             }
-            $raw = trim($raw);
-            if ($raw === '' || preg_match('/^0+([.,]0*)?$/', $raw)) {
+            $raw = is_string($item['cantidad'] ?? null) ? trim((string) $item['cantidad']) : '';
+            $rawBruto = is_string($item['peso_bruto'] ?? null) ? trim((string) $item['peso_bruto']) : '';
+            $rawEmp = is_string($item['empaques'] ?? null) ? trim((string) $item['empaques']) : '';
+            $vacioKg = ($raw === '' || preg_match('/^0+([.,]0*)?$/', $raw)) && ($rawBruto === '' || preg_match('/^0+([.,]0*)?$/', $rawBruto));
+            if ($vacioKg && ($rawEmp === '' || $rawEmp === '0')) {
                 $lineas[$pid] = null;
                 continue;
             }
-            $cantidad = parse_decimal($raw, 3, 100000);
-            if ($cantidad === null) {
-                $errors["p$pid"] = sprintf('Producto #%d: cantidad inválida (mayor que 0, hasta 3 decimales).', $pid);
-                continue;
+            $empaques = 0;
+            if ($rawEmp !== '') {
+                $empaques = parse_int_range($rawEmp, 0, 100000) ?? -1;
+                if ($empaques < 0) {
+                    $errors["p$pid"] = sprintf('Producto #%d: cantidad de empaques inválida.', $pid);
+                    continue;
+                }
             }
-            $lineas[$pid] = $cantidad;
+            $lineas[$pid] = [
+                'cantidad'       => $raw,
+                'peso_bruto'     => $rawBruto !== '' ? $rawBruto : $raw,
+                'empaques'       => $empaques,
+                'tara_unitaria'  => is_string($item['tara_unitaria'] ?? null) ? trim((string) $item['tara_unitaria']) : '',
+            ];
+            $ids[] = $pid;
+        }
+        if ($ids !== []) {
+            $marcas = implode(',', array_fill(0, count($ids), '?'));
+            $st = get_db()->prepare("SELECT id, unidad_secundaria FROM productos WHERE id IN ($marcas)");
+            $st->execute($ids);
+            $sec = [];
+            foreach ($st->fetchAll() as $row) {
+                $sec[(int) $row['id']] = Producto::unidadSecundaria(isset($row['unidad_secundaria']) ? (string) $row['unidad_secundaria'] : null);
+            }
+            foreach ($lineas as $pid => $linea) {
+                if ($linea === null) {
+                    continue;
+                }
+                $uSec = $sec[$pid] ?? null;
+                if ($uSec !== null) {
+                    if ($linea['empaques'] < 1) {
+                        $errors["p$pid"] = sprintf('Producto #%d: indica cuántos %s y el peso bruto de balanza.', $pid, $uSec);
+                        continue;
+                    }
+                    $bruto = parse_decimal($linea['peso_bruto'], 3, 100000);
+                    if ($bruto === null) {
+                        $errors["p$pid"] = sprintf('Producto #%d: peso bruto de balanza inválido.', $pid);
+                        continue;
+                    }
+                    $taraU = Producto::taraUnitaria($uSec, $linea['tara_unitaria']);
+                    $neto = Producto::pesoNeto($bruto, $linea['empaques'], $taraU);
+                    if ($neto === null) {
+                        $errors["p$pid"] = sprintf(
+                            'Producto #%d: el bruto (%s kg) no cubre la tara de %d %s.',
+                            $pid,
+                            num($bruto, 3),
+                            $linea['empaques'],
+                            $uSec
+                        );
+                        continue;
+                    }
+                    $lineas[$pid]['cantidad'] = $neto;
+                    $lineas[$pid]['peso_bruto'] = $bruto;
+                    $lineas[$pid]['tara_unitaria'] = $taraU;
+                    $lineas[$pid]['tara_total'] = Producto::taraTotal($linea['empaques'], $taraU);
+                    continue;
+                }
+                $cantidad = parse_decimal($linea['cantidad'] !== '' ? $linea['cantidad'] : $linea['peso_bruto'], 3, 100000);
+                if ($cantidad === null) {
+                    $errors["p$pid"] = sprintf('Producto #%d: kilogramos inválidos (mayor que 0, hasta 3 decimales).', $pid);
+                    continue;
+                }
+                $lineas[$pid]['cantidad'] = $cantidad;
+                $lineas[$pid]['peso_bruto'] = null;
+                $lineas[$pid]['tara_unitaria'] = '0.000';
+                $lineas[$pid]['tara_total'] = '0.000';
+            }
         }
         if ($errors) {
             $this->fallar($errors, $fecha);
         }
         return $lineas;
+    }
+
+    /** @return array<int, array<int, int>> produccion_id => [almacen_id => empaques] */
+    private function validarDistribucionSecundaria(): array
+    {
+        $dist = $_POST['dist_sec'] ?? null;
+        if (!is_array($dist)) {
+            return [];
+        }
+        $plan = [];
+        foreach ($dist as $produccionId => $porAlmacen) {
+            $pdId = parse_int_range($produccionId, 1, PHP_INT_MAX);
+            if ($pdId === null || !is_array($porAlmacen)) {
+                continue;
+            }
+            foreach ($porAlmacen as $almacenId => $raw) {
+                $aId = parse_int_range($almacenId, 1, PHP_INT_MAX);
+                $emp = parse_int_range(is_string($raw) ? $raw : null, 1, 100000);
+                if ($aId === null || $emp === null) {
+                    continue;
+                }
+                $plan[$pdId][$aId] = $emp;
+            }
+        }
+        return $plan;
     }
 
     /** @return array<int, array<int, string>>  produccion_id => [almacen_id => cantidad] */
@@ -524,7 +643,7 @@ final class ProduccionController
     }
 
     /**
-     * @return array{nombre:string, descripcion:?string, unidad_medida:string, orden:int, precio_produccion:string, precio_detal:string}
+     * @return array{nombre:string, descripcion:?string, unidad_medida:string, unidad_secundaria:?string, orden:int, precio_produccion:string, precio_detal:string}
      */
     private function validarCatalogo(): array
     {
@@ -565,6 +684,7 @@ final class ProduccionController
             'nombre'             => $nombre,
             'descripcion'        => $descripcion,
             'unidad_medida'      => $uom,
+            'unidad_secundaria'  => Producto::unidadSecundaria(post_string('unidad_secundaria', 20)),
             'orden'              => $orden,
             'precio_produccion'  => $precioProd,
             'precio_detal'       => $precioDet,
@@ -595,6 +715,9 @@ final class ProduccionController
             'nombre'            => (string) $r['nombre'],
             'descripcion'       => (string) ($r['descripcion'] ?? ''),
             'unidad_medida'     => Producto::uom((string) ($r['unidad_medida'] ?? 'KG')),
+            'unidad_secundaria' => Producto::unidadSecundaria(isset($r['unidad_secundaria']) ? (string) $r['unidad_secundaria'] : null),
+            'stock'             => (string) ($r['stock'] ?? '0'),
+            'stock_secundario'  => (int) ($r['stock_secundario'] ?? 0),
             'orden'             => (int) ($r['orden'] ?? 0),
             'precio_produccion' => (float) ($r['precio_produccion'] ?? 0),
             'precio_detal'      => (float) ($r['precio_detal'] ?? 0),

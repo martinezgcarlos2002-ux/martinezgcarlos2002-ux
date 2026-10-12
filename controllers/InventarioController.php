@@ -410,13 +410,14 @@ final class InventarioController
         }
 
         return [
-            'codigo'        => $codigo === '' ? null : $codigo,
-            'nombre'        => $nombre,
-            'unidad'         => $unidad,
-            'unidad_medida'  => $uom,
-            'precio_usd'     => $precio,
-            'umbral_alerta' => $umbral,
-            'stock_inicial' => $stock,
+            'codigo'             => $codigo === '' ? null : $codigo,
+            'nombre'             => $nombre,
+            'unidad'             => $unidad,
+            'unidad_medida'      => $uom,
+            'unidad_secundaria'  => Producto::unidadSecundaria(post_string('unidad_secundaria', 20)),
+            'precio_usd'         => $precio,
+            'umbral_alerta'      => $umbral,
+            'stock_inicial'      => $stock,
         ];
     }
 

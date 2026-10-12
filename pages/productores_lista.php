@@ -209,12 +209,12 @@ layout_start('Productores y Proveedores', 'productores');
               <input type="text" class="form-control" id="prodNombre" name="nombre" required minlength="2" maxlength="120">
             </div>
             <div class="col-md-4">
-              <label class="form-label fw-semibold" for="prodDocumento">Documento</label>
-              <input type="text" class="form-control" id="prodDocumento" name="documento" maxlength="30" placeholder="V-12345678">
+              <label class="form-label fw-semibold" for="prodDocumentoNum">Documento</label>
+              <?php input_group_documento(['name' => 'documento', 'id' => 'prodDocumento']); ?>
             </div>
             <div class="col-md-6">
-              <label class="form-label fw-semibold" for="prodTelefono">Teléfono</label>
-              <input type="text" class="form-control" id="prodTelefono" name="telefono" maxlength="30">
+              <label class="form-label fw-semibold" for="prodTelefonoNum">Teléfono</label>
+              <?php input_group_telefono(['name' => 'telefono', 'id' => 'prodTelefono']); ?>
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold" for="prodCorreo">Correo</label>
@@ -338,6 +338,10 @@ layout_start('Productores y Proveedores', 'productores');
       document.getElementById('prodNombre').value = attr('nombre', '');
       document.getElementById('prodDocumento').value = attr('documento', '');
       document.getElementById('prodTelefono').value = attr('telefono', '');
+      if (window.AdaraContacto) {
+        AdaraContacto.setDocumento('prodDocumento', attr('documento', ''));
+        AdaraContacto.setTelefono('prodTelefono', attr('telefono', ''));
+      }
       document.getElementById('prodCorreo').value = attr('correo', '');
       document.getElementById('prodDireccion').value = attr('direccion', '');
       document.getElementById('prodPrecio').value = attr('precio', '0.6000');

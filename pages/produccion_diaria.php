@@ -85,7 +85,7 @@ layout_start('Producción Diaria', 'produccion');
 </div>
 
 <div class="alert alert-info py-2 small">
-  <i class="bi bi-info-circle"></i> <strong>Paso 1 — Registrar producción:</strong> escribe únicamente la cantidad total elaborada de cada producto. Después de guardar, usa el botón <strong>Distribuir a almacenes</strong> para indicar dónde irá la mercancía.
+  <i class="bi bi-info-circle"></i> <strong>Paso 1 — Registrar producción:</strong> tobos y potes son <strong>tara</strong> (peso del envase). Indica cuántos hay y el <strong>peso bruto de balanza</strong>. El queso que entra a inventario es <strong>Neto = Bruto − (envases × tara)</strong>. No se inventarían los envases.
 </div>
 
 <form method="post" action="<?= e(url('produccion_guardar')) ?>" id="formDia" autocomplete="off">
@@ -98,7 +98,7 @@ layout_start('Producción Diaria', 'produccion');
         <tr>
           <th class="text-center col-num">#</th>
           <th>Producto</th>
-          <th class="text-center">Cantidad producida</th>
+          <th class="text-center">Bruto / tara → neto</th>
           <th class="text-center">Precio unit</th>
           <th class="text-end">Total $</th>
           <th class="text-center">Distribuido</th>
@@ -120,9 +120,45 @@ layout_start('Producción Diaria', 'produccion');
       ?>
         <tr data-precio="<?= e(number_format($precio, 2, '.', '')) ?>" data-distribuido="<?= e(number_format($dist, 3, '.', '')) ?>">
           <td class="text-center text-muted"><?= $i + 1 ?></td>
-          <td class="prod-nombre"><?= e((string) $f['nombre']) ?> <span class="text-muted small"><?= e((string) ($f['unidad_medida'] ?? $f['unidad'] ?? 'KG')) ?></span></td>
+          <td class="prod-nombre"><?= e((string) $f['nombre']) ?> <span class="text-muted small"><?= e((string) ($f['unidad_medida'] ?? $f['unidad'] ?? 'KG')) ?><?php if (!empty($f['unidad_secundaria'])): ?> · tara <?= e((string) $f['unidad_secundaria']) ?><?php endif; ?></span></td>
           <td class="text-center">
-            <input type="text" inputmode="decimal" name="items[<?= (int) $f['id'] ?>][cantidad]" class="form-control form-control-sm text-center inp-cant js-cant" value="<?= e((string) ($f['cantidad'] ?? '')) ?>" aria-label="Cantidad de <?= e((string) $f['nombre']) ?>"<?= $puedeCrear ? '' : ' readonly' ?>>
+            <?php
+              $uSec = $f['unidad_secundaria'] ?? null;
+              $taraModo = Producto::taraModo(is_string($uSec) ? $uSec : null);
+              $taraOps = Producto::taraOpciones(is_string($uSec) ? $uSec : null);
+              $taraSel = Producto::taraUnitaria(is_string($uSec) ? $uSec : null, $f['tara_unitaria'] ?? null);
+              $brutoMostrar = (string) ($f['peso_bruto'] ?? '');
+              if ($uSec && $brutoMostrar === '' && ($f['cantidad'] ?? '') !== '') {
+                  $taraM = Producto::aMilesimas($taraSel);
+                  $empM = (int) ($f['cantidad_secundaria'] ?? 0);
+                  $brutoMostrar = rtrim(rtrim(Producto::desdeMilesimas(Producto::aMilesimas((string) $f['cantidad']) + $empM * $taraM), '0'), '.');
+              }
+            ?>
+            <div class="<?= $uSec ? 'cw-inputs' : '' ?>" data-sec="<?= e((string) ($uSec ?? '')) ?>" data-tara-modo="<?= e($taraModo) ?>">
+              <?php if ($uSec): ?>
+              <label class="cw-lbl"><?= e((string) $uSec) ?> (envases)</label>
+              <input type="text" inputmode="numeric" name="items[<?= (int) $f['id'] ?>][empaques]" class="form-control form-control-sm text-center inp-emp js-emp" value="<?= ((int) ($f['cantidad_secundaria'] ?? 0)) > 0 ? (int) $f['cantidad_secundaria'] : '' ?>" placeholder="<?= e((string) $uSec) ?>" aria-label="<?= e((string) $uSec) ?> de <?= e((string) $f['nombre']) ?>"<?= $puedeCrear ? '' : ' readonly' ?>>
+              <?php if ($taraModo === 'variable'): ?>
+              <label class="cw-lbl">Tara / envase</label>
+              <select name="items[<?= (int) $f['id'] ?>][tara_unitaria]" class="form-select form-select-sm js-tara"<?= $puedeCrear ? '' : ' disabled' ?>>
+                <?php foreach ($taraOps as $op): ?>
+                  <option value="<?= e($op) ?>"<?= Producto::aMilesimas($op) === Producto::aMilesimas($taraSel) ? ' selected' : '' ?>><?= e(rtrim(rtrim($op, '0'), '.')) ?> kg</option>
+                <?php endforeach; ?>
+              </select>
+              <?php else: ?>
+              <input type="hidden" name="items[<?= (int) $f['id'] ?>][tara_unitaria]" class="js-tara" value="<?= e($taraSel) ?>">
+              <?php if ($taraModo === 'fija'): ?>
+              <div class="cw-hint">Tara: <?= e(rtrim(rtrim($taraSel, '0'), '.')) ?> kg / <?= e((string) $uSec) ?></div>
+              <?php endif; ?>
+              <?php endif; ?>
+              <label class="cw-lbl">Peso bruto (balanza)</label>
+              <input type="text" inputmode="decimal" name="items[<?= (int) $f['id'] ?>][peso_bruto]" class="form-control form-control-sm text-center inp-bruto js-bruto" value="<?= e($brutoMostrar) ?>" placeholder="kg en balanza" aria-label="Peso bruto de <?= e((string) $f['nombre']) ?>"<?= $puedeCrear ? '' : ' readonly' ?>>
+              <div class="cw-neto js-neto-lbl">Neto: <?= ($f['cantidad'] ?? '') !== '' ? e($fmtQty((float) $f['cantidad'])) . ' kg' : '—' ?></div>
+              <input type="hidden" name="items[<?= (int) $f['id'] ?>][cantidad]" class="js-cant" value="<?= e((string) ($f['cantidad'] ?? '')) ?>">
+              <?php else: ?>
+              <input type="text" inputmode="decimal" name="items[<?= (int) $f['id'] ?>][cantidad]" class="form-control form-control-sm text-center inp-cant js-cant" value="<?= e((string) ($f['cantidad'] ?? '')) ?>" aria-label="Cantidad de <?= e((string) $f['nombre']) ?>"<?= $puedeCrear ? '' : ' readonly' ?>>
+              <?php endif; ?>
+            </div>
           </td>
           <td class="text-center"><?= e(num($precio)) ?></td>
           <td class="text-end fw-semibold js-sub">$<?= e(num($cant * $precio)) ?></td>
@@ -172,11 +208,12 @@ layout_start('Producción Diaria', 'produccion');
               <?php foreach ($conPendiente as $f): ?>
                 <tr data-pendiente="<?= e(number_format((float) $f['pendiente'], 3, '.', '')) ?>">
                   <td class="fw-semibold"><?= e((string) $f['nombre']) ?></td>
-                  <td class="text-center"><?= e($fmtQty((float) $f['pendiente'])) ?></td>
+                  <td class="text-center"><?= e($fmtQty((float) $f['pendiente'])) ?> <div class="small text-muted">kg neto</div></td>
                   <?php foreach ($almacenes as $a): ?>
                     <td>
                       <input type="text" inputmode="decimal" class="form-control form-control-sm text-center js-dist"
                              name="dist[<?= (int) $f['produccion_id'] ?>][<?= (int) $a['id'] ?>]" value=""
+                             placeholder="kg neto"
                              aria-label="<?= e($f['nombre'] . ' a ' . $a['nombre']) ?>">
                     </td>
                   <?php endforeach; ?>
@@ -302,14 +339,36 @@ layout_start('Producción Diaria', 'produccion');
     </div>
   </div>
 </div>
+<script src="<?= e(asset_v('js/catch_weight.js')) ?>" nonce="<?= e(csp_nonce()) ?>"></script>
 <script nonce="<?= e(csp_nonce()) ?>">
 (function () {
   var money = new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   var qty = new Intl.NumberFormat('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
-  function num(v) { return parseFloat(String(v).replace(',', '.')) || 0; }
+  function num(v) { return (window.AdaraTara && AdaraTara.parse) ? AdaraTara.parse(v) : (parseFloat(String(v).replace(',', '.')) || 0); }
+  function aplicarTara(tr) {
+    var box = tr.querySelector('.cw-inputs');
+    if (!box || !window.AdaraTara) return;
+    var sec = box.getAttribute('data-sec') || '';
+    if (!sec) return;
+    var emp = parseInt((tr.querySelector('.js-emp') || {}).value, 10) || 0;
+    var taraEl = tr.querySelector('.js-tara');
+    var tara = AdaraTara.unitaria(sec, taraEl ? taraEl.value : 0);
+    var bruto = num((tr.querySelector('.js-bruto') || {}).value);
+    var neto = AdaraTara.neto(bruto, emp, tara);
+    var cant = tr.querySelector('.js-cant');
+    var lbl = tr.querySelector('.js-neto-lbl');
+    if (cant) cant.value = neto > 0 ? String(neto) : '';
+    if (lbl) {
+      lbl.textContent = bruto > 0
+        ? ('Neto: ' + AdaraTara.fmt(Math.max(neto, 0)) + ' kg  ·  tara ' + AdaraTara.fmt(emp * tara) + ' kg')
+        : 'Neto: —';
+      lbl.classList.toggle('is-bad', bruto > 0 && neto <= 0);
+    }
+  }
   function recalcular() {
     var total = 0;
     document.querySelectorAll('#tablaProd tbody tr[data-precio]').forEach(function (tr) {
+      aplicarTara(tr);
       var cant = num(tr.querySelector('.js-cant').value);
       var precio = num(tr.dataset.precio);
       var dist = num(tr.dataset.distribuido);
@@ -326,7 +385,10 @@ layout_start('Producción Diaria', 'produccion');
     document.getElementById('totalDia').textContent = money.format(total);
   }
   document.getElementById('tablaProd').addEventListener('input', function (e) {
-    if (e.target.classList.contains('js-cant')) recalcular();
+    if (e.target.classList.contains('js-cant') || e.target.classList.contains('js-bruto') || e.target.classList.contains('js-emp') || e.target.classList.contains('js-tara')) recalcular();
+  });
+  document.getElementById('tablaProd').addEventListener('change', function (e) {
+    if (e.target.classList.contains('js-tara')) recalcular();
   });
   document.getElementById('inpFecha').addEventListener('change', function () {
     if (this.value) document.getElementById('formFecha').submit();

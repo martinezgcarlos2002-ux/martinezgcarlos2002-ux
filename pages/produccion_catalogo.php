@@ -96,6 +96,16 @@ layout_start('Catálogo de Producción', 'produccion');
               </select>
               <div class="invalid-feedback" data-error="unidad_medida"></div>
             </div>
+            <div class="col-6">
+              <label class="form-label" for="cat-sec">Empaque variable</label>
+              <select id="cat-sec" name="unidad_secundaria" class="form-select">
+                <option value="">Ninguno</option>
+                <option value="Tobos">Tobos</option>
+                <option value="Piezas">Piezas</option>
+                <option value="Potes">Potes</option>
+              </select>
+              <div class="form-text">Tobos/potes = tara a restar del bruto. El stock es solo queso neto. Mozzarella (Piezas): peso directo.</div>
+            </div>
             <div class="col-12">
               <label class="form-label" for="cat-desc">Descripción</label>
               <textarea id="cat-desc" name="descripcion" class="form-control" rows="3" maxlength="2000" placeholder="Opcional: notas de elaboración, presentación o merma"></textarea>

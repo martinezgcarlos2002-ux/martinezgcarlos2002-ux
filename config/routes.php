@@ -98,6 +98,16 @@ return [
     'productores_liquidacion' => [
         'modulo'  => 'productores',
         'GET'     => [ProductoresController::class, 'liquidacionPdf'],
+        'POST'    => [ProductoresController::class, 'liquidacionPdf'],
+    ],
+    'productores_impresion_masiva' => [
+        'modulo'  => 'productores',
+        'GET'     => [ProductoresController::class, 'liquidacionPdf'],
+        'POST'    => [ProductoresController::class, 'liquidacionPdf'],
+    ],
+    'productores_liquidacion_html' => [
+        'modulo'  => 'productores',
+        'POST'    => [ProductoresController::class, 'liquidacionHtml'],
     ],
     'productores_notaria' => [
         'modulo'  => 'productores',

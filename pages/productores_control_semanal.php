@@ -73,9 +73,9 @@ layout_start('Control Semanal de Productores', 'productores');
     <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
     <input type="search" id="buscarProductor" class="form-control" placeholder="Buscar productor..." aria-label="Buscar productor">
   </div>
-  <a class="btn btn-sm btn-notaria <?= $puedeCrear ? '' : 'ms-lg-auto' ?>" target="_blank" rel="noopener" href="<?= e(url('productores_notaria', ['semana' => $semana])) ?>"><i class="bi bi-journal-text"></i> Notaría</a>
-  <?php if ($puedeCrear): ?>
+  <a class="btn btn-sm btn-notaria" target="_blank" rel="noopener" href="<?= e(url('productores_notaria', ['semana' => $semana])) ?>"><i class="bi bi-journal-text"></i> Notaría</a>
   <div class="ms-lg-auto d-flex flex-wrap gap-2">
+    <?php if ($puedeCrear): ?>
     <form method="post" action="<?= e(url('productores_cerrar_semanas')) ?>" class="m-0">
       <?= csrf_field() ?>
       <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-lock"></i> Cerrar semanas terminadas</button>
@@ -84,8 +84,10 @@ layout_start('Control Semanal de Productores', 'productores');
       <i class="bi bi-pencil-square"></i> Cargar por día
     </button>
     <button type="submit" form="formSemana" class="btn btn-sm btn-success"><i class="bi bi-save"></i> Guardar Semana</button>
+    <?php endif; ?>
+    <button type="button" class="btn btn-sm btn-outline-success js-export-xlsx"><i class="bi bi-file-earmark-excel"></i> Exportar Excel</button>
+    <button type="button" class="btn btn-sm btn-outline-danger js-export-pdf"><i class="bi bi-file-earmark-pdf"></i> Exportar PDF</button>
   </div>
-  <?php endif; ?>
 </div>
 <p class="text-muted small">Escribe o corrige los litros y pulsa <strong>Guardar Semana</strong>. Si un día ya tenía entrega, sus litros se sobrescriben (el precio queda el congelado al registrarla). Los días futuros y las semanas cerradas <i class="bi bi-lock-fill"></i> no se editan.</p>
 
@@ -93,7 +95,10 @@ layout_start('Control Semanal de Productores', 'productores');
 <?= csrf_field() ?>
 <input type="hidden" name="semana" value="<?= e($semana) ?>">
 <div class="table-responsive mb-3">
-  <table class="table table-sm table-bordered table-hover align-middle mb-0 table-navy table-masiva" id="tblMasiva">
+  <table class="table table-sm table-bordered table-hover align-middle mb-0 table-navy table-masiva" id="tblMasiva"
+         data-export-title="Control Semanal de Productores"
+         data-export-subtitle="Semana: <?= e($fecha($semana)) ?> (Sábado) — <?= e($fecha($semanaFin)) ?> (Viernes)"
+         data-export-filename="Control_Semanal_Productores_<?= e((new DateTimeImmutable($semana))->format('d-m-Y')) ?>">
     <thead>
       <tr>
         <th class="text-center">#</th>
@@ -158,7 +163,10 @@ layout_start('Control Semanal de Productores', 'productores');
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="4">Totales</td>
+        <td>Totales</td>
+        <td></td>
+        <td></td>
+        <td></td>
         <?php foreach ($dias as $d): ?>
           <td class="text-end"><?= e(num($totDia[$d], 1)) ?></td>
         <?php endforeach; ?>
@@ -234,11 +242,13 @@ layout_start('Control Semanal de Productores', 'productores');
 </div>
 <p class="text-muted small">Neta = recibida − (ventas + cortesías + vales + faltante). Ese valor es el que usa el costo de producción de queso, no la leche bruta.</p>
 
-<?php if ($puedeCrear): ?>
-<div class="d-flex justify-content-end mb-4">
+<div class="d-flex justify-content-end flex-wrap gap-2 mb-4">
+  <button type="button" class="btn btn-outline-success js-export-xlsx"><i class="bi bi-file-earmark-excel"></i> Exportar Excel</button>
+  <button type="button" class="btn btn-outline-danger js-export-pdf"><i class="bi bi-file-earmark-pdf"></i> Exportar PDF</button>
+  <?php if ($puedeCrear): ?>
   <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Guardar Semana</button>
+  <?php endif; ?>
 </div>
-<?php endif; ?>
 </form>
 
 <?php if ($puedeCrear && $diasCargables !== []): ?>
@@ -305,6 +315,10 @@ layout_start('Control Semanal de Productores', 'productores');
 </div>
 <?php endif; ?>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" nonce="<?= e(csp_nonce()) ?>"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" nonce="<?= e(csp_nonce()) ?>"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js" nonce="<?= e(csp_nonce()) ?>"></script>
+<script src="<?= e(asset_v('js/control_semanal_export.js')) ?>" nonce="<?= e(csp_nonce()) ?>"></script>
 <script nonce="<?= e(csp_nonce()) ?>">
 (function () {
   function filtrar(input, filas) {

@@ -147,7 +147,7 @@ final class EmpleadosController
     {
         $errors = [];
 
-        $cedula = normalize_documento(post_string('cedula', 20));
+        $cedula = normalize_documento(post_documento_compuesto('cedula', 20));
         if ($cedula === null || !preg_match('/^[VE]-\d{6,9}$/', $cedula)) {
             $errors['cedula'] = 'Cédula inválida. Formato V-12345678 o E-12345678.';
         }
@@ -163,7 +163,7 @@ final class EmpleadosController
         if (!isset($this->empleados->cargos()[$cargo])) {
             $errors['cargo'] = 'Selecciona un cargo de la lista.';
         }
-        $telefono = post_string('telefono', 30);
+        $telefono = post_telefono_compuesto('telefono', 30);
         if ($telefono !== '' && !preg_match('/^[0-9+\-\s()]{7,20}$/', $telefono)) {
             $errors['telefono'] = 'Teléfono inválido.';
         }
@@ -214,14 +214,14 @@ final class EmpleadosController
         if (mb_strlen($banco) > 80) {
             $errors['banco'] = 'El banco admite hasta 80 caracteres.';
         }
-        $titularRaw = post_string('titular_cedula', 20);
+        $titularRaw = post_documento_compuesto('titular_cedula', 20);
         $titularCedula = $titularRaw === '' ? '' : normalize_documento($titularRaw);
         if ($titularCedula === null) {
             $errors['titular_cedula'] = 'Cédula/RIF inválido. Ej.: V-12345678 o J-12345678-9.';
         } elseif ($tipoCuenta === 'tercero' && $titularCedula === '') {
             $errors['titular_cedula'] = 'Indica la cédula/RIF del titular de la cuenta de tercero.';
         }
-        $titularTelefono = self::telefonoPagoMovil(post_string('titular_telefono', 30));
+        $titularTelefono = self::telefonoPagoMovil(post_telefono_compuesto('titular_telefono', 30));
         if ($titularTelefono === null) {
             $errors['titular_telefono'] = 'Teléfono inválido. Formato 0414-1234567.';
         }
@@ -232,7 +232,13 @@ final class EmpleadosController
 
         $activo = ($_POST['activo'] ?? '1') === '1';
         if ($errors) {
-            form_fail($_POST + ['id' => (string) ($id ?? '')], $errors, 'empleados', ['tab' => 'directorio']);
+            form_fail($_POST + [
+                'id'               => (string) ($id ?? ''),
+                'cedula'           => post_documento_compuesto('cedula', 20),
+                'telefono'         => $telefono,
+                'titular_cedula'   => $titularRaw,
+                'titular_telefono' => post_telefono_compuesto('titular_telefono', 30),
+            ], $errors, 'empleados', ['tab' => 'directorio']);
         }
 
         return [

@@ -2,33 +2,69 @@
 declare(strict_types=1);
 
 /**
- * Empaqueta liquidaciones con ZipArchive + plantilla HTML corporativa (DomPDF)
- * o PDF rasterizado con GD cuando DomPDF no está instalado.
+ * Liquidaciones masivas: un solo PDF consolidado (DomPDF una vez) o ZIP de imágenes.
  */
 final class LiquidacionArchivo
 {
     /**
+     * Un único PDF con todas las liquidaciones. DomPDF se instancia una sola vez.
+     *
      * @param list<array<string, mixed>> $documentos
-     * @param 'pdf'|'img' $formato
+     */
+    public static function consolidado(array $documentos, string $desde, string $hasta, ?string $tasa): never
+    {
+        set_time_limit(0);
+        ini_set('memory_limit', '1024M');
+
+        $html = self::htmlConsolidado($documentos, $desde, $hasta, $tasa, date('Y-m-d H:i'));
+        if (!class_exists(\Dompdf\Dompdf::class)) {
+            throw new RuntimeException('DomPDF no está instalado. Usa «Imprimir todas» para generar el PDF desde el navegador.');
+        }
+
+        $dompdf = new \Dompdf\Dompdf([
+            'isRemoteEnabled'     => false,
+            'isHtml5ParserEnabled' => true,
+            'chroot'              => ADARA_ROOT,
+        ]);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('letter', 'portrait');
+        $dompdf->render();
+        $out = $dompdf->output();
+        if (!is_string($out) || !str_starts_with($out, '%PDF')) {
+            throw new RuntimeException('DomPDF no devolvió un PDF válido.');
+        }
+
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="Liquidaciones_Masivas.pdf"');
+        header('Content-Length: ' . strlen($out));
+        header('Cache-Control: no-store');
+        echo $out;
+        exit;
+    }
+
+    /**
+     * ZIP de imágenes (una PNG por productor). El PDF masivo ya no entra aquí.
+     *
+     * @param list<array<string, mixed>> $documentos
      */
     public static function zip(array $documentos, string $desde, string $hasta, string $formato, ?string $tasa): never
     {
         set_time_limit(0);
         ini_set('memory_limit', '1024M');
 
+        if ($formato !== 'img') {
+            self::consolidado($documentos, $desde, $hasta, $tasa);
+        }
+
         $emitida = date('Y-m-d H:i');
         $archivos = [];
         foreach ($documentos as $doc) {
             $slug = self::slug((string) $doc['productor']['nombre']) . '-' . (string) $doc['numero'];
-            if ($formato === 'img') {
-                $archivos[$slug . '.png'] = self::pngDocumento($doc, $desde, $hasta, $tasa, $emitida);
-            } else {
-                $archivos[$slug . '.pdf'] = self::pdfDocumento($doc, $desde, $hasta, $tasa, $emitida);
-            }
+            $archivos[$slug . '.png'] = self::pngDocumento($doc, $desde, $hasta, $tasa, $emitida);
         }
 
         $bytes = self::empaquetar($archivos);
-        $nombre = sprintf('liquidaciones-%s-%s-%s.zip', $formato === 'img' ? 'imagenes' : 'pdf', $desde, $hasta);
+        $nombre = sprintf('liquidaciones-imagenes-%s-%s.zip', $desde, $hasta);
         header('Content-Type: application/zip');
         header('Content-Disposition: attachment; filename="' . $nombre . '"');
         header('Content-Length: ' . strlen($bytes));
@@ -76,80 +112,13 @@ final class LiquidacionArchivo
             }
             return $out;
         }
-        return self::pdfDesdePng(self::pngDocumento($doc, $desde, $hasta, $tasa, $emitida));
+        return self::pdfNativo($doc, $desde, $hasta, $tasa, $emitida);
     }
 
-    /** @param array<string, mixed> $doc */
+    /** Imagen corporativa (cabecera azul, tabla y badge de saldo). Nunca el ticket de texto. */
     private static function pngDocumento(array $doc, string $desde, string $hasta, ?string $tasa, string $emitida): string
     {
-        $lineas = self::lineasEstilo($doc, $desde, $hasta, $tasa, $emitida);
-        if (!function_exists('imagecreatetruecolor') || !function_exists('imagepng')) {
-            throw new RuntimeException('La extensión GD es obligatoria para las imágenes del ZIP.');
-        }
-
-        $w = 1000;
-        $pad = 36;
-        $h = max(780, 360 + count($doc['entregas']) * 28 + 180);
-        $im = imagecreatetruecolor($w, $h);
-        $bg = imagecolorallocate($im, 255, 255, 255);
-        $navy = imagecolorallocate($im, 30, 58, 138);
-        $navy2 = imagecolorallocate($im, 30, 58, 138);
-        $ink = imagecolorallocate($im, 30, 41, 59);
-        $muted = imagecolorallocate($im, 100, 116, 139);
-        $white = imagecolorallocate($im, 255, 255, 255);
-        $line = imagecolorallocate($im, 232, 237, 245);
-        $even = imagecolorallocate($im, 248, 250, 252);
-        $box = imagecolorallocate($im, 244, 247, 252);
-        imagefilledrectangle($im, 0, 0, $w, $h, $bg);
-        imagefilledrectangle($im, 0, 0, $w, 132, $navy);
-        imagefilledrectangle($im, 24, 154, 484, 246, $box);
-        imagefilledrectangle($im, 508, 154, 976, 246, $box);
-
-        $logo = self::logoGd();
-        if ($logo !== null) {
-            imagecopyresampled($im, $logo, 28, 18, 0, 0, 72, 72, imagesx($logo), imagesy($logo));
-            imagedestroy($logo);
-        }
-
-        imagestring($im, 5, $logo ? 116 : 28, 28, self::latin('El Castillo del Queso'), $white);
-        imagestring($im, 3, $logo ? 116 : 28, 52, self::latin('Productora Artesanal de Quesos Venezolanos'), $white);
-        imagestring($im, 5, 720, 28, self::latin('LIQUIDACION'), $white);
-        imagestring($im, 3, 720, 54, self::latin('Productor #' . $doc['numero']), $white);
-
-        $y = 140;
-        $enTabla = false;
-        $fila = 0;
-        foreach ($lineas as $i => $linea) {
-            $esSep = str_starts_with($linea, '---');
-            if ($esSep) {
-                $enTabla = !$enTabla || str_contains($linea, 'DETALLE') || str_contains($linea, 'PAGOS');
-                imageline($im, $pad, $y + 8, $w - $pad, $y + 8, $line);
-                $y += 18;
-                continue;
-            }
-            if ($enTabla && $i > 0 && !str_starts_with($linea, 'Fecha') && !str_starts_with($linea, '#')) {
-                if ($fila % 2 === 1) {
-                    imagefilledrectangle($im, $pad, $y - 2, $w - $pad, $y + 18, $even);
-                }
-                $fila++;
-            }
-            $color = $i < 6 ? $navy : $ink;
-            if (str_contains($linea, 'Saldo') || str_starts_with($linea, 'TOTAL')) {
-                $color = $navy;
-            }
-            imagestring($im, $i === 0 ? 5 : 4, $pad, $y, self::latin($linea), $i === 0 ? $navy : ($i < 6 ? $muted : $color));
-            $y += $i === 0 ? 26 : 20;
-        }
-
-        ob_start();
-        imagepng($im);
-        imagedestroy($im);
-        $png = (string) ob_get_clean();
-        if ($png === '' || !str_starts_with($png, "\x89PNG\r\n\x1a\n")) {
-            error_log('[ADARA] ZIP imágenes: imagepng no produjo un PNG válido.');
-            throw new RuntimeException('No se pudo generar un PNG válido de la liquidación.');
-        }
-        return $png;
+        return self::pngSinGd($doc, $desde, $hasta, $tasa, $emitida);
     }
 
     /** @param array<string, mixed> $doc */
@@ -236,40 +205,58 @@ final class LiquidacionArchivo
     }
 
     /**
-     * CSS corporativo embebido: DomPDF no resuelve rutas relativas dentro del ZIP.
-     * Misma hoja que la liquidación individual (`assets/css/reportes.css`).
+     * CSS ligero para DomPDF (sin flex, grid, sombras ni fuentes web).
+     * Misma hoja que assets/css/reportes_pdf.css.
      */
-    public static function cssCorporativo(): string
+    public static function cssPdfMotor(): string
     {
-        $path = ADARA_ROOT . '/assets/css/reportes.css';
+        $path = ADARA_ROOT . '/assets/css/reportes_pdf.css';
         if (!is_file($path)) {
-            throw new RuntimeException('Falta assets/css/reportes.css: el PDF masivo no puede clonar el individual.');
+            throw new RuntimeException('Falta assets/css/reportes_pdf.css.');
         }
         $css = (string) file_get_contents($path);
         if (trim($css) === '') {
-            throw new RuntimeException('assets/css/reportes.css está vacío.');
+            throw new RuntimeException('assets/css/reportes_pdf.css está vacío.');
         }
         return $css;
     }
 
-    /** Misma estructura que pages/productores_liquidacion.php (cuerpo del documento). */
-    private static function htmlHoja(array $doc, string $desde, string $hasta, ?string $tasa, string $emitida): string
+    /**
+     * HTML de todas las liquidaciones en un solo documento. El logo se resuelve una vez.
+     *
+     * @param list<array<string, mixed>> $documentos
+     */
+    public static function htmlConsolidado(array $documentos, string $desde, string $hasta, ?string $tasa, string $emitida): string
     {
-        $css = self::cssCorporativo();
+        $css = self::cssPdfMotor();
         $empresaRif = defined('APP_RIF') ? APP_RIF : 'V-286013356';
-        $logoSrc = self::logoDataUri();
+        $logoSrc = self::logoLocalUri();
         $fecha = static fn (string $f): string => (new DateTimeImmutable($f))->format('d/m/Y');
         $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
         $tiposPago = PagoProductor::ETIQUETAS;
         $conTasa = $tasa !== null && (float) $tasa > 0;
         $usd = static fn (mixed $v, int $d = 2): string => ((float) $v < 0 ? '-' : '') . '$' . num(abs((float) $v), $d);
         $bs = static fn (mixed $usdV): string => 'Bs. ' . num((float) $usdV * (float) $tasa);
-        ob_start();
-        echo '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><style>' . $css
-            . 'body.reporte{background:#fff;margin:0}.doc{box-shadow:none;margin:0;max-width:100%}</style></head><body class="reporte">';
-        require ADARA_ROOT . '/pages/partials/liquidacion_doc.php';
-        echo '</body></html>';
-        return (string) ob_get_clean();
+
+        $htmlCompleto = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><style>'
+            . $css . '</style></head><body class="pdf-motor">';
+
+        $ultimo = count($documentos) - 1;
+        foreach ($documentos as $i => $doc) {
+            ob_start();
+            require ADARA_ROOT . '/pages/partials/liquidacion_doc.php';
+            $cuerpo = (string) ob_get_clean();
+            $style = $i < $ultimo ? 'page-break-after:always' : 'page-break-after:auto';
+            $htmlCompleto .= '<div class="salto-pagina" style="' . $style . '">' . $cuerpo . '</div>';
+        }
+
+        return $htmlCompleto . '</body></html>';
+    }
+
+    /** Misma estructura que pages/productores_liquidacion.php (un solo productor). */
+    private static function htmlHoja(array $doc, string $desde, string $hasta, ?string $tasa, string $emitida): string
+    {
+        return self::htmlConsolidado([$doc], $desde, $hasta, $tasa, $emitida);
     }
 
     /** Empaqueta un PNG corporativo (GD) en un PDF carta. */
@@ -315,6 +302,16 @@ final class LiquidacionArchivo
             return '';
         }
         return 'data:image/jpeg;base64,' . base64_encode((string) file_get_contents($path));
+    }
+
+    /** Ruta local para DomPDF (una sola vez; evita incrustar el JPEG en base64 por cada productor). */
+    private static function logoLocalUri(): string
+    {
+        $path = ADARA_ROOT . '/assets/' . LOGO_EMPRESA;
+        if (!is_file($path)) {
+            return '';
+        }
+        return 'file:///' . str_replace('\\', '/', $path);
     }
 
     /** @param array<string, mixed> $doc */
@@ -469,6 +466,12 @@ final class LiquidacionArchivo
     {
         $out = function_exists('iconv') ? iconv('UTF-8', 'ISO-8859-1//TRANSLIT', $s) : false;
         return $out !== false ? $out : $s;
+    }
+
+    /** @param array<string, mixed> $doc */
+    public static function nombrePng(array $doc): string
+    {
+        return 'Liquidacion_' . self::slug((string) $doc['productor']['nombre']) . '-' . (string) $doc['numero'] . '.png';
     }
 
     private static function slug(string $nombre): string

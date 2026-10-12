@@ -54,6 +54,7 @@ $gastoInicial = 0.0;
 
 $detalleTabla = static function (array $detalle, bool $conFecha) use ($usd, $guion, $puedeEditar): void {
     ?>
+    <div class="table-responsive">
     <table class="table table-sm table-navy mb-0">
       <thead>
         <tr>
@@ -100,6 +101,7 @@ $detalleTabla = static function (array $detalle, bool $conFecha) use ($usd, $gui
       <?php endforeach; ?>
       </tbody>
     </table>
+    </div>
     <?php
 };
 

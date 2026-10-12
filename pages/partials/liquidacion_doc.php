@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * Cuerpo de una liquidación (individual y ZIP).
+ * Cuerpo HTML/CSS de una liquidación (sin imágenes de plantilla ni canvas).
  * @var array<string, mixed> $doc
  * @var string $desde
  * @var string $hasta
@@ -26,13 +26,19 @@ $logoSrc = $logoSrc ?? asset_v(LOGO_EMPRESA);
     <table class="doc-head-table" width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td class="doc-head-brand">
-          <img src="<?= e($logoSrc) ?>" class="logo-box" alt="Logo El Castillo del Queso" width="88" height="88">
-          <div>
-            <p class="empresa-nombre">El Castillo del Queso</p>
-            <p class="empresa-sub">Productora Artesanal de Quesos Venezolanos</p>
-            <p class="empresa-sub">RIF: <?= e($empresaRif) ?></p>
-            <div class="periodo-badge">Período: <?= e($fecha($desde)) ?> — <?= e($fecha($hasta)) ?></div>
-          </div>
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td width="100" valign="middle">
+                <img src="<?= e($logoSrc) ?>" class="logo-box" alt="Logo El Castillo del Queso" width="88" height="88">
+              </td>
+              <td valign="middle">
+                <p class="empresa-nombre">El Castillo del Queso</p>
+                <p class="empresa-sub">Productora Artesanal de Quesos Venezolanos</p>
+                <p class="empresa-sub">RIF: <?= e($empresaRif) ?></p>
+                <div class="periodo-badge">Período: <?= e($fecha($desde)) ?> — <?= e($fecha($hasta)) ?></div>
+              </td>
+            </tr>
+          </table>
         </td>
         <td class="doc-head-meta">
           <div class="doc-title">LIQUIDACIÓN</div>
@@ -141,12 +147,21 @@ $logoSrc = $logoSrc ?? asset_v(LOGO_EMPRESA);
     </table>
     <?php endif; ?>
 
-    <table class="resumen-wrap" width="100%"><tr><td width="50%"></td><td width="50%">
-      <div class="resumen-box">
-        <div class="resumen-row"><span>Total facturado</span><span class="fw-semibold"><?= e($usd($doc['facturado_usd'])) ?></span></div>
-        <div class="resumen-row"><span>Total pagado</span><span class="fw-semibold pagado-verde"><?= e($usd($doc['pagado_usd'])) ?></span></div>
-        <div class="resumen-row saldo-row <?= $saldoCls ?>"><span>Saldo (USD)</span><span><?= e($usd($saldo)) ?></span></div>
-      </div>
+    <table class="resumen-wrap" width="100%" cellpadding="0" cellspacing="0"><tr><td width="50%"></td><td width="50%">
+      <table class="resumen-box" width="100%" cellpadding="0" cellspacing="0">
+        <tr class="resumen-row">
+          <td>Total facturado</td>
+          <td class="text-end fw-semibold"><?= e($usd($doc['facturado_usd'])) ?></td>
+        </tr>
+        <tr class="resumen-row">
+          <td>Total pagado</td>
+          <td class="text-end fw-semibold pagado-verde"><?= e($usd($doc['pagado_usd'])) ?></td>
+        </tr>
+        <tr class="resumen-row saldo-row <?= e($saldoCls) ?>">
+          <td>Saldo (USD)</td>
+          <td class="text-end"><?= e($usd($saldo)) ?></td>
+        </tr>
+      </table>
     </td></tr></table>
 
     <div class="doc-footer">

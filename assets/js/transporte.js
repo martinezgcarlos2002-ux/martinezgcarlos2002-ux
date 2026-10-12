@@ -501,6 +501,7 @@
 
   document.getElementById('formTransportista').addEventListener('submit', async function (ev) {
     ev.preventDefault();
+    if (window.AdaraContacto) AdaraContacto.sync(this);
     if (!bloquearSubmit(this)) return;
     var fd = new FormData(this);
     var nombre = String(fd.get('nombre') || '').trim();
@@ -687,6 +688,10 @@
     document.getElementById('trNom').value = t ? t.nombre : '';
     document.getElementById('trDoc').value = t ? (t.documento || '') : '';
     document.getElementById('trTel').value = t ? (t.telefono || '') : '';
+    if (window.AdaraContacto) {
+      AdaraContacto.setDocumento('trDoc', t ? (t.documento || '') : '');
+      AdaraContacto.setTelefono('trTel', t ? (t.telefono || '') : '');
+    }
     var mod = t && t.modalidad === 'cooperativa' ? 'cooperativa' : 'individual';
     document.getElementById(mod === 'cooperativa' ? 'modCoop' : 'modInd').checked = true;
     var listaVeh = (t && t.vehiculos && t.vehiculos.length) ? t.vehiculos : [null];

@@ -166,8 +166,8 @@ layout_start('Transportistas', 'transportistas');
       <div class="modal-body row g-3">
         <input type="hidden" name="id">
         <div class="col-12"><label class="form-label" for="trNom">Nombre <span class="text-danger">*</span></label><input class="form-control" id="trNom" name="nombre" maxlength="120" required></div>
-        <div class="col-md-6"><label class="form-label" for="trDoc">Documento <span class="text-danger">*</span></label><input class="form-control" id="trDoc" name="documento" maxlength="20" placeholder="V-12345678" required></div>
-        <div class="col-md-6"><label class="form-label" for="trTel">Teléfono</label><input class="form-control" id="trTel" name="telefono" maxlength="20"></div>
+        <div class="col-md-6"><label class="form-label" for="trDocNum">Documento <span class="text-danger">*</span></label><?php input_group_documento(['name' => 'documento', 'id' => 'trDoc', 'required' => true]); ?></div>
+        <div class="col-md-6"><label class="form-label" for="trTelNum">Teléfono</label><?php input_group_telefono(['name' => 'telefono', 'id' => 'trTel']); ?></div>
         <div class="col-12">
           <div class="form-label">Modalidad</div>
           <div class="d-flex flex-wrap gap-3">

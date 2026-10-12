@@ -131,7 +131,8 @@
         precio_produccion: ($('#cat-prod') && $('#cat-prod').value || '').trim(),
         precio_detal: ($('#cat-det') && $('#cat-det').value || '').trim(),
         descripcion: ($('#cat-desc') && $('#cat-desc').value || '').trim(),
-        unidad_medida: ($('#cat-uom') && $('#cat-uom').value) || 'KG'
+        unidad_medida: ($('#cat-uom') && $('#cat-uom').value) || 'KG',
+        unidad_secundaria: ($('#cat-sec') && $('#cat-sec').value) || ''
       };
       var idHidden = $('#cat-id');
       var idVal = editandoId || (idHidden && idHidden.value ? idHidden.value : '');
@@ -165,9 +166,18 @@
           return c;
         }
         tr.appendChild(cell('', String(it.orden)));
-        tr.appendChild(cell('fw-semibold', it.nombre));
+        var nom = document.createElement('td');
+        nom.className = 'fw-semibold';
+        nom.textContent = it.nombre;
+        if (it.stock != null) {
+          var st = document.createElement('div');
+          st.className = 'small text-muted fw-normal';
+          st.textContent = String(it.stock).replace('.', ',') + ' ' + (it.unidad_medida || 'KG') + ' neto';
+          nom.appendChild(st);
+        }
+        tr.appendChild(nom);
         tr.appendChild(cell('cat-desc text-muted small', it.descripcion || '—'));
-        tr.appendChild(cell('text-muted', it.unidad_medida || 'KG'));
+        tr.appendChild(cell('text-muted', (it.unidad_medida || 'KG') + (it.unidad_secundaria && it.unidad_secundaria !== 'Piezas' ? ' · tara ' + it.unidad_secundaria : '')));
         tr.appendChild(cell('precio-prod', money(it.precio_produccion)));
         tr.appendChild(cell('precio-det', money(it.precio_detal)));
 
@@ -230,6 +240,7 @@
       if ($('#cat-det')) $('#cat-det').value = it ? fmtPrecio(it.precio_detal) : '0,00';
       if ($('#cat-desc')) $('#cat-desc').value = it ? (it.descripcion || '') : '';
       if ($('#cat-uom')) $('#cat-uom').value = it ? (it.unidad_medida || 'KG') : 'KG';
+      if ($('#cat-sec')) $('#cat-sec').value = it && it.unidad_secundaria ? it.unidad_secundaria : '';
       mostrarModal();
     }
 

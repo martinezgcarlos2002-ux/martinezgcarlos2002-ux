@@ -19,11 +19,14 @@ $entidades = $entidades ?? Venta::ENTIDADES;
 $metodos = $metodos ?? Venta::METODOS_PAGO;
 $frecuentes = $frecuentes ?? [];
 $catalogo = array_map(static fn (array $p): array => [
-    'id'      => (int) $p['id'],
-    'nombre'  => $p['nombre'],
-    'unidad'  => $p['unidad'],
-    'precio'  => (float) $p['precio_usd'],
-    'stock'   => (float) $p['stock'],
+    'id'                 => (int) $p['id'],
+    'nombre'             => $p['nombre'],
+    'unidad'             => $p['unidad'],
+    'unidad_medida'      => Producto::uom((string) ($p['unidad_medida'] ?? 'KG')),
+    'unidad_secundaria'  => Producto::unidadSecundaria(isset($p['unidad_secundaria']) ? (string) $p['unidad_secundaria'] : null),
+    'precio'             => (float) $p['precio_usd'],
+    'stock'              => (float) $p['stock'],
+    'stock_secundario'   => (int) ($p['stock_secundario'] ?? 0),
 ], $productos);
 
 layout_start('Nueva venta', 'ventas');
@@ -74,11 +77,19 @@ layout_start('Nueva venta', 'ventas');
                     <input type="text" id="nf_nombre" class="form-control form-control-sm" maxlength="120">
                   </div>
                   <div class="col-md-4">
-                    <label class="form-label small mb-0" for="nf_documento">Cédula / RIF (opc.)</label>
-                    <input type="text" id="nf_documento" class="form-control form-control-sm" placeholder="V-12345678">
+                    <label class="form-label small mb-0" for="nf_documentoNum">Cédula / RIF (opc.)</label>
+                    <?php input_group_documento(['name' => 'nf_documento', 'id' => 'nf_documento', 'class' => 'form-control-sm']); ?>
                   </div>
                   <div class="col-md-3">
                     <button type="button" class="btn btn-sm btn-success w-100" id="btnGuardarFrecuente">Guardar</button>
+                  </div>
+                  <div class="col-md-5">
+                    <label class="form-label small mb-0" for="nf_telefonoNum">Teléfono</label>
+                    <?php input_group_telefono(['name' => 'nf_telefono', 'id' => 'nf_telefono', 'class' => 'form-control-sm']); ?>
+                  </div>
+                  <div class="col-md-7">
+                    <label class="form-label small mb-0" for="nf_direccion">Dirección</label>
+                    <input type="text" id="nf_direccion" class="form-control form-control-sm" maxlength="160" placeholder="Av. Bolívar, local 5…">
                   </div>
                 </div>
               </div>
@@ -149,7 +160,8 @@ layout_start('Nueva venta', 'ventas');
               <tr>
                 <th style="min-width:220px">Producto</th>
                 <th class="text-center" style="width:110px">Stock</th>
-                <th class="text-center" style="width:120px">Cantidad</th>
+                <th class="text-center" style="width:90px">Envases</th>
+                <th class="text-center" style="min-width:150px">Bruto − tara</th>
                 <th style="width:130px">Precio unit.</th>
                 <th class="text-end" style="width:130px">Subtotal</th>
                 <th style="width:50px"></th>
@@ -202,6 +214,17 @@ layout_start('Nueva venta', 'ventas');
     </td>
     <td class="text-center"><small class="stock-disp text-muted">—</small></td>
     <td>
+      <input type="number" class="form-control form-control-sm text-center inp-emp d-none" min="1" step="1" value="1">
+    </td>
+    <td>
+      <div class="cw-inputs js-cw d-none">
+        <label class="cw-lbl js-tara-lbl">Tara / envase</label>
+        <select class="form-select form-select-sm js-tara"></select>
+        <div class="cw-hint js-tara-hint d-none"></div>
+        <label class="cw-lbl">Peso bruto (balanza)</label>
+        <input type="number" class="form-control form-control-sm text-center inp-bruto" min="0" step="0.001" placeholder="kg en balanza">
+        <div class="cw-neto js-neto-lbl">Neto: —</div>
+      </div>
       <input type="number" class="form-control form-control-sm text-center inp-cant" min="0" step="0.001" value="1" required>
     </td>
     <td>
@@ -214,6 +237,7 @@ layout_start('Nueva venta', 'ventas');
   </tr>
 </template>
 
+<script src="<?= e(asset_v('js/catch_weight.js')) ?>" nonce="<?= e(csp_nonce()) ?>"></script>
 <script nonce="<?= e(csp_nonce()) ?>">
 (function () {
   var PRODS = <?= json_encode($catalogo, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_THROW_ON_ERROR) ?>;
@@ -222,6 +246,7 @@ layout_start('Nueva venta', 'ventas');
   var NUEVO = <?= json_encode($nuevoUrl ?? url('ventas_cliente_nuevo'), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?>;
   var ASCENDER = <?= json_encode($ascenderUrl ?? url('ventas_ascender_exclusivo'), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?>;
   var CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  var TARA = window.AdaraTara;
   var prodMap = {};
   PRODS.forEach(function (p) { prodMap[p.id] = p; });
 
@@ -237,14 +262,51 @@ layout_start('Nueva venta', 'ventas');
   }
   function fila(tr) { return tr.closest('tr'); }
 
+  function armarTara(tr, sec) {
+    var sel = tr.querySelector('.js-tara');
+    var lbl = tr.querySelector('.js-tara-lbl');
+    var hint = tr.querySelector('.js-tara-hint');
+    var modo = TARA ? TARA.modo(sec) : 'ninguna';
+    sel.innerHTML = '';
+    if (modo === 'variable' && TARA.TARA_VAR[sec]) {
+      lbl.classList.remove('d-none');
+      sel.classList.remove('d-none');
+      hint.classList.add('d-none');
+      TARA.TARA_VAR[sec].forEach(function (kg) {
+        var o = document.createElement('option');
+        o.value = kg.toFixed(3);
+        o.textContent = kg + ' kg';
+        sel.appendChild(o);
+      });
+    } else {
+      lbl.classList.add('d-none');
+      sel.classList.add('d-none');
+      var tara = TARA ? TARA.unitaria(sec, 0) : 0;
+      var hid = document.createElement('option');
+      hid.value = tara.toFixed(3);
+      hid.selected = true;
+      sel.appendChild(hid);
+      if (modo === 'fija') {
+        hint.textContent = 'Tara: ' + TARA.fmt(tara) + ' kg / ' + sec;
+        hint.classList.remove('d-none');
+      } else {
+        hint.textContent = 'Peso directo (sin tara plástica)';
+        hint.classList.remove('d-none');
+      }
+    }
+  }
+
   function agregar() {
     var tr = tpl.content.firstElementChild.cloneNode(true);
     var n = idx++;
     var sel = tr.querySelector('.sel-prod');
     sel.name = 'items[' + n + '][producto_id]';
     sel.insertAdjacentHTML('beforeend', opciones());
+    tr.querySelector('.inp-emp').name = 'items[' + n + '][empaques]';
     tr.querySelector('.inp-cant').name = 'items[' + n + '][cantidad]';
     tr.querySelector('.inp-precio').name = 'items[' + n + '][precio_unit_usd]';
+    tr.querySelector('.inp-bruto').name = 'items[' + n + '][peso_bruto]';
+    tr.querySelector('.js-tara').name = 'items[' + n + '][tara_unitaria]';
     body.appendChild(tr);
     document.getElementById('vacio').classList.add('d-none');
     calcular();
@@ -253,23 +315,51 @@ layout_start('Nueva venta', 'ventas');
   function pintarFila(tr) {
     var sel = tr.querySelector('.sel-prod');
     var p = prodMap[sel.value] || null;
-    var cant = parseFloat(tr.querySelector('.inp-cant').value) || 0;
+    var empInp = tr.querySelector('.inp-emp');
+    var cantInp = tr.querySelector('.inp-cant');
+    var brutoInp = tr.querySelector('.inp-bruto');
+    var taraSel = tr.querySelector('.js-tara');
+    var cwBox = tr.querySelector('.js-cw');
+    var netoLbl = tr.querySelector('.js-neto-lbl');
+    var emp = parseInt(empInp.value, 10) || 0;
     var precio = parseFloat(tr.querySelector('.inp-precio').value) || 0;
     var disp = tr.querySelector('.stock-disp');
+    var catchW = !!(p && p.unidad_secundaria);
+    var tara = catchW && TARA ? TARA.unitaria(p.unidad_secundaria, taraSel.value) : 0;
+    var bruto = TARA ? TARA.parse(brutoInp.value) : (parseFloat(brutoInp.value) || 0);
+    var neto = catchW && TARA ? TARA.neto(bruto, emp, tara) : (parseFloat(cantInp.value) || 0);
+    empInp.classList.toggle('d-none', !catchW);
+    empInp.required = catchW;
+    cwBox.classList.toggle('d-none', !catchW);
+    cantInp.classList.toggle('d-none', catchW);
+    cantInp.required = !catchW;
+    if (catchW) {
+      cantInp.value = neto > 0 ? neto.toFixed(3) : '';
+      var taraTot = emp * tara;
+      netoLbl.textContent = neto > 0
+        ? ('Neto: ' + TARA.fmt(neto) + ' kg  ·  tara ' + TARA.fmt(taraTot) + ' kg')
+        : 'Neto: —';
+      netoLbl.classList.toggle('is-bad', bruto > 0 && neto <= 0);
+    }
+    var cant = catchW ? Math.max(neto, 0) : (parseFloat(cantInp.value) || 0);
+    var incompleta = !p || cant <= 0 || (catchW && (emp < 1 || bruto <= 0 || neto <= 0));
     var excede = false;
     if (p) {
-      disp.textContent = p.stock + ' ' + p.unidad;
+      disp.textContent = p.stock + ' ' + (p.unidad_medida || p.unidad) + ' neto';
       disp.className = 'stock-disp ' + (p.stock <= 0 ? 'text-danger fw-bold' : 'text-success');
       excede = cant > p.stock;
     } else {
       disp.textContent = '—';
       disp.className = 'stock-disp text-muted';
     }
-    tr.querySelector('.inp-cant').classList.toggle('is-invalid', excede);
+    cantInp.classList.toggle('is-invalid', excede);
+    brutoInp.classList.toggle('is-invalid', catchW && (bruto <= 0 || neto <= 0));
+    empInp.classList.toggle('is-invalid', catchW && emp < 1);
     tr.querySelector('.subtotal').textContent = '$' + money.format(cant * precio);
     tr.dataset.excede = excede ? '1' : '0';
+    tr.dataset.incompleta = incompleta ? '1' : '0';
     tr.dataset.subtotal = String(cant * precio);
-    tr.dataset.elegido = p ? '1' : '0';
+    tr.dataset.elegido = p && !incompleta ? '1' : '0';
   }
 
   function calcular() {
@@ -297,13 +387,31 @@ layout_start('Nueva venta', 'ventas');
     calcular();
   });
   body.addEventListener('change', function (e) {
+    if (e.target.classList.contains('js-tara') || e.target.classList.contains('inp-emp') || e.target.classList.contains('inp-bruto')) {
+      calcular();
+      return;
+    }
     if (!e.target.classList.contains('sel-prod')) return;
     var p = prodMap[e.target.value];
-    if (p) fila(e.target).querySelector('.inp-precio').value = p.precio.toFixed(2);
+    if (p) {
+      var tr = fila(e.target);
+      tr.querySelector('.inp-precio').value = p.precio.toFixed(2);
+      if (p.unidad_secundaria) {
+        tr.querySelector('.inp-emp').value = '1';
+        tr.querySelector('.inp-cant').value = '';
+        tr.querySelector('.inp-bruto').value = '';
+        armarTara(tr, p.unidad_secundaria);
+      } else {
+        tr.querySelector('.inp-emp').value = '0';
+        if (!tr.querySelector('.inp-cant').value) tr.querySelector('.inp-cant').value = '1';
+        tr.querySelector('.inp-cant').placeholder = '';
+        tr.querySelector('.inp-bruto').value = '';
+      }
+    }
     calcular();
   });
   body.addEventListener('input', function (e) {
-    if (e.target.classList.contains('inp-cant') || e.target.classList.contains('inp-precio')) calcular();
+    if (e.target.classList.contains('inp-cant') || e.target.classList.contains('inp-precio') || e.target.classList.contains('inp-emp') || e.target.classList.contains('inp-bruto') || e.target.classList.contains('js-tara')) calcular();
   });
 
   var tipoSel = document.getElementById('tipo_cliente');
@@ -406,16 +514,28 @@ layout_start('Nueva venta', 'ventas');
     document.getElementById('boxNuevoFrecuente').classList.toggle('d-none');
   });
   document.getElementById('btnGuardarFrecuente').addEventListener('click', function () {
-    jsonPost(NUEVO, { nombre: document.getElementById('nf_nombre').value, documento: document.getElementById('nf_documento').value })
+    jsonPost(NUEVO, {
+      nombre: document.getElementById('nf_nombre').value,
+      documento: window.AdaraContacto ? AdaraContacto.valor('nf_documento') : document.getElementById('nf_documento').value,
+      telefono: window.AdaraContacto ? AdaraContacto.valor('nf_telefono') : document.getElementById('nf_telefono').value,
+      direccion: document.getElementById('nf_direccion').value
+    })
       .then(function (res) {
         if (!res.body.ok) {
-          alert((res.body.errores && (res.body.errores.nombre || res.body.errores.documento)) || 'No se pudo guardar.');
+          alert((res.body.errores && (res.body.errores.nombre || res.body.errores.documento || res.body.errores.telefono || res.body.errores.direccion)) || 'No se pudo guardar.');
           return;
         }
         pintarFrecuentes(res.body.frecuentes, res.body.cliente.id);
         document.getElementById('boxNuevoFrecuente').classList.add('d-none');
         document.getElementById('nf_nombre').value = '';
-        document.getElementById('nf_documento').value = '';
+        document.getElementById('nf_direccion').value = '';
+        if (window.AdaraContacto) {
+          AdaraContacto.setDocumento('nf_documento', '');
+          AdaraContacto.setTelefono('nf_telefono', '');
+        } else {
+          document.getElementById('nf_documento').value = '';
+          document.getElementById('nf_telefono').value = '';
+        }
       });
   });
   document.getElementById('btnAscender').addEventListener('click', function () {

@@ -76,9 +76,11 @@ final class Produccion
     {
         $stmt = $this->db->prepare(
             'SELECT p.id, p.nombre, p.unidad, COALESCE(c.unidad_medida, p.unidad_medida, \'KG\') AS unidad_medida,
+                    p.unidad_secundaria, p.stock_secundario,
                     COALESCE(c.precio_produccion, p.precio_usd) AS precio_usd,
                     p.nombre AS inventario,
-                    pd.id AS produccion_id, pd.cantidad, pd.precio_unit_usd, pd.total_usd, pd.distribuido, pd.pendiente
+                    pd.id AS produccion_id, pd.cantidad, pd.cantidad_secundaria, pd.peso_bruto, pd.tara_unitaria, pd.tara_total,
+                    pd.precio_unit_usd, pd.total_usd, pd.distribuido, pd.distribuido_secundario, pd.pendiente
              FROM productos p
              LEFT JOIN prod_catalogo c ON c.producto_id = p.id
              LEFT JOIN produccion_diaria pd ON pd.producto_id = p.id AND pd.fecha = :fecha
@@ -93,7 +95,7 @@ final class Produccion
     public function bloquearDia(string $fecha): array
     {
         $stmt = $this->db->prepare(
-            'SELECT id, producto_id, cantidad, distribuido FROM produccion_diaria WHERE fecha = :fecha ORDER BY id FOR UPDATE'
+            'SELECT id, producto_id, cantidad, cantidad_secundaria, distribuido, distribuido_secundario FROM produccion_diaria WHERE fecha = :fecha ORDER BY id FOR UPDATE'
         );
         $stmt->execute(['fecha' => $fecha]);
 
@@ -105,16 +107,22 @@ final class Produccion
     }
 
     /** El precio se congela al registrar: cambiarlo en inventario no altera el total de días pasados. */
-    public function crearLinea(string $fecha, int $productoId, string $cantidad, string $precioUnitUsd, int $usuarioId): int
+    public function crearLinea(string $fecha, int $productoId, string $cantidad, string $precioUnitUsd, int $usuarioId, int $empaques = 0, ?string $pesoBruto = null, string $taraUnitaria = '0.000', string $taraTotal = '0.000'): int
     {
         $stmt = $this->db->prepare(
-            'INSERT INTO produccion_diaria (fecha, producto_id, cantidad, precio_unit_usd, registrado_por)
-             VALUES (:fecha, :producto_id, :cantidad, :precio, :usuario_id)'
+            'INSERT INTO produccion_diaria
+                (fecha, producto_id, cantidad, cantidad_secundaria, peso_bruto, tara_unitaria, tara_total, precio_unit_usd, registrado_por)
+             VALUES
+                (:fecha, :producto_id, :cantidad, :empaques, :bruto, :tara_u, :tara_t, :precio, :usuario_id)'
         );
         $stmt->execute([
             'fecha'       => $fecha,
             'producto_id' => $productoId,
             'cantidad'    => $cantidad,
+            'empaques'    => max(0, $empaques),
+            'bruto'       => $pesoBruto,
+            'tara_u'      => $taraUnitaria,
+            'tara_t'      => $taraTotal,
             'precio'      => $precioUnitUsd,
             'usuario_id'  => $usuarioId,
         ]);
@@ -122,10 +130,21 @@ final class Produccion
     }
 
     /** ck_prod_diaria_dist impide bajar la cantidad por debajo de lo ya distribuido. */
-    public function actualizarCantidad(int $id, string $cantidad): void
+    public function actualizarCantidad(int $id, string $cantidad, int $empaques = 0, ?string $pesoBruto = null, string $taraUnitaria = '0.000', string $taraTotal = '0.000'): void
     {
-        $this->db->prepare('UPDATE produccion_diaria SET cantidad = :cantidad WHERE id = :id')
-            ->execute(['cantidad' => $cantidad, 'id' => $id]);
+        $this->db->prepare(
+            'UPDATE produccion_diaria
+             SET cantidad = :cantidad, cantidad_secundaria = :empaques,
+                 peso_bruto = :bruto, tara_unitaria = :tara_u, tara_total = :tara_t
+             WHERE id = :id'
+        )->execute([
+            'cantidad' => $cantidad,
+            'empaques' => max(0, $empaques),
+            'bruto'    => $pesoBruto,
+            'tara_u'   => $taraUnitaria,
+            'tara_t'   => $taraTotal,
+            'id'       => $id,
+        ]);
     }
 
     public function eliminarLineaSinDistribuir(int $id): void
@@ -155,7 +174,7 @@ final class Produccion
         }
 
         $stmt = $this->db->prepare(
-            'SELECT id, producto_id, cantidad, distribuido, pendiente
+            'SELECT id, producto_id, cantidad, cantidad_secundaria, distribuido, distribuido_secundario, pendiente
              FROM produccion_diaria
              WHERE fecha = :fecha AND id IN (' . implode(', ', $marcas) . ')
              ORDER BY id
@@ -171,26 +190,38 @@ final class Produccion
     }
 
     /** Resta del pendiente (suma a distribuido) y deja el rastro inmutable en produccion_distribuciones. */
-    public function registrarDistribucion(int $produccionId, int $almacenId, string $cantidad, int $usuarioId): int
+    public function registrarDistribucion(int $produccionId, int $almacenId, string $cantidad, int $usuarioId, int $empaques = 0): int
     {
+        $emp = max(0, $empaques);
         $stmt = $this->db->prepare(
             'UPDATE produccion_diaria
-             SET distribuido = distribuido + :cantidad
-             WHERE id = :id AND pendiente >= :minimo'
+             SET distribuido = distribuido + :cantidad,
+                 distribuido_secundario = distribuido_secundario + :emp_set
+             WHERE id = :id AND pendiente >= :minimo
+               AND (cantidad_secundaria - distribuido_secundario) >= :emp_min'
         );
-        $stmt->execute(['cantidad' => $cantidad, 'id' => $produccionId, 'minimo' => $cantidad]);
+        $stmt->execute([
+            'cantidad' => $cantidad,
+            'emp_set'  => $emp,
+            'id'       => $produccionId,
+            'minimo'   => $cantidad,
+            'emp_min'  => $emp,
+        ]);
         if ($stmt->rowCount() !== 1) {
             throw new RuntimeException(sprintf('La producción #%d no tiene pendiente suficiente.', $produccionId));
         }
 
         $ins = $this->db->prepare(
-            'INSERT INTO produccion_distribuciones (produccion_diaria_id, almacen_id, cantidad, usuario_id)
-             VALUES (:produccion_id, :almacen_id, :cantidad, :usuario_id)'
+            'INSERT INTO produccion_distribuciones
+                (produccion_diaria_id, almacen_id, cantidad, cantidad_secundaria, usuario_id)
+             VALUES
+                (:produccion_id, :almacen_id, :cantidad, :empaques, :usuario_id)'
         );
         $ins->execute([
             'produccion_id' => $produccionId,
             'almacen_id'    => $almacenId,
             'cantidad'      => $cantidad,
+            'empaques'      => $emp,
             'usuario_id'    => $usuarioId,
         ]);
         return (int) $this->db->lastInsertId();

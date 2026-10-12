@@ -22,6 +22,9 @@ html, body.ticket-pos {
 .ticket th, .ticket td { font-size: 11px; padding: 2px 0; vertical-align: top; }
 .ticket th { border-bottom: 1px solid #333; text-align: left; }
 .ticket .num { text-align: right; white-space: nowrap; }
+.ticket .cw-nom { font-weight: 700; }
+.ticket .cw-det { font-size: 10px; }
+.ticket .cw-neto { font-size: 10px; font-weight: 700; }
 .ticket-tot { font-weight: 700; font-size: 13px; }
 .ticket-foot { text-align: center; font-size: 11px; }
 .toolbar { padding: 10px 16px; }

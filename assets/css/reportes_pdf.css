@@ -1,0 +1,52 @@
+/* CSS mínimo para DomPDF: tablas, Helvetica, sin flex/grid/sombras ni fuentes externas. */
+@page { size: letter portrait; margin: 10mm; }
+
+body.pdf-motor {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    color: #1e293b;
+    background: #fff;
+    margin: 0;
+}
+
+.salto-pagina { page-break-after: always; }
+.salto-pagina:last-child { page-break-after: auto; }
+
+.doc { width: 100%; }
+.doc-header { background: #1e3a8a; color: #fff; padding: 12px 16px; }
+.doc-head-table { width: 100%; }
+.doc-head-meta { text-align: right; vertical-align: top; }
+.logo-box { width: 72px; height: 72px; background: #fff; padding: 3px; }
+.empresa-nombre { font-size: 16px; font-weight: bold; margin: 0; }
+.empresa-sub { font-size: 9px; margin: 2px 0 0; }
+.doc-title { font-size: 20px; font-weight: bold; }
+.doc-num { font-size: 10px; }
+.periodo-badge { display: inline-block; border: 1px solid #fff; padding: 2px 8px; font-size: 9px; margin-top: 6px; }
+.doc-body { padding: 12px 16px; }
+
+.info-row { width: 100%; }
+.info-box { background: #f4f7fc; padding: 10px 12px; vertical-align: top; }
+.info-box .label { font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: bold; }
+.info-box .value { font-size: 12px; font-weight: bold; color: #1e3a8a; }
+.info-box .sub-value { font-size: 9px; color: #64748b; }
+.info-box .resumen { font-size: 10px; }
+
+.section-title { font-size: 9px; text-transform: uppercase; color: #1e3a8a; font-weight: bold; border-bottom: 2px solid #1e3a8a; padding-bottom: 3px; margin: 12px 0 6px; }
+.tabla-doc { width: 100%; border-collapse: collapse; font-size: 10px; }
+.tabla-doc thead th { background: #1e3a8a; color: #fff; padding: 5px 8px; font-size: 8px; text-transform: uppercase; }
+.tabla-doc tbody td { padding: 4px 8px; border-bottom: 1px solid #e8edf5; }
+.tabla-doc tfoot td { background: #eef2ff; padding: 6px 8px; font-weight: bold; color: #1e3a8a; }
+.tabla-doc .dia { color: #64748b; font-size: 9px; text-transform: uppercase; }
+.text-end { text-align: right; }
+.text-muted { color: #64748b; }
+.fw-semibold { font-weight: bold; }
+
+.resumen-wrap { width: 100%; margin-top: 12px; }
+.resumen-box { width: 100%; background: #f4f7fc; }
+.resumen-row td { padding: 6px 10px; border-bottom: 1px solid #dee2e6; font-size: 11px; }
+.pagado-verde { color: #198754; font-weight: bold; }
+.saldo-row td { background: #1e3a8a; color: #fff; font-weight: bold; font-size: 12px; }
+.saldo-positivo td { background: #dc3545; color: #fff; }
+.saldo-cero td { background: #16a34a; color: #fff; }
+
+.doc-footer { text-align: center; padding: 10px 16px; border-top: 1px solid #e8edf5; font-size: 8px; color: #94a3b8; }

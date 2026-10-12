@@ -156,6 +156,78 @@ final class Almacen
         }
     }
 
+    public function aplicarDeltaSecundario(int $productoId, int $almacenId, int $delta): void
+    {
+        if ($delta === 0) {
+            return;
+        }
+        if ($delta < 0) {
+            $stmt = $this->db->prepare(
+                'UPDATE inventario_almacenes SET stock_secundario = stock_secundario + :delta
+                 WHERE producto_id = :producto_id AND almacen_id = :almacen_id AND stock_secundario >= :minimo'
+            );
+            $stmt->execute([
+                'delta'       => $delta,
+                'producto_id' => $productoId,
+                'almacen_id'  => $almacenId,
+                'minimo'      => abs($delta),
+            ]);
+            if ($stmt->rowCount() !== 1) {
+                throw new ValidationException(['stock' => sprintf('El producto #%d no tiene empaques suficientes en el almacén #%d.', $productoId, $almacenId)]);
+            }
+            return;
+        }
+
+        $stmt = $this->db->prepare(
+            'INSERT INTO inventario_almacenes (producto_id, almacen_id, stock, stock_secundario)
+             VALUES (:producto_id, :almacen_id, 0, :delta_ins)
+             ON DUPLICATE KEY UPDATE stock_secundario = stock_secundario + :delta_upd'
+        );
+        $stmt->execute([
+            'producto_id' => $productoId,
+            'almacen_id'  => $almacenId,
+            'delta_ins'   => $delta,
+            'delta_upd'   => $delta,
+        ]);
+    }
+
+    /** @return list<array{almacen_id:int, empaques:int}> */
+    public function descontarSecundarioEnOrden(int $productoId, int $empaques, string $nombreProducto): array
+    {
+        if ($empaques <= 0) {
+            return [];
+        }
+        $stmt = $this->db->prepare(
+            'SELECT ia.almacen_id, ia.stock_secundario
+             FROM inventario_almacenes ia
+             JOIN almacenes a ON a.id = ia.almacen_id AND a.activo = 1
+             WHERE ia.producto_id = :producto_id AND ia.stock_secundario > 0
+             ORDER BY a.orden, a.id
+             FOR UPDATE'
+        );
+        $stmt->execute(['producto_id' => $productoId]);
+
+        $restante = $empaques;
+        $salidas = [];
+        foreach ($stmt->fetchAll() as $fila) {
+            if ($restante <= 0) {
+                break;
+            }
+            $toma = min($restante, (int) $fila['stock_secundario']);
+            $this->aplicarDeltaSecundario($productoId, (int) $fila['almacen_id'], -$toma);
+            $salidas[] = ['almacen_id' => (int) $fila['almacen_id'], 'empaques' => $toma];
+            $restante -= $toma;
+        }
+        if ($restante > 0) {
+            throw new ValidationException(['items' => sprintf(
+                'No hay empaques suficientes de %s: faltan %d.',
+                $nombreProducto,
+                $restante
+            )]);
+        }
+        return $salidas;
+    }
+
     /**
      * Descuenta una venta recorriendo los almacenes en su orden. Lanza ValidationException si no alcanza.
      * @return list<array{almacen_id:int, cantidad:string}>
@@ -202,16 +274,20 @@ final class Almacen
     public function moverTodo(int $origenId, int $destinoId): array
     {
         $stmt = $this->db->prepare(
-            'SELECT producto_id, stock FROM inventario_almacenes WHERE almacen_id = :almacen_id ORDER BY producto_id FOR UPDATE'
+            'SELECT producto_id, stock, stock_secundario FROM inventario_almacenes WHERE almacen_id = :almacen_id ORDER BY producto_id FOR UPDATE'
         );
         $stmt->execute(['almacen_id' => $origenId]);
 
         $movidos = [];
         foreach ($stmt->fetchAll() as $fila) {
             $stock = (string) $fila['stock'];
+            $sec = (int) ($fila['stock_secundario'] ?? 0);
             if (Producto::aMilesimas($stock) > 0) {
                 $this->aplicarDelta((int) $fila['producto_id'], $destinoId, $stock);
                 $movidos[] = ['producto_id' => (int) $fila['producto_id'], 'cantidad' => $stock];
+            }
+            if ($sec > 0) {
+                $this->aplicarDeltaSecundario((int) $fila['producto_id'], $destinoId, $sec);
             }
         }
 

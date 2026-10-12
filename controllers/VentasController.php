@@ -50,7 +50,7 @@ final class VentasController
             if (mb_strlen($nombre) < 2) {
                 throw new ValidationException(['nombre' => 'Indica el nombre del cliente (mínimo 2 caracteres).']);
             }
-            $docRaw = trim(post_string('documento', 14));
+            $docRaw = trim(post_documento_compuesto('documento', 20));
             $documento = null;
             if ($docRaw !== '') {
                 $documento = normalize_documento($docRaw);
@@ -58,8 +58,16 @@ final class VentasController
                     throw new ValidationException(['documento' => 'Documento inválido. Ej.: V-12345678.']);
                 }
             }
-            $id = $this->ventas->crearClientePos($nombre, $documento, 'frecuente');
-            audit_log('ventas', 'crear_cliente_pos', ['nombre' => $nombre, 'documento' => $documento], 'ventas_clientes', $id);
+            $telefono = post_telefono_compuesto('telefono', 30);
+            if ($telefono !== '' && !preg_match('/^[0-9+\-\s()]{7,20}$/', $telefono)) {
+                throw new ValidationException(['telefono' => 'Teléfono inválido (7 a 20 dígitos).']);
+            }
+            $direccion = preg_replace('/\s+/u', ' ', post_string('direccion', 200));
+            if (mb_strlen($direccion) > 160) {
+                throw new ValidationException(['direccion' => 'La dirección admite hasta 160 caracteres.']);
+            }
+            $id = $this->ventas->crearClientePos($nombre, $documento, 'frecuente', $telefono !== '' ? $telefono : null, $direccion !== '' ? $direccion : null);
+            audit_log('ventas', 'crear_cliente_pos', ['nombre' => $nombre, 'documento' => $documento, 'telefono' => $telefono, 'direccion' => $direccion], 'ventas_clientes', $id);
             $fila = $this->ventas->clientePos($id);
             json_response(201, ['ok' => true, 'cliente' => $fila, 'frecuentes' => $this->ventas->clientesFrecuentes()]);
         } catch (ValidationException $e) {
@@ -85,8 +93,8 @@ final class VentasController
                     $cxcId = $cxc->guardarCliente([
                         'nombre'    => $cli['nombre'],
                         'documento' => $cli['documento'] !== null && $cli['documento'] !== '' ? $cli['documento'] : null,
-                        'telefono'  => null,
-                        'domicilio' => null,
+                        'telefono'  => $cli['telefono'] !== null && $cli['telefono'] !== '' ? $cli['telefono'] : null,
+                        'domicilio' => $cli['direccion'] !== null && $cli['direccion'] !== '' ? $cli['direccion'] : null,
                     ], null, current_user()['id']);
                 }
                 $this->ventas->marcarExclusivo($id, $cxcId);
@@ -286,13 +294,16 @@ final class VentasController
                 $productoId = is_array($item) ? parse_int_range($item['producto_id'] ?? null, 1, PHP_INT_MAX) : null;
                 $cantidad = is_array($item) ? parse_decimal($item['cantidad'] ?? null, 3, 100000) : null;
                 $precio = is_array($item) ? parse_decimal($item['precio_unit_usd'] ?? null, 2, 1000000, true) : null;
+                $empaques = is_array($item) ? (parse_int_range($item['empaques'] ?? '0', 0, 100000) ?? 0) : 0;
+                $bruto = is_array($item) ? parse_decimal($item['peso_bruto'] ?? null, 3, 100000) : null;
+                $taraRaw = is_array($item) ? ($item['tara_unitaria'] ?? '') : '';
 
                 if ($productoId === null) {
                     $errors["items.$n"] = "Línea $n: selecciona un producto.";
                     continue;
                 }
-                if ($cantidad === null) {
-                    $errors["items.$n"] = "Línea $n: cantidad inválida (mayor que 0, hasta 3 decimales).";
+                if ($cantidad === null && $bruto === null) {
+                    $errors["items.$n"] = "Línea $n: indica la cantidad o el peso bruto de balanza.";
                     continue;
                 }
                 if ($precio === null) {
@@ -301,12 +312,20 @@ final class VentasController
                 }
 
                 if (!isset($lineas[$productoId])) {
-                    $lineas[$productoId] = ['milesimas' => 0, 'precio' => $precio];
+                    $lineas[$productoId] = [
+                        'milesimas'      => 0,
+                        'precio'         => $precio,
+                        'empaques'       => 0,
+                        'bruto_milesimas'=> 0,
+                        'tara_unitaria'  => is_string($taraRaw) ? $taraRaw : '',
+                    ];
                 } elseif (number_format((float) $lineas[$productoId]['precio'], 2, '.', '') !== number_format((float) $precio, 2, '.', '')) {
                     $errors["items.$n"] = "Línea $n: el producto ya está en la factura con otro precio.";
                     continue;
                 }
-                $lineas[$productoId]['milesimas'] += Producto::aMilesimas($cantidad);
+                $lineas[$productoId]['milesimas'] += $cantidad !== null ? Producto::aMilesimas($cantidad) : 0;
+                $lineas[$productoId]['empaques'] += $empaques;
+                $lineas[$productoId]['bruto_milesimas'] += $bruto !== null ? Producto::aMilesimas($bruto) : 0;
             }
         }
 
@@ -328,8 +347,11 @@ final class VentasController
             'descripcion_pago'  => $descripcion !== '' ? $descripcion : null,
             'semana_aplicacion' => $semana,
             'lineas'            => array_map(static fn (array $l): array => [
-                'cantidad' => Producto::desdeMilesimas($l['milesimas']),
-                'precio'   => $l['precio'],
+                'cantidad'       => Producto::desdeMilesimas($l['milesimas']),
+                'precio'         => $l['precio'],
+                'empaques'       => (int) ($l['empaques'] ?? 0),
+                'bruto_milesimas'=> (int) ($l['bruto_milesimas'] ?? 0),
+                'tara_unitaria'  => (string) ($l['tara_unitaria'] ?? ''),
             ], $lineas),
         ];
     }
@@ -389,7 +411,37 @@ final class VentasController
             $producto = $bloqueados[$productoId] ?? null;
             if ($producto === null) {
                 $errors["producto.$productoId"] = "El producto #$productoId no existe o está inactivo.";
-            } elseif (Producto::aMilesimas((string) $producto['stock']) < Producto::aMilesimas($linea['cantidad'])) {
+                continue;
+            }
+            $uSec = Producto::unidadSecundaria(isset($producto['unidad_secundaria']) ? (string) $producto['unidad_secundaria'] : null);
+            if ($uSec !== null) {
+                $emp = (int) ($linea['empaques'] ?? 0);
+                $brutoM = (int) ($linea['bruto_milesimas'] ?? 0);
+                if ($emp < 1 || $brutoM <= 0) {
+                    $errors["producto.$productoId"] = sprintf('Pesa el %s de %s: indica %s y el peso bruto de balanza.', mb_strtolower($uSec), $producto['nombre'], $uSec);
+                    continue;
+                }
+                $taraU = Producto::taraUnitaria($uSec, $linea['tara_unitaria'] ?? null);
+                $neto = Producto::pesoNeto(Producto::desdeMilesimas($brutoM), $emp, $taraU);
+                if ($neto === null) {
+                    $errors["producto.$productoId"] = sprintf('El peso bruto de %s no cubre la tara de los envases.', $producto['nombre']);
+                    continue;
+                }
+                $pedido['lineas'][$productoId]['cantidad'] = $neto;
+                $pedido['lineas'][$productoId]['peso_bruto'] = Producto::desdeMilesimas($brutoM);
+                $pedido['lineas'][$productoId]['tara_unitaria'] = $taraU;
+                $pedido['lineas'][$productoId]['tara_total'] = Producto::taraTotal($emp, $taraU);
+                if (Producto::aMilesimas((string) $producto['stock']) < Producto::aMilesimas($neto)) {
+                    $errors["producto.$productoId"] = sprintf(
+                        'Stock neto insuficiente de %s: disponible %s kg, neto %s kg.',
+                        $producto['nombre'],
+                        num($producto['stock'], 3),
+                        num($neto, 3)
+                    );
+                }
+                continue;
+            }
+            if (Producto::aMilesimas((string) $producto['stock']) < Producto::aMilesimas($linea['cantidad'])) {
                 $errors["producto.$productoId"] = sprintf(
                     'Stock insuficiente de %s: disponible %s, solicitado %s.',
                     $producto['nombre'],
@@ -422,7 +474,17 @@ final class VentasController
 
         $detalle = [];
         foreach ($pedido['lineas'] as $productoId => $linea) {
-            $this->ventas->addItem($ventaId, $productoId, $linea['cantidad'], $linea['precio']);
+            $emp = (int) ($linea['empaques'] ?? 0);
+            $this->ventas->addItem(
+                $ventaId,
+                $productoId,
+                $linea['cantidad'],
+                $linea['precio'],
+                $emp,
+                $linea['peso_bruto'] ?? null,
+                $linea['tara_unitaria'] ?? '0.000',
+                $linea['tara_total'] ?? '0.000'
+            );
             $this->productos->descontarStock($productoId, $linea['cantidad']);
             $salidas = $this->almacenes->descontarEnOrden($productoId, $linea['cantidad'], $bloqueados[$productoId]['nombre']);
             $this->productos->registrarKardexVenta($productoId, $linea['cantidad'], $ventaId, $userId);

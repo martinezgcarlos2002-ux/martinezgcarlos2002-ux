@@ -23,7 +23,8 @@ final class ProduccionCatalogoService
     {
         return $this->db->query(
             'SELECT c.id, c.producto_id, c.nombre, c.descripcion, c.unidad_medida, c.orden, c.precio_produccion, c.activo,
-                    p.nombre AS inventario, p.stock, p.unidad, p.unidad_medida AS inv_uom, p.precio_usd,
+                    p.nombre AS inventario, p.stock, p.stock_secundario, p.unidad, p.unidad_medida AS inv_uom,
+                    p.unidad_secundaria, p.precio_usd,
                     COALESCE(v.precio_usd, c.precio_produccion) AS precio_detal,
                     COALESCE(v.mostrar_pantalla, 1) AS visible_tv
              FROM prod_catalogo c
@@ -38,7 +39,7 @@ final class ProduccionCatalogoService
     {
         $stmt = $this->db->prepare(
             'SELECT c.id, c.producto_id, c.nombre, c.descripcion, c.unidad_medida, c.orden, c.precio_produccion, c.activo,
-                    p.nombre AS inventario, p.stock, p.unidad,
+                    p.nombre AS inventario, p.stock, p.stock_secundario, p.unidad, p.unidad_secundaria,
                     COALESCE(v.precio_usd, c.precio_produccion) AS precio_detal,
                     COALESCE(v.mostrar_pantalla, 1) AS visible_tv
              FROM prod_catalogo c
@@ -93,7 +94,7 @@ final class ProduccionCatalogoService
 
             $productoId = (int) ($actual['producto_id'] ?? 0);
             if ($productoId > 0) {
-                $this->sincronizarInventario($productoId, $data['nombre'], $data['descripcion'], $data['unidad_medida'], $data['precio_produccion']);
+                $this->sincronizarInventario($productoId, $data['nombre'], $data['descripcion'], $data['unidad_medida'], $data['precio_produccion'], $data['unidad_secundaria'] ?? null);
                 $this->sincronizarDetal($productoId, $data['precio_detal']);
             }
 
@@ -204,14 +205,15 @@ final class ProduccionCatalogoService
             $data['nombre'],
             $data['descripcion'],
             $data['unidad_medida'],
-            $data['precio_produccion']
+            $data['precio_produccion'],
+            $data['unidad_secundaria'] ?? null
         );
         $this->sincronizarDetal($productoId, $data['precio_detal']);
 
         return $this->fila($catalogoId);
     }
 
-    private function insertarOVincularInventario(int $catalogoId, string $nombre, ?string $descripcion, string $uom, string $precio): int
+    private function insertarOVincularInventario(int $catalogoId, string $nombre, ?string $descripcion, string $uom, string $precio, ?string $unidadSecundaria = null): int
     {
         $busca = $this->db->prepare('SELECT id FROM productos WHERE nombre = :nombre LIMIT 1 FOR UPDATE');
         $busca->execute(['nombre' => $nombre]);
@@ -228,19 +230,20 @@ final class ProduccionCatalogoService
                     'nombre' => 'Ese producto ya está vinculado a otro ítem del catálogo de producción.',
                 ]);
             }
-            $this->sincronizarInventario($productoId, $nombre, $descripcion, $uom, $precio);
+            $this->sincronizarInventario($productoId, $nombre, $descripcion, $uom, $precio, $unidadSecundaria);
         } else {
             $codigo = sprintf('PRD-%06d', $catalogoId);
             $unidad = Producto::UOM_A_UNIDAD[$uom] ?? 'kg';
             $this->db->prepare(
-                'INSERT INTO productos (codigo, nombre, descripcion, unidad, unidad_medida, precio_usd, umbral_alerta)
-                 VALUES (:codigo, :nombre, :descripcion, :unidad, :uom, :precio, 0)'
+                'INSERT INTO productos (codigo, nombre, descripcion, unidad, unidad_medida, unidad_secundaria, precio_usd, umbral_alerta)
+                 VALUES (:codigo, :nombre, :descripcion, :unidad, :uom, :sec, :precio, 0)'
             )->execute([
                 'codigo'      => $codigo,
                 'nombre'      => $nombre,
                 'descripcion' => $descripcion,
                 'unidad'      => $unidad,
                 'uom'         => $uom,
+                'sec'         => Producto::unidadSecundaria($unidadSecundaria),
                 'precio'      => $precio,
             ]);
             $productoId = (int) $this->db->lastInsertId();
@@ -252,19 +255,20 @@ final class ProduccionCatalogoService
         return $productoId;
     }
 
-    private function sincronizarInventario(int $productoId, string $nombre, ?string $descripcion, string $uom, string $precio): void
+    private function sincronizarInventario(int $productoId, string $nombre, ?string $descripcion, string $uom, string $precio, ?string $unidadSecundaria = null): void
     {
         $unidad = Producto::UOM_A_UNIDAD[$uom] ?? 'kg';
         $this->db->prepare(
             'UPDATE productos
              SET nombre = :nombre, descripcion = :descripcion, unidad = :unidad, unidad_medida = :uom,
-                 precio_usd = :precio, activo = 1
+                 unidad_secundaria = :sec, precio_usd = :precio, activo = 1
              WHERE id = :id'
         )->execute([
             'nombre'      => $nombre,
             'descripcion' => $descripcion,
             'unidad'      => $unidad,
             'uom'         => $uom,
+            'sec'         => Producto::unidadSecundaria($unidadSecundaria),
             'precio'      => $precio,
             'id'          => $productoId,
         ]);

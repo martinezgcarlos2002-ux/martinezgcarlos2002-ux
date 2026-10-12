@@ -290,7 +290,13 @@
         var input = form.querySelector('[name="' + campo + '"]');
         if (!input) return;
         input.classList.add('is-invalid');
-        var fb = input.parentElement.querySelector('.invalid-feedback');
+        var group = input.closest('.js-doc-group, .js-tel-group');
+        if (group) {
+          var visible = group.querySelector('.js-doc-numero, .js-tel-numero');
+          if (visible) visible.classList.add('is-invalid');
+        }
+        var wrap = group || input.parentElement;
+        var fb = wrap.querySelector('.invalid-feedback');
         if (fb) fb.textContent = errores[campo];
       });
     }
@@ -380,6 +386,7 @@
         this.toast(Object.keys(err).map(function (k) { return err[k]; }).join(' '), 'danger');
         return;
       }
+      if (window.AdaraContacto) AdaraContacto.sync(form);
       var payload = Object.assign(this.formToJson(form), extraBody || {});
       var btn = form.querySelector('[type="submit"]');
       btn.disabled = true;
@@ -736,6 +743,10 @@
       $('#tituloCliente').textContent = c ? 'Editar Cliente' : 'Nuevo Cliente';
       form.elements.id.value = c ? c.id : '';
       if (c) ['nombre', 'documento', 'telefono', 'domicilio'].forEach(function (k) { form.elements[k].value = c[k] || ''; });
+      if (c && window.AdaraContacto) {
+        AdaraContacto.setDocumento(form.elements.documento, c.documento || '');
+        AdaraContacto.setTelefono(form.elements.telefono, c.telefono || '');
+      }
       bootstrap.Modal.getOrCreateInstance($('#modalCliente')).show();
     }
 

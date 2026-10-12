@@ -76,12 +76,12 @@ final class FacturaController
             if (mb_strlen($nombre) < 2 || mb_strlen($nombre) > 120) {
                 $errores['nombre'] = 'El nombre es obligatorio (2 a 120 caracteres).';
             }
-            $docRaw = post_string('documento', 20);
+            $docRaw = post_documento_compuesto('documento', 20);
             $documento = $docRaw === '' || preg_match('/^[VEJGP]-?$/i', $docRaw) ? null : normalize_documento($docRaw);
             if ($docRaw !== '' && $documento === null && !preg_match('/^[VEJGP]-?$/i', $docRaw)) {
                 $errores['documento'] = 'Documento inválido. Ej.: V-12345678 o J-12345678-9.';
             }
-            $telefono = preg_replace('/[^0-9+\-\s()]/', '', post_string('telefono', 30));
+            $telefono = preg_replace('/[^0-9+\-\s()]/', '', post_telefono_compuesto('telefono', 30));
             if (mb_strlen($telefono) > 20) {
                 $errores['telefono'] = 'Teléfono demasiado largo.';
             }

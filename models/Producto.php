@@ -11,11 +11,92 @@ final class Producto
     ];
     public const UOM_A_UNIDAD = ['KG' => 'kg', 'LTS' => 'litro', 'UND' => 'unidad'];
     public const UNIDAD_A_UOM = ['kg' => 'KG', 'litro' => 'LTS', 'unidad' => 'UND'];
+    public const UNIDADES_SECUNDARIAS = ['Tobos' => 'Tobos', 'Piezas' => 'Piezas', 'Potes' => 'Potes'];
+    /** Tara plástica por empaque (kg). Tobos fija 1 kg; Potes 0.3/0.4/0.6; Piezas sin tara. */
+    public const TARA_FIJA = ['Tobos' => '1.000', 'Piezas' => '0.000'];
+    public const TARA_VARIABLE = ['Potes' => ['0.300', '0.400', '0.600']];
 
     public static function uom(string $codigo): string
     {
         $c = strtoupper($codigo);
         return isset(self::UOM[$c]) ? $c : 'KG';
+    }
+
+    public static function unidadSecundaria(?string $valor): ?string
+    {
+        $v = trim((string) $valor);
+        return isset(self::UNIDADES_SECUNDARIAS[$v]) ? $v : null;
+    }
+
+    /** @return 'fija'|'variable'|'ninguna' */
+    public static function taraModo(?string $unidadSecundaria): string
+    {
+        $sec = self::unidadSecundaria($unidadSecundaria);
+        if ($sec === 'Potes') {
+            return 'variable';
+        }
+        if ($sec === 'Tobos') {
+            return 'fija';
+        }
+        return 'ninguna';
+    }
+
+    /** @return list<string> */
+    public static function taraOpciones(?string $unidadSecundaria): array
+    {
+        $sec = self::unidadSecundaria($unidadSecundaria);
+        if ($sec !== null && isset(self::TARA_VARIABLE[$sec])) {
+            return self::TARA_VARIABLE[$sec];
+        }
+        if ($sec !== null && isset(self::TARA_FIJA[$sec])) {
+            return [self::TARA_FIJA[$sec]];
+        }
+        return ['0.000'];
+    }
+
+    public static function taraUnitaria(?string $unidadSecundaria, mixed $elegida = null): string
+    {
+        $ops = self::taraOpciones($unidadSecundaria);
+        if ($elegida === null || $elegida === '') {
+            return $ops[0];
+        }
+        $miles = is_string($elegida) || is_int($elegida) || is_float($elegida)
+            ? self::aMilesimas(is_string($elegida) ? $elegida : number_format((float) $elegida, 3, '.', ''))
+            : -1;
+        foreach ($ops as $op) {
+            if (self::aMilesimas($op) === $miles) {
+                return $op;
+            }
+        }
+        return $ops[0];
+    }
+
+    public static function taraTotal(int $empaques, string $taraUnitaria): string
+    {
+        return self::desdeMilesimas(max(0, $empaques) * self::aMilesimas($taraUnitaria));
+    }
+
+    /** Peso neto facturable. Null si el bruto no cubre la tara. */
+    public static function pesoNeto(string $bruto, int $empaques, string $taraUnitaria): ?string
+    {
+        $neto = self::aMilesimas($bruto) - max(0, $empaques) * self::aMilesimas($taraUnitaria);
+        return $neto > 0 ? self::desdeMilesimas($neto) : null;
+    }
+
+    /** Texto de inventario: solo queso neto, p. ej. «102,5 KG». */
+    public static function formatoStock(array $p): string
+    {
+        $uom = self::uom((string) ($p['unidad_medida'] ?? ($p['unidad'] ?? 'KG')));
+        $qty = (string) ($p['stock'] ?? '0');
+        $milesimas = self::aMilesimas($qty);
+        $abs = abs($milesimas);
+        $entero = intdiv($abs, 1000);
+        $frac = $abs % 1000;
+        $num = ($milesimas < 0 ? '-' : '') . ($frac === 0
+            ? (string) $entero
+            : rtrim(rtrim(sprintf('%d.%03d', $entero, $frac), '0'), '.'));
+        $num = str_replace('.', ',', $num);
+        return $num . ' ' . $uom;
     }
 
     public function __construct(private PDO $db)
@@ -24,7 +105,7 @@ final class Producto
 
     public function listar(string $q): array
     {
-        $sql = 'SELECT id, codigo, nombre, unidad, unidad_medida, precio_usd, stock, umbral_alerta, activo
+        $sql = 'SELECT id, codigo, nombre, unidad, unidad_medida, unidad_secundaria, precio_usd, stock, stock_secundario, umbral_alerta, activo
                 FROM productos
                 WHERE activo = 1';
         $params = [];
@@ -44,23 +125,24 @@ final class Producto
     public function disponiblesParaVenta(): array
     {
         return $this->db
-            ->query('SELECT id, nombre, unidad, precio_usd, stock FROM productos WHERE activo = 1 AND stock > 0 ORDER BY nombre')
+            ->query('SELECT id, nombre, unidad, unidad_medida, unidad_secundaria, precio_usd, stock, stock_secundario FROM productos WHERE activo = 1 AND stock > 0 ORDER BY nombre')
             ->fetchAll();
     }
 
     public function create(array $data): int
     {
         $stmt = $this->db->prepare(
-            'INSERT INTO productos (codigo, nombre, unidad, unidad_medida, precio_usd, umbral_alerta)
-             VALUES (:codigo, :nombre, :unidad, :unidad_medida, :precio_usd, :umbral_alerta)'
+            'INSERT INTO productos (codigo, nombre, unidad, unidad_medida, unidad_secundaria, precio_usd, umbral_alerta)
+             VALUES (:codigo, :nombre, :unidad, :unidad_medida, :unidad_secundaria, :precio_usd, :umbral_alerta)'
         );
         $stmt->execute([
-            'codigo'         => $data['codigo'],
-            'nombre'         => $data['nombre'],
-            'unidad'         => $data['unidad'],
-            'unidad_medida'  => $data['unidad_medida'] ?? (self::UNIDAD_A_UOM[$data['unidad']] ?? 'KG'),
-            'precio_usd'     => $data['precio_usd'],
-            'umbral_alerta'  => $data['umbral_alerta'],
+            'codigo'             => $data['codigo'],
+            'nombre'             => $data['nombre'],
+            'unidad'             => $data['unidad'],
+            'unidad_medida'      => $data['unidad_medida'] ?? (self::UNIDAD_A_UOM[$data['unidad']] ?? 'KG'),
+            'unidad_secundaria'  => self::unidadSecundaria($data['unidad_secundaria'] ?? null),
+            'precio_usd'         => $data['precio_usd'],
+            'umbral_alerta'      => $data['umbral_alerta'],
         ]);
         return (int) $this->db->lastInsertId();
     }
@@ -69,7 +151,7 @@ final class Producto
      * Bloquea (FOR UPDATE) productos activos en orden de id: ventas, producción y ajustes
      * toman los candados en el mismo orden y así no se provocan deadlocks.
      * @param list<int> $ids
-     * @return array<int, array{id:int, nombre:string, precio_usd:string, stock:string}>
+     * @return array<int, array{id:int, nombre:string, precio_usd:string, stock:string, unidad_secundaria:?string, stock_secundario:int|string}>
      */
     public function bloquearActivos(array $ids): array
     {
@@ -86,7 +168,7 @@ final class Producto
         }
 
         $stmt = $this->db->prepare(
-            'SELECT id, nombre, precio_usd, stock
+            'SELECT id, nombre, precio_usd, stock, unidad_secundaria, stock_secundario
              FROM productos
              WHERE activo = 1 AND id IN (' . implode(', ', $marcas) . ')
              ORDER BY id
@@ -104,7 +186,7 @@ final class Producto
     /** Incluye productos archivados: eliminar necesita verlos. */
     public function bloquear(int $id): ?array
     {
-        $stmt = $this->db->prepare('SELECT id, codigo, nombre, unidad, precio_usd, stock, activo FROM productos WHERE id = :id FOR UPDATE');
+        $stmt = $this->db->prepare('SELECT id, codigo, nombre, unidad, unidad_secundaria, precio_usd, stock, stock_secundario, activo FROM productos WHERE id = :id FOR UPDATE');
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch();
         return $row === false ? null : $row;
@@ -123,6 +205,18 @@ final class Producto
         $stmt->execute(['delta' => $delta, 'id' => $productoId]);
         if ($stmt->rowCount() !== 1) {
             throw new RuntimeException(sprintf('No se pudo ajustar el stock global del producto #%d.', $productoId));
+        }
+    }
+
+    public function sumarStockSecundario(int $productoId, int $delta): void
+    {
+        if ($delta === 0) {
+            return;
+        }
+        $stmt = $this->db->prepare('UPDATE productos SET stock_secundario = stock_secundario + :delta WHERE id = :id AND activo = 1');
+        $stmt->execute(['delta' => $delta, 'id' => $productoId]);
+        if ($stmt->rowCount() !== 1) {
+            throw new RuntimeException(sprintf('No se pudo ajustar el stock de empaques del producto #%d.', $productoId));
         }
     }
 

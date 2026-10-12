@@ -19,16 +19,24 @@ layout_start($editando ? 'Editar productor' : 'Nuevo productor', 'productores');
             <?= field_error($errors, 'nombre') ?>
         </div>
         <div class="field">
-            <label for="documento">Cédula / RIF</label>
-            <input type="text" id="documento" name="documento" maxlength="15" placeholder="V-12345678"
-                   class="<?= field_class($errors, 'documento') ?>" value="<?= e($productor['documento']) ?>">
-            <?= field_error($errors, 'documento') ?>
+            <label for="documentoNum">Cédula / RIF</label>
+            <?php input_group_documento([
+                'name' => 'documento',
+                'id' => 'documento',
+                'value' => $productor['documento'],
+                'class' => field_class($errors, 'documento'),
+                'error_html' => field_error($errors, 'documento'),
+            ]); ?>
         </div>
         <div class="field">
-            <label for="telefono">Teléfono</label>
-            <input type="text" id="telefono" name="telefono" maxlength="20"
-                   class="<?= field_class($errors, 'telefono') ?>" value="<?= e($productor['telefono']) ?>">
-            <?= field_error($errors, 'telefono') ?>
+            <label for="telefonoNum">Teléfono</label>
+            <?php input_group_telefono([
+                'name' => 'telefono',
+                'id' => 'telefono',
+                'value' => $productor['telefono'],
+                'class' => field_class($errors, 'telefono'),
+                'error_html' => field_error($errors, 'telefono'),
+            ]); ?>
         </div>
         <div class="field">
             <label for="correo">Correo</label>

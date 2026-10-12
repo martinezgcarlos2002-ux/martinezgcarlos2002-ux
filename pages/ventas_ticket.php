@@ -55,13 +55,33 @@ $fecha = (new DateTimeImmutable((string) $v['fecha']))->format('d/m/Y H:i');
       </tr>
     </thead>
     <tbody>
-    <?php foreach ($items as $it): ?>
+    <?php foreach ($items as $it):
+        $uSec = Producto::unidadSecundaria(isset($it['unidad_secundaria']) ? (string) $it['unidad_secundaria'] : null);
+        $emp = (int) ($it['cantidad_secundaria'] ?? 0);
+        $bruto = $it['peso_bruto'] ?? null;
+        $taraT = $it['tara_total'] ?? null;
+        $catchW = $uSec !== null && $emp > 0;
+    ?>
+      <?php if ($catchW): ?>
+      <tr class="item-cw">
+        <td colspan="2">
+          <div class="cw-nom"><?= e($it['nombre']) ?></div>
+          <div class="cw-det"><?= $emp ?> <?= e($uSec) ?> | Bruto: <?= e(num($bruto !== null && $bruto !== '' ? $bruto : $it['cantidad'], 3)) ?>kg<?php
+            if ($taraT !== null && $taraT !== '' && Producto::aMilesimas((string) $taraT) > 0):
+          ?> | Tara: <?= e(num($taraT, 3)) ?>kg<?php endif; ?></div>
+          <div class="cw-neto">Neto facturado: <?= e(num($it['cantidad'], 3)) ?>kg</div>
+        </td>
+        <td class="num"><?= e(num($it['precio_unit_usd'])) ?></td>
+        <td class="num"><?= e(num($it['subtotal_usd'])) ?></td>
+      </tr>
+      <?php else: ?>
       <tr>
         <td><?= e(num($it['cantidad'], 3)) ?></td>
         <td><?= e($it['nombre']) ?></td>
         <td class="num"><?= e(num($it['precio_unit_usd'])) ?></td>
         <td class="num"><?= e(num($it['subtotal_usd'])) ?></td>
       </tr>
+      <?php endif; ?>
     <?php endforeach; ?>
     </tbody>
   </table>

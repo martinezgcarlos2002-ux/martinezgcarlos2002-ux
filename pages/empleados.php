@@ -878,9 +878,15 @@ layout_start('Recursos Humanos', 'empleados');
           <?php $err = $formEmpleado ? $errors : []; ?>
           <div class="row g-3">
             <div class="col-md-4">
-              <label class="form-label" for="empCedula">Cédula</label>
-              <input class="form-control <?= field_class($err, 'cedula') ?>" id="empCedula" name="cedula" required maxlength="12" placeholder="V-12345678">
-              <?= field_error($err, 'cedula') ?>
+              <label class="form-label" for="empCedulaNum">Cédula</label>
+              <?php input_group_documento([
+                  'name' => 'cedula',
+                  'id' => 'empCedula',
+                  'required' => true,
+                  'class' => field_class($err, 'cedula'),
+                  'placeholder' => '12345678',
+                  'error_html' => field_error($err, 'cedula'),
+              ]); ?>
             </div>
             <div class="col-md-4">
               <label class="form-label" for="empNombres">Nombres</label>
@@ -913,9 +919,13 @@ layout_start('Recursos Humanos', 'empleados');
               <?= field_error($err, 'cargo') ?>
             </div>
             <div class="col-md-4">
-              <label class="form-label" for="empTelefono">Teléfono</label>
-              <input class="form-control <?= field_class($err, 'telefono') ?>" id="empTelefono" name="telefono" maxlength="20">
-              <?= field_error($err, 'telefono') ?>
+              <label class="form-label" for="empTelefonoNum">Teléfono</label>
+              <?php input_group_telefono([
+                  'name' => 'telefono',
+                  'id' => 'empTelefono',
+                  'class' => field_class($err, 'telefono'),
+                  'error_html' => field_error($err, 'telefono'),
+              ]); ?>
             </div>
             <div class="col-md-2">
               <label class="form-label" for="empSalario">Salario semanal (USD)</label>
@@ -1000,14 +1010,23 @@ layout_start('Recursos Humanos', 'empleados');
               <?= field_error($err, 'banco') ?>
             </div>
             <div class="col-md-6">
-              <label class="form-label" for="empDocPago">Cédula / RIF</label>
-              <input class="form-control <?= field_class($err, 'titular_cedula') ?>" id="empDocPago" name="titular_cedula" maxlength="14" placeholder="V-12345678">
-              <?= field_error($err, 'titular_cedula') ?>
+              <label class="form-label" for="empDocPagoNum">Cédula / RIF</label>
+              <?php input_group_documento([
+                  'name' => 'titular_cedula',
+                  'id' => 'empDocPago',
+                  'class' => field_class($err, 'titular_cedula'),
+                  'placeholder' => '12345678',
+                  'error_html' => field_error($err, 'titular_cedula'),
+              ]); ?>
             </div>
             <div class="col-md-6">
-              <label class="form-label" for="empTelPago">Teléfono (Pago Móvil)</label>
-              <input class="form-control <?= field_class($err, 'titular_telefono') ?>" id="empTelPago" name="titular_telefono" maxlength="20" placeholder="0414-0000000">
-              <?= field_error($err, 'titular_telefono') ?>
+              <label class="form-label" for="empTelPagoNum">Teléfono (Pago Móvil)</label>
+              <?php input_group_telefono([
+                  'name' => 'titular_telefono',
+                  'id' => 'empTelPago',
+                  'class' => field_class($err, 'titular_telefono'),
+                  'error_html' => field_error($err, 'titular_telefono'),
+              ]); ?>
             </div>
             <div class="col-md-6">
               <label class="form-label" for="empNumCuenta">Número de Cuenta</label>

@@ -30,7 +30,11 @@ $cols = $esAdmin ? 7 : 6;
 
 layout_start('Inventario de Productos', 'inventario');
 ?>
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+<div class="inv-print-title">
+  <h1>Inventario de Productos</h1>
+  <p>Stock por cava · <?= e(date('d/m/Y H:i')) ?></p>
+</div>
+<div class="inv-toolbar d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
   <form class="d-flex gap-2" method="get" action="<?= e(base_path() . 'index.php') ?>">
     <input type="hidden" name="p" value="inventario">
     <input type="search" name="q" class="form-control form-control-sm w-search" placeholder="Buscar producto..." value="<?= e($q) ?>" maxlength="60">
@@ -54,12 +58,12 @@ layout_start('Inventario de Productos', 'inventario');
       <thead>
         <tr>
           <th>Producto</th>
-          <th>Estado</th>
+          <th class="inv-no-print">Estado</th>
           <th>Stock total</th>
-          <th>Nivel</th>
+          <th class="inv-no-print">Nivel</th>
           <th>Por almacén</th>
-          <th>Precio</th>
-          <?php if ($esAdmin): ?><th class="text-end">Acciones</th><?php endif; ?>
+          <th class="inv-no-print">Precio</th>
+          <?php if ($esAdmin): ?><th class="inv-col-acciones text-end">Acciones</th><?php endif; ?>
         </tr>
       </thead>
       <tbody>
@@ -86,15 +90,16 @@ layout_start('Inventario de Productos', 'inventario');
             <div class="nombre"><?= e($p['nombre']) ?></div>
             <?php if (!empty($p['codigo'])): ?><div class="codigo"><?= e($p['codigo']) ?></div><?php endif; ?>
           </td>
-          <td><span class="prod-state <?= e($cls) ?>"><?= e($estado) ?></span></td>
+          <td class="inv-no-print"><span class="prod-state <?= e($cls) ?>"><?= e($estado) ?></span></td>
           <td>
             <span class="big-stock"><?= e($fmtQty($stk)) ?></span>
             <?php
               $uomMostrar = Producto::uom((string) ($p['unidad_medida'] ?? (Producto::UNIDAD_A_UOM[$p['unidad']] ?? 'KG')));
+              $uSec = Producto::unidadSecundaria(isset($p['unidad_secundaria']) ? (string) $p['unidad_secundaria'] : null);
             ?>
-            <div class="unit-small"><?= e($unidadCorta[$uomMostrar] ?? $uomMostrar) ?></div>
+            <div class="unit-small"><?= e($unidadCorta[$uomMostrar] ?? $uomMostrar) ?> neto<?php if ($uSec !== null && $uSec !== 'Piezas'): ?> · tara <?= e($uSec) ?><?php endif; ?></div>
           </td>
-          <td>
+          <td class="inv-no-print">
             <div class="stockbar-wrap"><div class="stockbar-fill <?= e($cls) ?> lvl-<?= $pct ?>"></div></div>
             <div class="stockbar-meta"><?= $pct ?>%<?= $umb > 0 ? ' · Mín: ' . e($fmtQty($umb)) : '' ?></div>
           </td>
@@ -113,12 +118,12 @@ layout_start('Inventario de Productos', 'inventario');
               <?php endforeach; ?>
             </div>
           </td>
-          <td class="prices-cell">
+          <td class="prices-cell inv-no-print">
             <div class="usd">$<?= e(num($usd)) ?></div>
             <div class="ves">Bs. <?= $tasa === null ? '—' : e(num($usd * $tasa)) ?></div>
           </td>
           <?php if ($esAdmin): ?>
-          <td class="text-end text-nowrap">
+          <td class="inv-col-acciones text-end text-nowrap">
             <button type="button" class="btn btn-sm btn-outline-primary js-ajuste" data-bs-toggle="modal" data-bs-target="#modalAjuste"
                     data-id="<?= $pid ?>" data-nombre="<?= e($p['nombre']) ?>"
                     data-stock="<?= e(json_encode($stockPorAlmacen[$pid] ?? new stdClass(), JSON_THROW_ON_ERROR)) ?>">Stock</button>
@@ -242,6 +247,16 @@ layout_start('Inventario de Productos', 'inventario');
                   <option value="<?= e($valor) ?>"<?= $valor === 'KG' ? ' selected' : '' ?>><?= e($etiqueta) ?></option>
                 <?php endforeach; ?>
               </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label" for="unidad_secundaria">Empaque (catch weight)</label>
+              <select id="unidad_secundaria" name="unidad_secundaria" class="form-select">
+                <option value="">Ninguno (peso fijo)</option>
+                <?php foreach (Producto::UNIDADES_SECUNDARIAS as $sec): ?>
+                  <option value="<?= e($sec) ?>"><?= e($sec) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <div class="form-text">Tobos y potes no son stock: se restan del bruto (1 kg/tobo; 0,3 / 0,4 / 0,6 kg/pote). El inventario guarda solo el queso neto.</div>
             </div>
           </div>
           <?php if ($esAdmin && $almacenes !== []): ?>

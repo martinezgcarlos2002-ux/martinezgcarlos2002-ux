@@ -11,8 +11,8 @@ header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
 header('Cache-Control: no-store, private');
 header(sprintf(
-    "Content-Security-Policy: default-src 'self'; img-src 'self' data:; font-src 'self' %1\$s; "
-    . "style-src 'self' %1\$s; script-src 'self' %1\$s 'nonce-%2\$s'; connect-src 'self'; "
+    "Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; font-src 'self' %1\$s; "
+    . "style-src 'self' %1\$s; style-src-attr 'unsafe-inline'; script-src 'self' %1\$s 'nonce-%2\$s'; connect-src 'self'; "
     . "form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
     CDN_ORIGIN,
     csp_nonce()

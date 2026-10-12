@@ -43,6 +43,7 @@ function layout_start(string $title, string $active = ''): void
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_CSS['integrity']) ?>" crossorigin="anonymous">
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_ICONS_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_ICONS_CSS['integrity']) ?>" crossorigin="anonymous">
 <link rel="stylesheet" href="<?= e(asset_v('css/adara.css')) ?>">
+<script src="<?= e(asset_v('js/contacto.js')) ?>" nonce="<?= e(csp_nonce()) ?>"></script>
 </head>
 <body class="<?= $user ? 'app' : 'auth' ?>">
 <?php if ($user): ?>
@@ -87,8 +88,12 @@ if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.class
     </div>
   </div>
 </div>
+<div class="sidebar-overlay" id="sidebarOverlay" hidden></div>
 <div class="main-wrap">
   <div class="topbar">
+    <button type="button" class="btn-menu-movil" id="btnMenuMovil" aria-label="Abrir menú" aria-controls="appSidebar">
+      <i class="bi bi-list"></i>
+    </button>
     <h5><?= e($title) ?></h5>
     <div class="d-flex align-items-center gap-3">
       <div class="dropdown">
@@ -221,10 +226,40 @@ window.addEventListener('load', function () { document.getElementById('formAutoR
 <?php endif; ?>
 <script nonce="<?= e(csp_nonce()) ?>">
 (function () {
+  var sidebar = document.getElementById('appSidebar');
+  var overlay = document.getElementById('sidebarOverlay');
+  var btnMovil = document.getElementById('btnMenuMovil');
+  function esMovil() { return window.matchMedia('(max-width: 768px)').matches; }
+  function cerrarMenuMovil() {
+    document.body.classList.remove('sidebar-abierto');
+    if (sidebar) sidebar.classList.remove('activo');
+    if (overlay) overlay.hidden = true;
+  }
+  function abrirMenuMovil() {
+    document.body.classList.add('sidebar-abierto');
+    if (sidebar) sidebar.classList.add('activo');
+    if (overlay) overlay.hidden = false;
+  }
   document.getElementById('sidebarToggle').addEventListener('click', function () {
+    if (esMovil()) {
+      if (sidebar && sidebar.classList.contains('activo')) cerrarMenuMovil();
+      else abrirMenuMovil();
+      return;
+    }
     var collapsed = document.body.classList.toggle('sidebar-collapsed');
     localStorage.setItem('adara_sidebar_collapsed', collapsed ? '1' : '0');
   });
+  if (btnMovil) btnMovil.addEventListener('click', function () {
+    if (sidebar && sidebar.classList.contains('activo')) cerrarMenuMovil();
+    else abrirMenuMovil();
+  });
+  if (overlay) overlay.addEventListener('click', cerrarMenuMovil);
+  if (sidebar) {
+    sidebar.querySelectorAll('.nav-link').forEach(function (a) {
+      a.addEventListener('click', function () { if (esMovil()) cerrarMenuMovil(); });
+    });
+  }
+  window.addEventListener('resize', function () { if (!esMovil()) cerrarMenuMovil(); });
 
   var reloj = document.getElementById('relojTop');
   function pad(n) { return String(n).padStart(2, '0'); }

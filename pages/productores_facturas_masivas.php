@@ -18,6 +18,7 @@ foreach ($productores as $p) {
 
 layout_start('Facturas masivas — Productores', 'productores');
 ?>
+<link rel="stylesheet" href="<?= e(asset_v('css/reportes.css')) ?>">
 <div class="fm-bar d-flex flex-wrap align-items-center gap-2 p-3 mb-3">
   <form class="d-flex flex-wrap align-items-center gap-2" method="get" action="<?= e(base_path() . 'index.php') ?>">
     <input type="hidden" name="p" value="productores_facturas_masivas">
@@ -40,22 +41,26 @@ layout_start('Facturas masivas — Productores', 'productores');
   <button type="button" class="btn btn-sm btn-outline-secondary" id="fmExcluir">Excluir todos</button>
   <span class="badge rounded-pill fm-count"><span id="fmCount"><?= count($productores) ?></span> seleccionados</span>
   <div class="ms-md-auto d-flex flex-wrap gap-2">
-    <button type="submit" form="formLiquidaciones" class="btn btn-sm btn-dark" <?= $productores === [] ? 'disabled' : '' ?>><i class="bi bi-printer"></i> Imprimir todas</button>
-    <button type="button" class="btn btn-sm btn-danger" id="fmZipPdf" <?= $productores === [] ? 'disabled' : '' ?>><i class="bi bi-file-earmark-pdf"></i> Descargar PDFs (ZIP)</button>
-    <button type="button" class="btn btn-sm btn-success" id="fmZipImg" <?= $productores === [] ? 'disabled' : '' ?>><i class="bi bi-images"></i> Descargar Imágenes (ZIP)</button>
+    <button type="submit" form="formLiquidaciones" class="btn btn-sm btn-dark" <?= $productores === [] ? 'disabled' : '' ?>><i class="bi bi-printer"></i> Imprimir / Guardar PDF</button>
+    <button type="button" class="btn btn-sm btn-success" id="fmZipImg" data-label="📥 Descargar Imágenes (ZIP)" <?= $productores === [] ? 'disabled' : '' ?>>📥 Descargar Imágenes (ZIP)</button>
   </div>
 </div>
 
 <p class="text-muted small mb-2">
   <?= count($productores) ?> productores con entregas entre <?= e((new DateTimeImmutable($desde))->format('d/m/Y')) ?> y <?= e((new DateTimeImmutable($hasta))->format('d/m/Y')) ?>:
   <strong><?= e(num($totLitros, 1)) ?> L</strong> por <strong>$<?= e(num($totMonto)) ?></strong>.
+  <span class="d-block mt-1"><strong>Imprimir / Guardar PDF</strong> abre el HTML plano y el diálogo de impresión. <strong>Descargar Imágenes</strong> genera un ZIP en cola (una liquidación a la vez) para no congelar el navegador.</span>
 </p>
 
 <?php if ($productores === []): ?>
   <div class="card"><div class="card-body text-center text-muted py-4">No hay entregas en el período seleccionado.</div></div>
 <?php else: ?>
-<form method="get" action="<?= e(base_path() . 'index.php') ?>" id="formLiquidaciones" target="_blank">
-<input type="hidden" name="p" value="productores_liquidacion">
+<form method="post" action="<?= e(url('productores_impresion_masiva')) ?>" id="formLiquidaciones" target="_blank"
+      data-html-url="<?= e(url('productores_liquidacion_html')) ?>"
+      data-desde="<?= e($desde) ?>"
+      data-hasta="<?= e($hasta) ?>">
+<?= csrf_field() ?>
+<input type="hidden" name="autoprint" value="1">
 <input type="hidden" name="desde" value="<?= e($desde) ?>">
 <input type="hidden" name="hasta" value="<?= e($hasta) ?>">
 <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-2" id="fmGrid">
@@ -75,86 +80,24 @@ layout_start('Facturas masivas — Productores', 'productores');
   <?php endforeach; ?>
 </div>
 </form>
-<form method="post" action="<?= e(url('productores_facturas_zip')) ?>" id="formZip" class="d-none">
-  <?= csrf_field() ?>
-  <input type="hidden" name="desde" value="<?= e($desde) ?>">
-  <input type="hidden" name="hasta" value="<?= e($hasta) ?>">
-  <input type="hidden" name="grupo" value="<?= e($grupo) ?>">
-  <input type="hidden" name="formato" id="fmZipFormato" value="pdf">
-  <div id="fmZipIds"></div>
-</form>
+<div id="fmZipStage" aria-hidden="true"></div>
+<div class="modal fade" id="fmZipModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="fmZipStatus" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <div class="fw-semibold mb-3" id="fmZipStatus">Generando imágenes... 0%</div>
+        <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar bg-success" id="fmZipBar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" nonce="<?= e(csp_nonce()) ?>"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" nonce="<?= e(csp_nonce()) ?>"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js" nonce="<?= e(csp_nonce()) ?>"></script>
+<script src="<?= e(asset_v('js/facturas_masivas.js')) ?>" nonce="<?= e(csp_nonce()) ?>"></script>
 <?php endif; ?>
 
-<script nonce="<?= e(csp_nonce()) ?>">
-(function () {
-  var grid = document.getElementById('fmGrid');
-  var count = document.getElementById('fmCount');
-  var formLiq = document.getElementById('formLiquidaciones');
-  var formZip = document.getElementById('formZip');
-  if (!grid || !formLiq) return;
-
-  formLiq.addEventListener('submit', function (ev) {
-    if (!grid.querySelector('input:checked')) {
-      ev.preventDefault();
-      window.alert('Selecciona al menos un productor.');
-    }
-  });
-
-  function sync() {
-    var n = 0;
-    grid.querySelectorAll('.fm-card').forEach(function (card) {
-      var on = card.querySelector('input').checked;
-      card.classList.toggle('is-out', !on);
-      if (on) n += 1;
-    });
-    count.textContent = String(n);
-  }
-
-  function idsSeleccionados() {
-    return Array.prototype.map.call(grid.querySelectorAll('input:checked'), function (el) { return el.value; });
-  }
-
-  function enviarZip(formato) {
-    if (!formZip) return;
-    var ids = idsSeleccionados();
-    if (!ids.length) {
-      window.alert('Selecciona al menos un productor.');
-      return;
-    }
-    var caja = document.getElementById('fmZipIds');
-    caja.replaceChildren();
-    ids.forEach(function (id) {
-      var input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'ids[]';
-      input.value = id;
-      caja.appendChild(input);
-    });
-    document.getElementById('fmZipFormato').value = formato;
-    formZip.submit();
-  }
-
-  document.getElementById('fmIncluir').addEventListener('click', function () {
-    grid.querySelectorAll('input').forEach(function (input) { input.checked = true; });
-    sync();
-  });
-  document.getElementById('fmExcluir').addEventListener('click', function () {
-    grid.querySelectorAll('input').forEach(function (input) { input.checked = false; });
-    sync();
-  });
-  var btnPdf = document.getElementById('fmZipPdf');
-  var btnImg = document.getElementById('fmZipImg');
-  if (btnPdf) btnPdf.addEventListener('click', function () { enviarZip('pdf'); });
-  if (btnImg) btnImg.addEventListener('click', function () { enviarZip('img'); });
-  grid.addEventListener('change', sync);
-  grid.addEventListener('click', function (ev) {
-    var btn = ev.target.closest('[data-excluir]');
-    if (!btn) return;
-    btn.closest('.fm-card').querySelector('input').checked = false;
-    sync();
-  });
-  sync();
-})();
-</script>
 <?php
 layout_end();

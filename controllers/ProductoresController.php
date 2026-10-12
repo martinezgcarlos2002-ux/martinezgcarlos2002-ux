@@ -386,11 +386,17 @@ final class ProductoresController
             $documentos[] = $this->datosLiquidacion($productor, $desde, $hasta);
         }
 
+        $tasaValor = is_array($tasa) ? ($tasa['tasa'] ?? null) : null;
         try {
-            LiquidacionArchivo::zip($documentos, $desde, $hasta, $formato, is_array($tasa) ? ($tasa['tasa'] ?? null) : null);
+            if ($formato === 'pdf') {
+                LiquidacionArchivo::consolidado($documentos, $desde, $hasta, $tasaValor);
+            }
+            LiquidacionArchivo::zip($documentos, $desde, $hasta, $formato, $tasaValor);
         } catch (Throwable $e) {
-            error_log('[ADARA] ZIP liquidaciones: ' . $e->getMessage());
-            flash('error', 'No se pudo generar el ZIP. Revisa que PHP tenga ZipArchive o espacio temporal.');
+            error_log('[ADARA] liquidaciones masivas: ' . $e->getMessage());
+            flash('error', $formato === 'pdf'
+                ? 'No se pudo generar el PDF. Usa «Imprimir todas» para exportarlo desde el navegador.'
+                : 'No se pudo generar el ZIP. Revisa que PHP tenga ZipArchive o espacio temporal.');
             redirect('productores_facturas_masivas', $volver);
         }
     }
@@ -872,46 +878,50 @@ final class ProductoresController
      */
     public function liquidacionPdf(): void
     {
-        $ids = $_GET['ids'] ?? ($_GET['id'] ?? null);
-        $ids = array_slice(array_values(array_unique(array_filter(array_map(
-            static fn ($v) => parse_int_range($v, 1, PHP_INT_MAX),
-            is_array($ids) ? $ids : [$ids]
-        )))), 0, 200);
-        if ($ids === []) {
-            render_not_found();
-            exit;
-        }
-
-        // Con ?semana= el período es el ciclo del primer productor; los demás se liquidan en ese mismo rango.
-        $semana = parse_date(self::queryString('semana', 10));
-        $productores = array_values(array_filter(array_map(fn (int $pid): ?array => $this->productores->find($pid), $ids)));
-        if ($productores === []) {
-            render_not_found();
-            exit;
-        }
-        if ($semana !== null) {
-            $desde = CierreSemanal::semanaDe($semana, CierreSemanal::diaCierreValido($productores[0]['dia_cierre']));
-            $hasta = CierreSemanal::finDe($desde);
-        } else {
-            [$desde, $hasta] = self::rango($_GET['desde'] ?? null, $_GET['hasta'] ?? null, date('Y-m-01'));
-        }
-
-        $tasa = TasaCambio::vigenteEn(get_db(), date('Y-m-d H:i:s'));
-        $documentos = [];
-        foreach ($productores as $productor) {
-            $documentos[] = $this->datosLiquidacion($productor, $desde, $hasta);
-        }
-        if ($documentos === []) {
+        $pack = $this->documentosDesdeRequest();
+        if ($pack === null) {
             render_not_found();
             exit;
         }
 
         view('productores_liquidacion', [
-            'documentos' => $documentos,
-            'desde'      => $desde,
-            'hasta'      => $hasta,
-            'tasa'       => $tasa['tasa'] ?? null,
-            'emitida'    => date('Y-m-d H:i'),
+            'documentos' => $pack['documentos'],
+            'desde'      => $pack['desde'],
+            'hasta'      => $pack['hasta'],
+            'tasa'       => $pack['tasa'],
+            'emitida'    => $pack['emitida'],
+            'autoprint'  => isset($_POST['autoprint']) || isset($_GET['autoprint']),
+        ]);
+    }
+
+    /**
+     * HTML consolidado de las liquidaciones seleccionadas (JSON) para la cola ZIP del navegador.
+     */
+    public function liquidacionHtml(): void
+    {
+        if (!wants_json()) {
+            json_response(406, ['ok' => false, 'errores' => ['general' => 'Se espera Accept: application/json.']]);
+        }
+
+        $pack = $this->documentosDesdeRequest();
+        if ($pack === null) {
+            json_response(422, ['ok' => false, 'errores' => ['general' => 'Selecciona al menos un productor válido.']]);
+        }
+
+        $items = [];
+        foreach ($pack['documentos'] as $doc) {
+            $items[] = [
+                'nombre'  => (string) $doc['productor']['nombre'],
+                'archivo' => LiquidacionArchivo::nombrePng($doc),
+            ];
+        }
+
+        json_response(200, [
+            'ok'    => true,
+            'html'  => $this->htmlLiquidaciones($pack),
+            'items' => $items,
+            'desde' => $pack['desde'],
+            'hasta' => $pack['hasta'],
         ]);
     }
 
@@ -956,6 +966,90 @@ final class ProductoresController
 
         flash('success', sprintf('Tasa BCV registrada: 1 USD = Bs. %s, vigente desde hoy (#%d).', num($tasa, 4), $id));
         redirect($page, $query);
+    }
+
+    /**
+     * @return array{documentos: list<array>, desde: string, hasta: string, tasa: ?string, emitida: string}|null
+     */
+    private function documentosDesdeRequest(): ?array
+    {
+        $ids = $_POST['ids'] ?? $_GET['ids'] ?? ($_GET['id'] ?? null);
+        if (is_string($ids) && str_starts_with(trim($ids), '[')) {
+            try {
+                $decoded = json_decode($ids, true, 8, JSON_THROW_ON_ERROR);
+                $ids = is_array($decoded) ? $decoded : [$ids];
+            } catch (JsonException) {
+                $ids = [$ids];
+            }
+        }
+        $ids = array_slice(array_values(array_unique(array_filter(array_map(
+            static fn ($v) => parse_int_range($v, 1, PHP_INT_MAX),
+            is_array($ids) ? $ids : [$ids]
+        )))), 0, 200);
+        if ($ids === []) {
+            return null;
+        }
+
+        $semana = parse_date(self::queryString('semana', 10));
+        $productores = array_values(array_filter(array_map(fn (int $pid): ?array => $this->productores->find($pid), $ids)));
+        if ($productores === []) {
+            return null;
+        }
+        if ($semana !== null) {
+            $desde = CierreSemanal::semanaDe($semana, CierreSemanal::diaCierreValido($productores[0]['dia_cierre']));
+            $hasta = CierreSemanal::finDe($desde);
+        } else {
+            [$desde, $hasta] = self::rango(
+                $_POST['desde'] ?? $_GET['desde'] ?? null,
+                $_POST['hasta'] ?? $_GET['hasta'] ?? null,
+                date('Y-m-01')
+            );
+        }
+
+        $tasa = TasaCambio::vigenteEn(get_db(), date('Y-m-d H:i:s'));
+        $documentos = [];
+        foreach ($productores as $productor) {
+            $documentos[] = $this->datosLiquidacion($productor, $desde, $hasta);
+        }
+        if ($documentos === []) {
+            return null;
+        }
+
+        return [
+            'documentos' => $documentos,
+            'desde'      => $desde,
+            'hasta'      => $hasta,
+            'tasa'       => is_array($tasa) ? ($tasa['tasa'] ?? null) : null,
+            'emitida'    => date('Y-m-d H:i'),
+        ];
+    }
+
+    /** @param array{documentos: list<array>, desde: string, hasta: string, tasa: ?string, emitida: string} $pack */
+    private function htmlLiquidaciones(array $pack): string
+    {
+        $documentos = $pack['documentos'];
+        $desde = $pack['desde'];
+        $hasta = $pack['hasta'];
+        $tasa = $pack['tasa'];
+        $emitida = $pack['emitida'];
+        $empresaRif = defined('APP_RIF') ? APP_RIF : 'V-286013356';
+        $fecha = static fn (string $f): string => (new DateTimeImmutable($f))->format('d/m/Y');
+        $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
+        $tiposPago = PagoProductor::ETIQUETAS;
+        $conTasa = $tasa !== null && (float) $tasa > 0;
+        $usd = static fn (mixed $v, int $d = 2): string => ((float) $v < 0 ? '-' : '') . '$' . num(abs((float) $v), $d);
+        $bs = static fn (mixed $usdV): string => 'Bs. ' . num((float) $usdV * (float) $tasa);
+        $logoSrc = asset_v(LOGO_EMPRESA);
+
+        $html = '';
+        foreach ($documentos as $doc) {
+            ob_start();
+            require ADARA_ROOT . '/pages/partials/liquidacion_doc.php';
+            $cuerpo = (string) ob_get_clean();
+            $html .= '<div class="fm-doc-item" data-archivo="' . e(LiquidacionArchivo::nombrePng($doc)) . '">'
+                . $cuerpo . '</div>';
+        }
+        return $html;
     }
 
     /** @return array{productor:array, numero:string, entregas:list<array>, pagos:list<array>, litros:string, facturado_usd:string, pagado_usd:string, saldo_usd:string, precio_promedio:?string} */
@@ -1455,15 +1549,15 @@ final class ProductoresController
             $errors['nombre'] = 'El nombre debe tener entre 2 y 120 caracteres.';
         }
 
-        $documento = post_string('documento', 30);
+        $documentoRaw = post_documento_compuesto('documento', 30);
+        $telefono = post_telefono_compuesto('telefono', 30);
+        $documento = $documentoRaw;
         if ($documento !== '') {
             $documento = normalize_documento($documento);
             if ($documento === null) {
                 $errors['documento'] = 'Formato inválido. Ej.: V-12345678 o J-12345678-9.';
             }
         }
-
-        $telefono = post_string('telefono', 30);
         if ($telefono !== '' && !preg_match('/^[0-9+\-\s()]{7,20}$/', $telefono)) {
             $errors['telefono'] = 'Teléfono inválido (7 a 20 dígitos).';
         }
@@ -1504,6 +1598,8 @@ final class ProductoresController
         }
 
         if ($errors) {
+            $_POST['documento'] = $documentoRaw;
+            $_POST['telefono'] = $telefono;
             throw new ValidationException($errors);
         }
 

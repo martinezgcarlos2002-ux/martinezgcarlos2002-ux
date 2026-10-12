@@ -141,6 +141,10 @@
       form.action = modal.getAttribute(editar ? 'data-action-editar' : 'data-action-nuevo');
       document.getElementById('tituloEmpleado').textContent = editar ? 'Editar empleado' : 'Nuevo Empleado';
       Object.keys(campos).forEach(function (id) { document.getElementById(id).value = d[campos[id]] || ''; });
+      if (window.AdaraContacto) {
+        AdaraContacto.setDocumento('empCedula', d.cedula || '');
+        AdaraContacto.setTelefono('empTelefono', d.telefono || '');
+      }
       document.getElementById('empSalario').value = d.salario_semanal_usd || d.salario_semanal || '0';
       document.getElementById('empLibres').value = d.dias_libres_mes !== undefined ? d.dias_libres_mes : 2;
       var propia = d.tipo_cuenta !== 'tercero';
@@ -149,6 +153,10 @@
       document.getElementById('empBanco').value = d.banco || '';
       document.getElementById('empDocPago').value = d.titular_cedula || '';
       document.getElementById('empTelPago').value = d.titular_telefono || '';
+      if (window.AdaraContacto) {
+        AdaraContacto.setDocumento('empDocPago', d.titular_cedula || '');
+        AdaraContacto.setTelefono('empTelPago', d.titular_telefono || '');
+      }
       document.getElementById('empNumCuenta').value = d.numero_cuenta || '';
       document.getElementById('empPenal').checked = d.expediente_penal === true || d.expediente_penal === '1';
       document.getElementById('empEstado').value = d.activo === false || d.activo === '0' ? '0' : '1';

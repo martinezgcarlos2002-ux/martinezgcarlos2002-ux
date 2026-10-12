@@ -211,8 +211,8 @@ layout_start('Control de Facturas', 'facturas');
       <div class="modal-body row g-3">
         <input type="hidden" name="id">
         <div class="col-12"><label class="form-label" for="cliNombre">Nombre <span class="text-danger">*</span></label><input class="form-control" id="cliNombre" name="nombre" maxlength="120" required><div class="invalid-feedback"></div></div>
-        <div class="col-12"><label class="form-label" for="cliDoc">Documento (RIF/CI)</label><input class="form-control" id="cliDoc" name="documento" maxlength="20" placeholder="V-12345678 o J-12345678-9"><div class="invalid-feedback"></div></div>
-        <div class="col-12"><label class="form-label" for="cliTel">Teléfono</label><input class="form-control" id="cliTel" name="telefono" maxlength="20"><div class="invalid-feedback"></div></div>
+        <div class="col-12"><label class="form-label" for="cliDocNum">Documento (RIF/CI)</label><?php input_group_documento(['name' => 'documento', 'id' => 'cliDoc', 'error_html' => '<div class="invalid-feedback"></div>']); ?></div>
+        <div class="col-12"><label class="form-label" for="cliTelNum">Teléfono</label><?php input_group_telefono(['name' => 'telefono', 'id' => 'cliTel', 'error_html' => '<div class="invalid-feedback"></div>']); ?></div>
         <div class="col-12"><label class="form-label" for="cliDom">Domicilio</label><input class="form-control" id="cliDom" name="domicilio" maxlength="160" placeholder="Ej: Av. Bolívar, local 5, Santaella…"><div class="invalid-feedback"></div></div>
       </div>
       <div class="modal-footer"><button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancelar</button><button type="submit" class="btn btn-warning rounded-pill"><i class="bi bi-save"></i> Guardar</button></div>

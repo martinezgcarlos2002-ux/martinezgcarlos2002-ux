@@ -307,6 +307,7 @@ label.check { display: flex; align-items: center; gap: .5rem; margin-top: 2rem; 
 .alm-chip.has { background: linear-gradient(135deg, #fff8d6, #fff); }
 .alm-chip.zero { border-color: #cfc7b2; background: #f5f5f5; }
 .alm-chip.zero .val { color: #a99e7c; }
+.inv-print-title { display: none; }
 
 /* ── Producción diaria ───────────────────────────────────────────────── */
 .prod-kicker { margin: 0; color: #64748b; font-size: .8rem; }
@@ -337,6 +338,34 @@ label.check { display: flex; align-items: center; gap: .5rem; margin-top: 2rem; 
 .btn-dist:hover { background: #ea6c0c; border-color: #ea6c0c; color: #fff; }
 .btn-stock { color: #a16207; border-color: #eab308; background: #fff; }
 .btn-stock:hover { background: #fef9c3; color: #854d0e; }
+.cw-inputs { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 7.5rem; }
+.cw-lbl { margin: 0; color: #64748b; font-size: .62rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.cw-inputs .inp-emp, .cw-inputs .inp-cant, .cw-inputs .inp-bruto, .cw-inputs .js-tara { width: 100%; }
+.cw-hint { color: #7a6238; font-size: .68rem; font-weight: 600; }
+.cw-neto { color: #1c7430; font-size: .72rem; font-weight: 800; }
+.cw-neto.is-bad { color: #a71d2a; }
+.btn-menu-movil {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--navy);
+    font-size: 1.35rem;
+    line-height: 1;
+}
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    background: rgba(15, 23, 42, .5);
+}
+body.sidebar-abierto .sidebar-overlay { display: block; }
 .btn-pdf { color: #b45309; border-color: #fdba74; background: #fff; }
 .btn-pdf:hover { background: #ffedd5; color: #9a3412; }
 .btn-mes { color: #7c3aed; border-color: #c4b5fd; background: #fff; }
@@ -446,6 +475,8 @@ label.check { display: flex; align-items: center; gap: .5rem; margin-top: 2rem; 
 .w-estado { width: 120px; max-width: 100%; }
 .w-semana { width: 11rem; max-width: 100%; }
 .w-fecha { width: 10.5rem; max-width: 100%; }
+.js-doc-group .js-doc-prefijo { max-width: 4.75rem; flex: 0 0 4.75rem; }
+.js-tel-group .js-tel-codigo { max-width: 7.25rem; flex: 0 0 7.25rem; }
 .inp-litros { width: 5.6rem; }
 .inp-precio-l { width: 6.2rem; }
 .inp-celda { width: 3.7rem; max-width: 100%; padding-left: .2rem; padding-right: .2rem; }
@@ -504,6 +535,16 @@ label.check { display: flex; align-items: center; gap: .5rem; margin-top: 2rem; 
 }
 .fm-card.is-out { opacity: .45; background: #f5f5f5; }
 .fm-card.is-out .fm-nombre { text-decoration: line-through; }
+#fmZipStage {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 860px;
+  z-index: -1;
+  opacity: 0.02;
+  pointer-events: none;
+}
+#fmZipStage .doc { margin: 0; box-shadow: none; }
 .nota-arrastre { color: #b45309; font-size: .68rem; line-height: 1.2; }
 .nota-favor { color: #15803d; font-size: .75rem; font-weight: 700; }
 
@@ -561,21 +602,54 @@ tr.collapse.show { display: table-row; }
 .inp-cc { width: 6.5rem; }
 .dropdown-prods { max-height: 16rem; overflow-y: auto; }
 
-/* ── Móvil ───────────────────────────────────────────────────────────── */
-@media (max-width: 767.98px) {
-    .sidebar, body.sidebar-collapsed .sidebar { position: static; width: 100%; height: auto; }
-    .sidebar-toggle, .sidebar-footer { display: none; }
-    .sidebar-nav { display: flex; overflow-x: auto; overflow-y: hidden; padding: 0; }
-    .sidebar .nav-link { border-left: 0; border-bottom: 3px solid transparent; }
-    .sidebar .nav-link.active { border-bottom-color: var(--orange); }
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ── Móvil (PWA / teléfono) ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .btn-menu-movil { display: inline-flex; }
+    .sidebar-toggle { display: none; }
+    .sidebar,
+    body.sidebar-collapsed .sidebar {
+        width: 80%;
+        max-width: 300px;
+        transform: translateX(-100%);
+        transition: transform .22s ease;
+        z-index: 1050;
+        box-shadow: 8px 0 24px rgba(0, 0, 0, .25);
+    }
+    .sidebar.activo,
+    body.sidebar-abierto .sidebar { transform: translateX(0); }
     body.sidebar-collapsed .sidebar .nav-label { width: auto; opacity: 1; }
-    .main-wrap, body.sidebar-collapsed .main-wrap { margin-left: 0; }
-    .topbar { flex-wrap: wrap; padding: 12px 16px; }
-    .page-content { padding: 16px; }
+    body.sidebar-collapsed .sidebar-brand-logo,
+    body.sidebar-collapsed .sidebar-brand-text,
+    body.sidebar-collapsed .sidebar-footer-text { display: block; }
+    .main-wrap,
+    body.sidebar-collapsed .main-wrap { margin-left: 0 !important; }
+    .topbar { flex-wrap: nowrap; padding: 10px 12px; gap: .5rem; }
+    .topbar h5 { font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .topbar .rate-pill, .topbar-clock { display: none; }
+    .page-content { padding: 12px; }
     .grid-entrega, .form-grid { grid-template-columns: 1fr; }
     .form-grid .span-2 { grid-column: auto; }
     .filters input[type=text] { width: 100%; }
-    .w-filtro, .w-tipo, .w-estado, .w-semana, .w-fecha { width: 100%; }
+    .w-filtro, .w-tipo, .w-estado, .w-semana, .w-fecha, .w-search { width: 100% !important; max-width: 100%; }
+
+    .inv-toolbar, .prod-toolbar, .fm-bar,
+    .inv-toolbar form, .prod-toolbar .d-flex {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+    .inv-toolbar .btn, .prod-toolbar .btn, .fm-bar .btn,
+    .page-content > .d-flex .btn.btn-sm {
+        width: 100%;
+    }
+    .page-content .form-control,
+    .page-content .form-select { width: 100%; max-width: 100%; }
+    .tbl-inv .table, .tbl-prod .table, .table-masiva { min-width: 720px; }
 }
 
 /* ── Control de Facturas ────────────────────────────────────────────── */
@@ -671,3 +745,82 @@ tr.collapse.show { display: table-row; }
 .tabla-libres thead th.dia-alerta { background: #842029; color: #fff; }
 .tabla-libres td.dia-hoy,
 .tabla-libres th.dia-hoy { box-shadow: inset 0 0 0 2px var(--orange); }
+
+/* ── Inventario: impresión limpia (solo producto, stock y cavas) ───── */
+@media print {
+    @page { size: landscape; margin: 10mm; }
+
+    body:has(.tbl-inv) .sidebar,
+    body:has(.tbl-inv) .topbar,
+    body:has(.tbl-inv) .inv-toolbar,
+    body:has(.tbl-inv) .modal,
+    body:has(.tbl-inv) .alert,
+    body:has(.tbl-inv) .inv-no-print,
+    body:has(.tbl-inv) .inv-col-acciones {
+        display: none !important;
+    }
+
+    body:has(.tbl-inv),
+    body:has(.tbl-inv) .main-wrap,
+    body:has(.tbl-inv).sidebar-collapsed .main-wrap,
+    body:has(.tbl-inv) .page-content {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        overflow: visible !important;
+    }
+
+    body:has(.tbl-inv) .inv-print-title {
+        display: block !important;
+        margin: 0 0 12px;
+    }
+    body:has(.tbl-inv) .inv-print-title h1 {
+        margin: 0;
+        color: #3a2410;
+        font-size: 1.25rem;
+        font-weight: 800;
+    }
+    body:has(.tbl-inv) .inv-print-title p {
+        margin: 2px 0 0;
+        color: #7a6238;
+        font-size: .8rem;
+    }
+
+    body:has(.tbl-inv) .tbl-inv {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        overflow: visible;
+    }
+    body:has(.tbl-inv) .tbl-inv .table-responsive {
+        overflow: visible !important;
+        width: 100% !important;
+    }
+    body:has(.tbl-inv) .tbl-inv table {
+        width: 100% !important;
+    }
+    body:has(.tbl-inv) .tbl-inv tbody tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+    body:has(.tbl-inv) .tbl-inv thead th,
+    body:has(.tbl-inv) .alm-chip,
+    body:has(.tbl-inv) .alm-chip.has,
+    body:has(.tbl-inv) .alm-chip.zero {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    body:has(.tbl-inv) .alm-chip {
+        border: 1.5px solid #d4a017;
+        background: #fff8d6;
+    }
+    body:has(.tbl-inv) .alm-chip.zero {
+        border-color: #8a8270;
+        background: #f0eee8;
+    }
+}

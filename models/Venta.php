@@ -142,16 +142,22 @@ final class Venta
         return (int) $this->db->lastInsertId();
     }
 
-    public function addItem(int $ventaId, int $productoId, string $cantidad, string $precioUnitUsd): void
+    public function addItem(int $ventaId, int $productoId, string $cantidad, string $precioUnitUsd, int $empaques = 0, ?string $pesoBruto = null, string $taraUnitaria = '0.000', string $taraTotal = '0.000'): void
     {
         $stmt = $this->db->prepare(
-            'INSERT INTO venta_items (venta_id, producto_id, cantidad, precio_unit_usd)
-             VALUES (:venta_id, :producto_id, :cantidad, :precio_unit_usd)'
+            'INSERT INTO venta_items
+                (venta_id, producto_id, cantidad, cantidad_secundaria, peso_bruto, tara_unitaria, tara_total, precio_unit_usd)
+             VALUES
+                (:venta_id, :producto_id, :cantidad, :empaques, :bruto, :tara_u, :tara_t, :precio_unit_usd)'
         );
         $stmt->execute([
             'venta_id'        => $ventaId,
             'producto_id'     => $productoId,
             'cantidad'        => $cantidad,
+            'empaques'        => max(0, $empaques),
+            'bruto'           => $pesoBruto,
+            'tara_u'          => $taraUnitaria,
+            'tara_t'          => $taraTotal,
             'precio_unit_usd' => $precioUnitUsd,
         ]);
     }
@@ -208,7 +214,8 @@ final class Venta
     public function items(int $ventaId): array
     {
         $stmt = $this->db->prepare(
-            'SELECT p.nombre, i.cantidad, i.precio_unit_usd, i.subtotal_usd
+            'SELECT p.nombre, p.unidad_secundaria, i.cantidad, i.cantidad_secundaria,
+                    i.peso_bruto, i.tara_unitaria, i.tara_total, i.precio_unit_usd, i.subtotal_usd
              FROM venta_items i
              JOIN productos p ON p.id = i.producto_id
              WHERE i.venta_id = :id
@@ -279,11 +286,11 @@ final class Venta
         return (int) $this->db->lastInsertId();
     }
 
-    /** @return list<array{id:int, nombre:string, documento:?string, tipo:string, cxc_cliente_id:?int}> */
+    /** @return list<array{id:int, nombre:string, documento:?string, telefono:?string, direccion:?string, tipo:string, cxc_cliente_id:?int}> */
     public function clientesFrecuentes(): array
     {
         return $this->db->query(
-            "SELECT id, nombre, documento, tipo, cxc_cliente_id
+            "SELECT id, nombre, documento, telefono, direccion, tipo, cxc_cliente_id
              FROM ventas_clientes WHERE tipo = 'frecuente' ORDER BY nombre"
         )->fetchAll();
     }
@@ -304,13 +311,13 @@ final class Venta
         return $row === false ? null : $row;
     }
 
-    public function crearClientePos(string $nombre, ?string $documento, string $tipo = 'frecuente'): int
+    public function crearClientePos(string $nombre, ?string $documento, string $tipo = 'frecuente', ?string $telefono = null, ?string $direccion = null): int
     {
         $stmt = $this->db->prepare(
-            'INSERT INTO ventas_clientes (nombre, documento, tipo) VALUES (:n, :d, :t)'
+            'INSERT INTO ventas_clientes (nombre, documento, telefono, direccion, tipo) VALUES (:n, :d, :tel, :dir, :t)'
         );
         try {
-            $stmt->execute(['n' => $nombre, 'd' => $documento, 't' => $tipo]);
+            $stmt->execute(['n' => $nombre, 'd' => $documento, 'tel' => $telefono, 'dir' => $direccion, 't' => $tipo]);
         } catch (PDOException $e) {
             if (duplicate_key($e) === 'uq_vcli_documento') {
                 throw new ValidationException(['documento' => 'Ya existe un cliente POS con ese documento.']);

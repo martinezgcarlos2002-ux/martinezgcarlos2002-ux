@@ -32,7 +32,7 @@ final class TransporteController
             if (mb_strlen($nombre) < 2 || mb_strlen($nombre) > 120) {
                 throw new ValidationException(['nombre' => 'El nombre es obligatorio (2 a 120 caracteres).']);
             }
-            $docRaw = post_string('documento', 20);
+            $docRaw = post_documento_compuesto('documento', 20);
             $documento = $docRaw === '' ? null : normalize_documento($docRaw);
             if ($documento === null) {
                 throw new ValidationException(['documento' => 'El documento es obligatorio y único. Ej.: V-12345678.']);
@@ -41,7 +41,7 @@ final class TransporteController
             $id = $this->log->guardarTransportista([
                 'nombre'     => $nombre,
                 'documento'  => $documento,
-                'telefono'   => post_string('telefono', 20) ?: null,
+                'telefono'   => post_telefono_compuesto('telefono', 20) ?: null,
                 'modalidad'  => post_string('modalidad', 20),
                 'vehiculos'  => $vehiculos,
             ], self::idOpcional('id'), (int) current_user()['id']);

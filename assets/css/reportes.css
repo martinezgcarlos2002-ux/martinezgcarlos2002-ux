@@ -11,8 +11,10 @@ body.reporte { background: #f0f4fa; font-family: 'Segoe UI', system-ui, sans-ser
 
 .doc { max-width: 860px; margin: 0 auto 40px; background: #fff; border-radius: 14px; box-shadow: 0 4px 28px rgba(0, 0, 0, .12); overflow: hidden; }
 .doc + .doc { page-break-before: always; break-before: page; }
+.salto-pagina { page-break-after: always; break-after: page; }
+.salto-pagina:last-child { page-break-after: auto; break-after: auto; }
 .doc-header { background-color: #1e3a8a; background: #1e3a8a; color: #fff; padding: 28px 40px 22px; }
-.doc-head-brand { display: flex; gap: 16px; align-items: center; }
+.doc-head-brand { vertical-align: middle; }
 .doc-head-meta { text-align: right; vertical-align: top; }
 .info-row td { padding: 0 8px 0 0; vertical-align: top; }
 .info-row td:last-child { padding-right: 0; padding-left: 8px; }
@@ -38,14 +40,14 @@ body.reporte { background: #f0f4fa; font-family: 'Segoe UI', system-ui, sans-ser
 .tabla-doc tfoot td { background: #eef2ff; padding: 9px 12px; font-weight: 700; color: var(--navy); }
 .tabla-doc .dia { color: var(--gris); font-size: .78rem; text-transform: uppercase; }
 
-.resumen-box { background: #f4f7fc; border-radius: 10px; padding: 20px 24px; }
-.resumen-row { display: flex; justify-content: space-between; align-items: center; padding: .4rem 0; border-bottom: 1px solid #dee2e6; font-size: .9rem; }
-.resumen-row:last-child { border-bottom: none; }
+.resumen-box { background: #f4f7fc; border-radius: 10px; width: 100%; border-collapse: collapse; }
+.resumen-row td { padding: .45rem .75rem; border-bottom: 1px solid #dee2e6; font-size: .9rem; }
+.resumen-row:last-child td { border-bottom: none; }
 .resumen-row.total-row { font-size: 1.05rem; font-weight: 700; color: var(--navy); }
-.resumen-row.pagado-verde, .pagado-verde { color: #198754; font-weight: 700; }
-.resumen-row.saldo-row { background: var(--navy); color: #fff; border-radius: 8px; padding: .6rem 1rem; margin-top: .5rem; font-size: 1.1rem; font-weight: 800; }
-.resumen-row.saldo-positivo { background: #dc3545; color: #fff; border-radius: 8px; }
-.resumen-row.saldo-cero { background: #16a34a; }
+.pagado-verde { color: #198754; font-weight: 700; }
+.resumen-row.saldo-row td { background: var(--navy); color: #fff; font-size: 1.1rem; font-weight: 800; }
+.resumen-row.saldo-positivo td { background: #dc3545; color: #fff; }
+.resumen-row.saldo-cero td { background: #16a34a; color: #fff; }
 
 .firma-line { border-top: 1.5px solid #b0b8c8; padding-top: 6px; margin-top: 44px; font-size: .8rem; color: var(--gris); text-align: center; }
 .firma-line small { color: #aaa; }
@@ -73,6 +75,8 @@ body.notaria { background: #fff; font-family: Arial, Helvetica, sans-serif; colo
 @media print {
     .no-print { display: none !important; }
     body.reporte { background: #fff; }
+    .salto-pagina { page-break-after: always; break-after: page; }
+    .salto-pagina:last-child { page-break-after: auto; break-after: auto; }
     .doc { box-shadow: none; border-radius: 0; margin: 0; max-width: 100%; }
     .doc-body, .doc-header { padding: 18px 22px; }
     .doc-header, .tabla-doc thead th, .tabla-doc tbody tr:nth-child(even), .tabla-doc tfoot td,
