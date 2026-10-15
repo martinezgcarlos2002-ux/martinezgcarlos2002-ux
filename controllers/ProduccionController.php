@@ -163,8 +163,9 @@ final class ProduccionController
 
         try {
             $plan = $this->validarDistribucion();
+            $planSec = $this->validarDistribucionSecundaria();
 
-            $detalle = Database::transaction(function () use ($fecha, $plan, $userId): array {
+            $detalle = Database::transaction(function () use ($fecha, $plan, $planSec, $userId): array {
                 $producciones = $this->produccion->bloquearParaDistribuir($fecha, array_keys($plan));
                 $almacenIds = array_values(array_unique(array_merge(...array_map('array_keys', array_values($plan)))));
                 $almacenes = $this->almacenes->bloquearActivos($almacenIds);
@@ -207,10 +208,38 @@ final class ProduccionController
                     if (!isset($productos[$productoId])) {
                         throw new ValidationException(["p$productoId" => sprintf('El producto #%d está archivado: no puede recibir stock.', $productoId)]);
                     }
+                    $uSec = Producto::unidadSecundaria(isset($productos[$productoId]['unidad_secundaria']) ? (string) $productos[$productoId]['unidad_secundaria'] : null);
+                    $restanteEmp = (int) ($producciones[$produccionId]['cantidad_secundaria'] ?? 0) - (int) ($producciones[$produccionId]['distribuido_secundario'] ?? 0);
+                    $restanteKg = Producto::aMilesimas((string) $producciones[$produccionId]['pendiente']);
+                    $totalKg = Producto::aMilesimas((string) $producciones[$produccionId]['cantidad']);
+                    $totalEmp = (int) ($producciones[$produccionId]['cantidad_secundaria'] ?? 0);
                     foreach ($porAlmacen as $almacenId => $cantidad) {
-                        $distId = $this->produccion->registrarDistribucion($produccionId, $almacenId, $cantidad, $userId, 0);
+                        $kgM = Producto::aMilesimas($cantidad);
+                        $empaquesDist = 0;
+                        if ($uSec !== null) {
+                            $publicado = $planSec[$produccionId][$almacenId] ?? null;
+                            if ($publicado !== null) {
+                                $empaquesDist = $publicado;
+                            } elseif ($kgM >= $restanteKg) {
+                                $empaquesDist = max(0, $restanteEmp);
+                            } else {
+                                $empaquesDist = self::empaquesProporcionales($kgM, $totalKg, $totalEmp);
+                                if ($empaquesDist > $restanteEmp) {
+                                    $empaquesDist = max(0, $restanteEmp);
+                                }
+                            }
+                            if ($empaquesDist > $restanteEmp) {
+                                throw new ValidationException(["pd$produccionId" => sprintf(
+                                    'Producción #%d: los empaques a distribuir superan los %d pendientes.',
+                                    $produccionId,
+                                    max(0, $restanteEmp)
+                                )]);
+                            }
+                        }
+                        $distId = $this->produccion->registrarDistribucion($produccionId, $almacenId, $cantidad, $userId, $empaquesDist);
                         $this->productos->sumarStockGlobal($productoId, $cantidad);
-                        $this->almacenes->aplicarDelta($productoId, $almacenId, $cantidad);
+                        $this->productos->sumarStockSecundario($productoId, $empaquesDist);
+                        $this->almacenes->aplicarDelta($productoId, $almacenId, $cantidad, $empaquesDist);
                         $this->productos->registrarKardex([
                             'producto_id'          => $productoId,
                             'almacen_id'           => $almacenId,
@@ -225,7 +254,10 @@ final class ProduccionController
                             'producto_id'     => $productoId,
                             'almacen_id'      => $almacenId,
                             'cantidad'        => $cantidad,
+                            'empaques'        => $empaquesDist,
                         ];
+                        $restanteEmp -= $empaquesDist;
+                        $restanteKg -= $kgM;
                     }
                 }
 
@@ -455,7 +487,7 @@ final class ProduccionController
     }
 
     /**
-     * @return array<int, ?array{cantidad:string, empaques:int}>
+     * @return array<int, ?array{cantidad:string, empaques:int, peso_bruto:?string, tara_unitaria:string, tara_total:string}>
      */
     private function validarPlanilla(): array
     {
@@ -475,15 +507,15 @@ final class ProduccionController
                 continue;
             }
             $raw = is_string($item['cantidad'] ?? null) ? trim((string) $item['cantidad']) : '';
-            $rawBruto = is_string($item['peso_bruto'] ?? null) ? trim((string) $item['peso_bruto']) : '';
             $rawEmp = is_string($item['empaques'] ?? null) ? trim((string) $item['empaques']) : '';
-            $vacioKg = ($raw === '' || preg_match('/^0+([.,]0*)?$/', $raw)) && ($rawBruto === '' || preg_match('/^0+([.,]0*)?$/', $rawBruto));
-            if ($vacioKg && ($rawEmp === '' || $rawEmp === '0')) {
+            $vacioKg = $raw === '' || (bool) preg_match('/^0+([.,]0*)?$/', $raw);
+            $vacioEmp = $rawEmp === '' || $rawEmp === '0';
+            if ($vacioKg && $vacioEmp) {
                 $lineas[$pid] = null;
                 continue;
             }
             $empaques = 0;
-            if ($rawEmp !== '') {
+            if (!$vacioEmp) {
                 $empaques = parse_int_range($rawEmp, 0, 100000) ?? -1;
                 if ($empaques < 0) {
                     $errors["p$pid"] = sprintf('Producto #%d: cantidad de empaques inválida.', $pid);
@@ -491,10 +523,9 @@ final class ProduccionController
                 }
             }
             $lineas[$pid] = [
-                'cantidad'       => $raw,
-                'peso_bruto'     => $rawBruto !== '' ? $rawBruto : $raw,
-                'empaques'       => $empaques,
-                'tara_unitaria'  => is_string($item['tara_unitaria'] ?? null) ? trim((string) $item['tara_unitaria']) : '',
+                'cantidad' => $raw,
+                'empaques' => $empaques,
+                'vacio_kg' => $vacioKg,
             ];
             $ids[] = $pid;
         }
@@ -511,49 +542,70 @@ final class ProduccionController
                     continue;
                 }
                 $uSec = $sec[$pid] ?? null;
-                if ($uSec !== null) {
-                    if ($linea['empaques'] < 1) {
-                        $errors["p$pid"] = sprintf('Producto #%d: indica cuántos %s y el peso bruto de balanza.', $pid, $uSec);
+                $factor = $uSec === 'Tobos' ? 20 : ($uSec === 'Potes' ? 10 : 0);
+                if ($factor > 0) {
+                    $cantidad = null;
+                    if (!$linea['vacio_kg']) {
+                        $cantidad = parse_decimal($linea['cantidad'], 3, 100000);
+                        if ($cantidad === null) {
+                            $errors["p$pid"] = sprintf('Producto #%d: kilogramos inválidos (mayor que 0, hasta 3 decimales).', $pid);
+                            continue;
+                        }
+                    }
+                    if ($cantidad !== null && $linea['empaques'] < 1) {
+                        $linea['empaques'] = (int) round(((float) $cantidad) / $factor);
+                    }
+                    if ($cantidad === null && $linea['empaques'] > 0) {
+                        $cantidad = number_format($linea['empaques'] * $factor, 3, '.', '');
+                    }
+                    if ($cantidad === null) {
+                        $errors["p$pid"] = sprintf('Producto #%d: indica los kilogramos o la cantidad de %s.', $pid, $uSec);
                         continue;
                     }
-                    $bruto = parse_decimal($linea['peso_bruto'], 3, 100000);
-                    if ($bruto === null) {
-                        $errors["p$pid"] = sprintf('Producto #%d: peso bruto de balanza inválido.', $pid);
-                        continue;
-                    }
-                    $taraU = Producto::taraUnitaria($uSec, $linea['tara_unitaria']);
-                    $neto = Producto::pesoNeto($bruto, $linea['empaques'], $taraU);
-                    if ($neto === null) {
-                        $errors["p$pid"] = sprintf(
-                            'Producto #%d: el bruto (%s kg) no cubre la tara de %d %s.',
-                            $pid,
-                            num($bruto, 3),
-                            $linea['empaques'],
-                            $uSec
-                        );
-                        continue;
-                    }
-                    $lineas[$pid]['cantidad'] = $neto;
-                    $lineas[$pid]['peso_bruto'] = $bruto;
-                    $lineas[$pid]['tara_unitaria'] = $taraU;
-                    $lineas[$pid]['tara_total'] = Producto::taraTotal($linea['empaques'], $taraU);
+                    $lineas[$pid] = [
+                        'cantidad'      => $cantidad,
+                        'empaques'      => $linea['empaques'],
+                        'peso_bruto'    => $cantidad,
+                        'tara_unitaria' => '0.000',
+                        'tara_total'    => '0.000',
+                    ];
                     continue;
                 }
-                $cantidad = parse_decimal($linea['cantidad'] !== '' ? $linea['cantidad'] : $linea['peso_bruto'], 3, 100000);
+                $cantidad = parse_decimal($linea['cantidad'], 3, 100000);
                 if ($cantidad === null) {
-                    $errors["p$pid"] = sprintf('Producto #%d: kilogramos inválidos (mayor que 0, hasta 3 decimales).', $pid);
+                    $errors["p$pid"] = sprintf('Producto #%d: cantidad inválida (mayor que 0, hasta 3 decimales).', $pid);
                     continue;
                 }
-                $lineas[$pid]['cantidad'] = $cantidad;
-                $lineas[$pid]['peso_bruto'] = null;
-                $lineas[$pid]['tara_unitaria'] = '0.000';
-                $lineas[$pid]['tara_total'] = '0.000';
+                $lineas[$pid] = [
+                    'cantidad'      => $cantidad,
+                    'empaques'      => $linea['empaques'],
+                    'peso_bruto'    => null,
+                    'tara_unitaria' => '0.000',
+                    'tara_total'    => '0.000',
+                ];
             }
         }
         if ($errors) {
             $this->fallar($errors, $fecha);
         }
         return $lineas;
+    }
+
+    /** Reparto entero con redondeo half-up: empaques ≈ kg distribuidos / kg producidos × empaques del día. */
+    private static function empaquesProporcionales(int $kgMilesimas, int $totalMilesimas, int $empaquesTotales): int
+    {
+        if ($kgMilesimas <= 0 || $totalMilesimas <= 0 || $empaquesTotales <= 0) {
+            return 0;
+        }
+        if ($kgMilesimas >= $totalMilesimas) {
+            return $empaquesTotales;
+        }
+        $num = $kgMilesimas * $empaquesTotales;
+        $q = intdiv($num, $totalMilesimas);
+        if (($num % $totalMilesimas) * 2 >= $totalMilesimas) {
+            $q++;
+        }
+        return $q;
     }
 
     /** @return array<int, array<int, int>> produccion_id => [almacen_id => empaques] */
@@ -666,12 +718,12 @@ final class ProduccionController
             $errors['orden'] = 'El orden debe ser un entero entre 0 y 9999.';
         }
 
-        $precioProd = parse_monto(post_string('precio_produccion', 20) !== '' ? post_string('precio_produccion', 20) : '0', 2, 100000000, true);
+        $precioProd = parse_monto(post_string('precio_produccion', 20) !== '' ? post_string('precio_produccion', 20) : '0', 2, 999999.99, true);
         if ($precioProd === null) {
             $errors['precio_produccion'] = 'Precio de producción inválido (hasta 2 decimales).';
         }
 
-        $precioDet = parse_monto(post_string('precio_detal', 20) !== '' ? post_string('precio_detal', 20) : '0', 2, 100000000, true);
+        $precioDet = parse_monto(post_string('precio_detal', 20) !== '' ? post_string('precio_detal', 20) : '0', 2, 999999.99, true);
         if ($precioDet === null) {
             $errors['precio_detal'] = 'Precio al detal inválido (hasta 2 decimales).';
         }

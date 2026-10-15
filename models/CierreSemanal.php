@@ -7,8 +7,10 @@ declare(strict_types=1);
  *
  *   bruto      = SUM(entregas.subtotal_usd)            (precio congelado en cada entrega)
  *   arrastre   = pendiente del cierre vigente anterior (negativo = saldo a favor del productor)
- *   saldo_usd  = bruto + arrastre - mercancía
- *   pendiente  = saldo_usd - pagado_usd                (pagado = efectivo + PM/Transf.)
+ *   saldo_usd  = bruto + arrastre - descuentos (mercancía y vale)
+ *   pagado_usd = liquidación (efectivo, pago móvil, transferencia; pm_trans histórico)
+ *   pendiente  = saldo_usd - pagado_usd
+ *   arrastre   = pendiente de la semana anterior (cada pago se resta una sola vez)
  *
  * Toda la aritmética se hace en centavos enteros para no acumular errores de coma flotante.
  */
@@ -379,22 +381,22 @@ final class CierreSemanal
         $ultimo = array_key_last($cierres);
         $arrastre = 0;
         foreach ($cierres as $i => $c) {
-            $mercancia = Caja::aCentavos($pagos[$c['semana_inicio']]['mercancia_usd'] ?? 0);
-            $dinero = Caja::aCentavos($pagos[$c['semana_inicio']]['dinero_usd'] ?? 0);
-            $saldo = Caja::aCentavos($c['bruto_usd']) + $arrastre - $mercancia;
-            $pendiente = $saldo - $dinero;
+            $descuentos = Caja::aCentavos($pagos[$c['semana_inicio']]['mercancia_usd'] ?? 0);
+            $liquidacion = Caja::aCentavos($pagos[$c['semana_inicio']]['dinero_usd'] ?? 0);
+            $saldo = Caja::aCentavos($c['bruto_usd']) + $arrastre - $descuentos;
+            $pendiente = $saldo - $liquidacion;
 
             $estado = match (true) {
-                $pendiente <= 0          => 'pagada',
-                $i !== $ultimo           => 'arrastrada',
-                $mercancia + $dinero > 0 => 'parcial',
+                $pendiente <= 0               => 'pagada',
+                $i !== $ultimo                => 'arrastrada',
+                $descuentos + $liquidacion > 0 => 'parcial',
                 default                  => 'cerrada',
             };
 
             $nuevo = [
                 'arrastre'  => Caja::desdeCentavos($arrastre),
-                'abonos'    => Caja::desdeCentavos($mercancia),
-                'pagado'    => Caja::desdeCentavos($dinero),
+                'abonos'    => Caja::desdeCentavos($descuentos),
+                'pagado'    => Caja::desdeCentavos($liquidacion),
                 'saldo'     => Caja::desdeCentavos($saldo),
                 'estado'    => $estado,
                 'pagado_en' => $estado === 'pagada' ? ($c['pagado_en'] ?? date('Y-m-d H:i:s')) : null,

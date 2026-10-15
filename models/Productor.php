@@ -9,10 +9,16 @@ final class Productor
     public const TOLERANCIAS = ['bajo' => 2, 'medio' => 5, 'alto' => 10];
     public const TOLERANCIA_DEFAULT = 'medio';
 
-    /** Suministrado y pagado se derivan de las tablas transaccionales: nunca se guardan totales duplicados. */
+    /**
+     * Suministrado y pagado se derivan de las tablas transaccionales: nunca se guardan totales duplicados.
+     * pagado_usd suma una sola vez descuentos (mercancía, vale) y liquidación
+     * (efectivo, pago móvil, transferencia, pm_trans histórico). El saldo de la cuenta es suministrado − pagado.
+     */
+    private const SQL_ABONOS = "a.tipo IN ('mercancia','vale','efectivo','pago_movil','transferencia','pm_trans')";
     private const SQL_TOTALES = '
         COALESCE((SELECT SUM(e.subtotal_usd) FROM productores_entregas e WHERE e.productor_id = p.id), 0) AS suministrado_usd,
-        COALESCE((SELECT SUM(a.monto_usd) FROM productores_abonos a WHERE a.productor_id = p.id AND a.anulado_en IS NULL), 0) AS pagado_usd';
+        COALESCE((SELECT SUM(a.monto_usd) FROM productores_abonos a
+                  WHERE a.productor_id = p.id AND a.anulado_en IS NULL AND ' . self::SQL_ABONOS . '), 0) AS pagado_usd';
 
     public function __construct(private PDO $db)
     {
@@ -76,7 +82,8 @@ final class Productor
                     (SELECT COUNT(*) FROM productores) AS productores_total,
                     e.litros, e.suministrado_usd,
                     ROUND(e.suministrado_usd / NULLIF(e.litros, 0), 4) AS precio_promedio,
-                    (SELECT COALESCE(SUM(monto_usd), 0) FROM productores_abonos WHERE anulado_en IS NULL) AS pagado_usd
+                    (SELECT COALESCE(SUM(monto_usd), 0) FROM productores_abonos a
+                     WHERE a.anulado_en IS NULL AND ' . self::SQL_ABONOS . ') AS pagado_usd
              FROM (SELECT COALESCE(SUM(litros), 0) AS litros, COALESCE(SUM(subtotal_usd), 0) AS suministrado_usd
                    FROM productores_entregas) e'
         )->fetch();

@@ -14,7 +14,6 @@ $faltan = static function (string $tabla, string $columna) use ($db): bool {
 };
 
 $alts = [
-    ['inventario_almacenes', 'stock_secundario', 'ALTER TABLE inventario_almacenes ADD COLUMN stock_secundario INT NOT NULL DEFAULT 0 AFTER stock'],
     ['produccion_distribuciones', 'cantidad_secundaria', 'ALTER TABLE produccion_distribuciones ADD COLUMN cantidad_secundaria INT NOT NULL DEFAULT 0 AFTER cantidad'],
 ];
 

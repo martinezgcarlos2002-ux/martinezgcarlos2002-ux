@@ -329,6 +329,11 @@ label.check { display: flex; align-items: center; gap: .5rem; margin-top: 2rem; 
 .tbl-prod .prod-nombre { color: #1e3a5f; font-weight: 800; letter-spacing: .3px; }
 .tbl-prod .col-num { width: 48px; }
 .tbl-prod .inp-cant { width: 88px; margin-inline: auto; }
+.tbl-prod .prod-kg { width: 85px; flex: 0 0 85px; }
+.tbl-prod .prod-emp { width: 65px; flex: 0 0 65px; }
+.tbl-prod .prod-uom { color: #64748b; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+.tbl-prod .prod-swap { color: #1b2a4a; font-weight: 700; line-height: 1; }
+.tbl-prod .js-aprox-lbl { font-weight: 700; white-space: nowrap; }
 .tbl-prod .inp-precio { width: 84px; }
 .badge-pendiente { background: #fff4e0; color: #c2410c; border: 1px solid #fdba74; font-weight: 800; letter-spacing: .4px; }
 .badge-listo { background: #e2f5e7; color: #1c7430; border: 1px solid #9bd3a7; font-weight: 800; }

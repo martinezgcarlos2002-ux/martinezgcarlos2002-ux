@@ -126,14 +126,22 @@ final class Almacen
      * Las salidas van por UPDATE: MariaDB valida el CHECK sobre la fila candidata del INSERT antes de
      * detectar el duplicado, así que un upsert con delta negativo fallaría aunque hubiera stock.
      */
-    public function aplicarDelta(int $productoId, int $almacenId, string $delta): void
+    public function aplicarDelta(int $productoId, int $almacenId, string $delta, int $secundario = 0): void
     {
         if (str_starts_with($delta, '-')) {
-            $stmt = $this->db->prepare(
-                'UPDATE inventario_almacenes SET stock = stock + :delta
-                 WHERE producto_id = :producto_id AND almacen_id = :almacen_id'
-            );
-            $stmt->execute(['delta' => $delta, 'producto_id' => $productoId, 'almacen_id' => $almacenId]);
+            $sql = 'UPDATE inventario_almacenes SET stock = stock + :delta';
+            $params = ['delta' => $delta, 'producto_id' => $productoId, 'almacen_id' => $almacenId];
+            if ($secundario !== 0) {
+                $sql .= ', stock_secundario = stock_secundario + :sec';
+                $params['sec'] = $secundario;
+            }
+            $sql .= ' WHERE producto_id = :producto_id AND almacen_id = :almacen_id';
+            if ($secundario < 0) {
+                $sql .= ' AND stock_secundario >= :minimo';
+                $params['minimo'] = abs($secundario);
+            }
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
             if ($stmt->rowCount() !== 1) {
                 throw new ValidationException(['stock' => sprintf('El producto #%d no tiene stock en el almacén #%d.', $productoId, $almacenId)]);
             }
@@ -141,15 +149,17 @@ final class Almacen
         }
 
         $stmt = $this->db->prepare(
-            'INSERT INTO inventario_almacenes (producto_id, almacen_id, stock)
-             VALUES (:producto_id, :almacen_id, :delta_ins)
-             ON DUPLICATE KEY UPDATE stock = stock + :delta_upd'
+            'INSERT INTO inventario_almacenes (producto_id, almacen_id, stock, stock_secundario)
+             VALUES (:producto_id, :almacen_id, :delta_ins, :sec_ins)
+             ON DUPLICATE KEY UPDATE stock = stock + :delta_upd, stock_secundario = stock_secundario + :sec_upd'
         );
         $stmt->execute([
             'producto_id' => $productoId,
             'almacen_id'  => $almacenId,
             'delta_ins'   => $delta,
             'delta_upd'   => $delta,
+            'sec_ins'     => max(0, $secundario),
+            'sec_upd'     => $secundario,
         ]);
         if ($stmt->rowCount() < 1) {
             throw new RuntimeException(sprintf('No se pudo ajustar el stock del producto #%d en el almacén #%d.', $productoId, $almacenId));

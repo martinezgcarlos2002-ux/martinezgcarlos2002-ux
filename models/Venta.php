@@ -162,6 +162,22 @@ final class Venta
         ]);
     }
 
+    /**
+     * Siguiente correlativo FAC dentro de la transacción de la venta.
+     * FOR UPDATE serializa dos facturas concurrentes; MAX evita el hueco de COUNT(*)+1.
+     */
+    public function siguienteNumero(): string
+    {
+        $stmt = $this->db->query(
+            "SELECT COALESCE(MAX(CAST(SUBSTRING(numero, 5) AS UNSIGNED)), 0) + 1
+             FROM ventas
+             WHERE numero REGEXP '^FAC-[0-9]+$'
+             FOR UPDATE"
+        );
+        $n = (int) $stmt->fetchColumn();
+        return 'FAC-' . str_pad((string) max(1, $n), 8, '0', STR_PAD_LEFT);
+    }
+
     /** MySQL evalúa las asignaciones de izquierda a derecha: total_bs usa el total_usd recién calculado. */
     public function finalizar(int $ventaId): array
     {
@@ -173,7 +189,7 @@ final class Venta
              WHERE id = :id'
         );
         $stmt->execute([
-            'numero'   => 'FAC-' . str_pad((string) $ventaId, 8, '0', STR_PAD_LEFT),
+            'numero'   => $this->siguienteNumero(),
             'id_items' => $ventaId,
             'id'       => $ventaId,
         ]);

@@ -125,15 +125,17 @@ final class PagoProductor
     }
 
     /**
-     * Totales vigentes por semana, separando descuentos en especie (mercancía) de dinero (efectivo + PM/Transf.).
+     * Totales vigentes por semana.
+     * mercancia_usd = descuentos (mercancía y vale). dinero_usd = liquidación
+     * (efectivo, pago móvil, transferencia y el histórico pm_trans). Cada tipo entra en un solo balde.
      * @return array<string, array{mercancia_usd:string, dinero_usd:string}>  indexado por semana_inicio
      */
     public function totalesPorSemana(int $productorId): array
     {
         $stmt = $this->db->prepare(
             "SELECT semana_inicio,
-                    COALESCE(SUM(CASE WHEN tipo = 'mercancia' THEN monto_usd END), 0) AS mercancia_usd,
-                    COALESCE(SUM(CASE WHEN tipo <> 'mercancia' THEN monto_usd END), 0) AS dinero_usd
+                    COALESCE(SUM(CASE WHEN tipo IN ('mercancia','vale') THEN monto_usd ELSE 0 END), 0) AS mercancia_usd,
+                    COALESCE(SUM(CASE WHEN tipo IN ('efectivo','pago_movil','transferencia','pm_trans') THEN monto_usd ELSE 0 END), 0) AS dinero_usd
              FROM productores_abonos
              WHERE productor_id = :productor_id AND anulado_en IS NULL
              GROUP BY semana_inicio"
