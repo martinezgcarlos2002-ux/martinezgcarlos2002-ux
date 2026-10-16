@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 final class Usuario
 {
-    public const ROLES = ['admin', 'empleado'];
+    public const ROLES = ['maestro', 'admin', 'empleado'];
 
     public function __construct(private PDO $db)
     {
@@ -145,12 +145,24 @@ final class Usuario
         $stmt->execute(['por' => $eliminadoPor, 'id' => $id]);
     }
 
-    /** Administradores activos distintos de $excluirId, bloqueados para evitar quedarse sin ninguno por concurrencia. */
+    /** Administradores y maestros activos distintos de $excluirId, bloqueados para evitar quedarse sin ninguno por concurrencia. */
     public function contarAdminsActivos(?int $excluirId = null): int
     {
         $stmt = $this->db->prepare(
             "SELECT id FROM usuarios
-             WHERE rol = 'admin' AND activo = 1 AND eliminado_en IS NULL AND id <> :excluir
+             WHERE rol IN ('maestro', 'admin') AND activo = 1 AND eliminado_en IS NULL AND id <> :excluir
+             FOR UPDATE"
+        );
+        $stmt->execute(['excluir' => $excluirId ?? 0]);
+        return count($stmt->fetchAll());
+    }
+
+    /** Usuarios maestro activos distintos de $excluirId. */
+    public function contarMaestrosActivos(?int $excluirId = null): int
+    {
+        $stmt = $this->db->prepare(
+            "SELECT id FROM usuarios
+             WHERE rol = 'maestro' AND activo = 1 AND eliminado_en IS NULL AND id <> :excluir
              FOR UPDATE"
         );
         $stmt->execute(['excluir' => $excluirId ?? 0]);

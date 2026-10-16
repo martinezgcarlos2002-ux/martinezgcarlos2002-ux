@@ -15,12 +15,14 @@ $dias = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM'];
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Control de asistencia semanal – <?= e(APP_NAME) ?></title>
+<link rel="stylesheet" href="<?= e(BOOTSTRAP_ICONS_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_ICONS_CSS['integrity']) ?>" crossorigin="anonymous">
+<link rel="stylesheet" href="<?= e(asset_v('css/reportes.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset_v('css/planilla_asistencia.css')) ?>">
 </head>
 <body>
-<div class="barra no-print">
-  <button type="button" id="btnImprimir">Imprimir</button>
-  <a href="<?= e(url('empleados')) ?>">Volver a Recursos Humanos</a>
+<div class="toolbar no-print">
+  <a class="btn-adara-volver js-btn-volver" href="<?= e(url('empleados')) ?>"><i class="bi bi-arrow-left"></i> Volver</a>
+  <button type="button" class="btn-adara-print" id="btnImprimir"><i class="bi bi-printer-fill"></i> Imprimir / Guardar PDF</button>
 </div>
 <section class="hoja">
   <header class="cabecera">
@@ -66,6 +68,15 @@ $dias = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM'];
 </section>
 <script nonce="<?= e(csp_nonce()) ?>">
 document.getElementById('btnImprimir').addEventListener('click', function () { window.print(); });
+document.querySelectorAll('.js-btn-volver').forEach(function (a) {
+  a.addEventListener('click', function (ev) {
+    if (window.opener && !window.opener.closed && window.history.length <= 1) {
+      ev.preventDefault();
+      window.opener.focus();
+      window.close();
+    }
+  });
+});
 </script>
 </body>
 </html>

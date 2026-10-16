@@ -108,7 +108,7 @@ layout_start('Producción Diaria', 'produccion');
       <button type="button" class="btn btn-sm btn-dist" data-bs-toggle="modal" data-bs-target="#modalDist"<?= $conPendiente === [] ? ' disabled title="No hay producción pendiente de distribuir"' : '' ?>><i class="bi bi-box-arrow-right"></i> Distribuir a almacenes</button>
     <?php endif; ?>
     <button type="button" class="btn btn-sm btn-stock" data-bs-toggle="modal" data-bs-target="#modalStockAlm"><i class="bi bi-boxes"></i> Stock por almacén</button>
-    <a class="btn btn-sm btn-pdf" href="<?= e(url('produccion_diaria_pdf', ['fecha' => $fecha])) ?>" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> PDF del día</a>
+    <a class="btn btn-sm btn-pdf" href="<?= e(url('produccion_diaria_pdf', ['fecha' => $fecha])) ?>"><i class="bi bi-file-earmark-pdf"></i> PDF del día</a>
     <button type="button" class="btn btn-sm btn-mes" id="btnGenerarResumen"
             data-url-dashboard="<?= e(url('resumen')) ?>"
             data-url-pdf="<?= e(url('resumen_pdf_rango')) ?>"><i class="bi bi-calendar3"></i> Generar Resumen</button>

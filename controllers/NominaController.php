@@ -359,7 +359,7 @@ final class NominaController
         }
         [$inicio] = Nomina::periodo($semana);
         $volver = ['tab' => 'nomina', 'semana' => $inicio];
-        $esAdmin = current_user()['rol'] === 'admin';
+        $esAdmin = is_admin();
 
         $entradas = [];
         $invalidos = 0;
@@ -427,7 +427,7 @@ final class NominaController
 
     private function exigirAdmin(): void
     {
-        if (current_user()['rol'] !== 'admin') {
+        if (!is_admin()) {
             audit_log('seguridad', 'acceso_denegado', ['p' => $_GET['p'] ?? '']);
             render_forbidden();
             exit;

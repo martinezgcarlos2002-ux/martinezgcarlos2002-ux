@@ -22,12 +22,14 @@ $domicilio = (string) ($emp['direccion_domicilio'] !== '' ? $emp['direccion_domi
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Currículum — <?= e($nombre) ?> – <?= e(APP_NAME) ?></title>
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_CSS['integrity']) ?>" crossorigin="anonymous">
+<link rel="stylesheet" href="<?= e(BOOTSTRAP_ICONS_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_ICONS_CSS['integrity']) ?>" crossorigin="anonymous">
+<link rel="stylesheet" href="<?= e(asset_v('css/reportes.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset_v('css/rrhh_cv.css')) ?>">
 </head>
 <body class="cv">
 <div class="toolbar no-print">
-  <button type="button" class="btn btn-primary" id="btnImprimir">🖨 Imprimir / PDF</button>
-  <a class="btn btn-outline-secondary" href="<?= e(url('empleados', ['tab' => 'directorio'])) ?>">← Volver al directorio</a>
+  <a class="btn-adara-volver js-btn-volver" href="<?= e(url('empleados', ['tab' => 'directorio'])) ?>"><i class="bi bi-arrow-left"></i> Volver</a>
+  <button type="button" class="btn-adara-print" id="btnImprimir"><i class="bi bi-printer-fill"></i> Imprimir / Guardar PDF</button>
 </div>
 
 <article class="hoja-cv">
@@ -79,6 +81,15 @@ $domicilio = (string) ($emp['direccion_domicilio'] !== '' ? $emp['direccion_domi
 
 <script nonce="<?= e(csp_nonce()) ?>">
 document.getElementById('btnImprimir').addEventListener('click', function () { window.print(); });
+document.querySelectorAll('.js-btn-volver').forEach(function (a) {
+  a.addEventListener('click', function (ev) {
+    if (window.opener && !window.opener.closed && window.history.length <= 1) {
+      ev.preventDefault();
+      window.opener.focus();
+      window.close();
+    }
+  });
+});
 </script>
 </body>
 </html>

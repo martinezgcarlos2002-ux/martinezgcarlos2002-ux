@@ -3,10 +3,13 @@ declare(strict_types=1);
 
 /**
  * Gestión de usuarios. El módulo es solo_admin: el router ya rechaza a cualquier otro rol.
- * Reglas: nadie se elimina, desactiva ni degrada a sí mismo, y siempre queda al menos un administrador activo.
+ * Un admin no gestiona usuarios maestro. El maestro principal (id 6) no se elimina ni se degrada.
+ * Siempre queda al menos un maestro activo y al menos un usuario con acceso total.
  */
 final class UsuariosController
 {
+    private const MAESTRO_PRINCIPAL_ID = 6;
+
     private Usuario $usuarios;
 
     public function __construct()
@@ -67,13 +70,21 @@ final class UsuariosController
             $data = $this->validar($id);
             Database::transaction(function () use ($id, $data, $actorId): void {
                 $antes = $this->existenteOFallar($id, true);
+                $this->exigirPuedeGestionarMaestro($antes);
 
-                if ($id === $actorId && ($data['rol'] !== 'admin' || !$data['activo'])) {
-                    throw new ValidationException(['rol' => 'No puedes quitarte el rol de administrador ni desactivarte a ti mismo.']);
+                if ($id === $actorId && (!is_admin(['rol' => $data['rol']]) || !$data['activo'])) {
+                    throw new ValidationException(['rol' => 'No puedes quitarte el acceso total ni desactivarte a ti mismo.']);
                 }
-                $dejaDeSerAdminActivo = $antes['rol'] === 'admin' && $antes['activo'] && ($data['rol'] !== 'admin' || !$data['activo']);
+                if ($id === self::MAESTRO_PRINCIPAL_ID && $data['rol'] !== 'maestro') {
+                    throw new ValidationException(['rol' => 'El Usuario Maestro principal no puede ser degradado.']);
+                }
+                $dejaDeSerAdminActivo = is_admin($antes) && $antes['activo'] && (!is_admin(['rol' => $data['rol']]) || !$data['activo']);
                 if ($dejaDeSerAdminActivo && $this->usuarios->contarAdminsActivos($id) === 0) {
                     throw new ValidationException(['rol' => 'Debe quedar al menos un administrador activo.']);
+                }
+                $dejaDeSerMaestroActivo = $antes['rol'] === 'maestro' && $antes['activo'] && ($data['rol'] !== 'maestro' || !$data['activo']);
+                if ($dejaDeSerMaestroActivo && $this->usuarios->contarMaestrosActivos($id) === 0) {
+                    throw new ValidationException(['rol' => 'Debe quedar al menos un Usuario Maestro activo.']);
                 }
 
                 $this->usuarios->update($id, $data);
@@ -129,7 +140,7 @@ final class UsuariosController
         try {
             $nombre = Database::transaction(function () use ($id, $permisos, $actorId): string {
                 $antes = $this->existenteOFallar($id, true);
-                if ($antes['rol'] === 'admin') {
+                if (in_array($antes['rol'], ['maestro', 'admin'], true)) {
                     throw new ValidationException(['permisos' => 'Los administradores tienen acceso total: no llevan permisos por módulo.']);
                 }
                 $this->usuarios->updatePermisos($id, $permisos);
@@ -151,6 +162,7 @@ final class UsuariosController
         try {
             [$nombre, $permitido] = Database::transaction(function () use ($id, $actorId): array {
                 $antes = $this->existenteOFallar($id, true);
+                $this->exigirPuedeGestionarMaestro($antes);
                 $permitido = !$antes['acceso_movil'];
                 $this->usuarios->setAccesoMovil($id, $permitido);
                 audit_log('usuarios', 'acceso_movil', ['antes' => $antes['acceso_movil'], 'despues' => $permitido], 'usuarios', $id, $actorId);
@@ -171,12 +183,19 @@ final class UsuariosController
         if ($id === $actorId) {
             $this->fallar(['id' => 'No puedes eliminar tu propio usuario.']);
         }
+        if ($id === self::MAESTRO_PRINCIPAL_ID) {
+            $this->fallar(['id' => 'El Usuario Maestro principal no puede ser eliminado.']);
+        }
 
         try {
             $nombre = Database::transaction(function () use ($id, $actorId): string {
                 $antes = $this->existenteOFallar($id, true);
-                if ($antes['rol'] === 'admin' && $antes['activo'] && $this->usuarios->contarAdminsActivos($id) === 0) {
+                $this->exigirPuedeGestionarMaestro($antes);
+                if (is_admin($antes) && $antes['activo'] && $this->usuarios->contarAdminsActivos($id) === 0) {
                     throw new ValidationException(['id' => 'Debe quedar al menos un administrador activo.']);
+                }
+                if ($antes['rol'] === 'maestro' && $antes['activo'] && $this->usuarios->contarMaestrosActivos($id) === 0) {
+                    throw new ValidationException(['id' => 'Debe quedar al menos un Usuario Maestro activo.']);
                 }
                 $this->usuarios->eliminar($id, $actorId);
                 audit_log('usuarios', 'eliminar', [
@@ -220,6 +239,8 @@ final class UsuariosController
         $rol = $_POST['rol'] ?? '';
         if (!is_string($rol) || !in_array($rol, Usuario::ROLES, true)) {
             $errors['rol'] = 'Rol inválido.';
+        } elseif ($rol === 'maestro' && !is_maestro()) {
+            $errors['rol'] = 'Solo un Usuario Maestro puede crear o asignar ese rol.';
         }
 
         $estado = $_POST['estado'] ?? 'activo';
@@ -239,6 +260,13 @@ final class UsuariosController
             'activo'       => $estado === 'activo',
             'acceso_movil' => isset($_POST['acceso_movil']),
         ];
+    }
+
+    private function exigirPuedeGestionarMaestro(array $usuario): void
+    {
+        if (($usuario['rol'] ?? '') === 'maestro' && !is_maestro()) {
+            throw new ValidationException(['rol' => 'Solo un Usuario Maestro puede gestionar a otro Usuario Maestro.']);
+        }
     }
 
     private function existenteOFallar(int $id, bool $forUpdate): array

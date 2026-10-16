@@ -1513,7 +1513,7 @@ final class ProductoresController
 
     private static function esAdmin(): bool
     {
-        return (current_user()['rol'] ?? null) === 'admin';
+        return is_admin();
     }
 
     /** El permiso RBAC de la ruta no basta: estas acciones son exclusivas del rol administrador. */

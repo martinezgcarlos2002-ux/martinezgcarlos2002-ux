@@ -280,6 +280,10 @@ return [
         'accion'  => 'crear',
         'POST'    => [RespaldoController::class, 'descargarSql'],
     ],
+    'respaldo_mapa_codigo' => [
+        'modulo'  => 'respaldo',
+        'POST'    => [RespaldoController::class, 'descargarMapaCodigo'],
+    ],
 
     // ----- Finanzas / Caja -------------------------------------------------
     'finanzas' => [

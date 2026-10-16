@@ -94,7 +94,7 @@ Recursos Humanos no tiene carpeta propia: vive en `pages/empleados.php`, `Nomina
 | `NominaController` | Nómina semanal, préstamos, Excel, PDF y hoja de notaría. |
 | `DiasLibresController` | Libres, faltas y cobertura por cargo. |
 | `CobranzasController` | Cobranzas a terceros descontadas en la nómina. |
-| `UsuariosController` | Usuarios y permisos. Solo administradores. |
+| `UsuariosController` | Usuarios y permisos. Acceso de administrador y de usuario maestro. Un admin no gestiona a un maestro. |
 | `TransporteController` | Transportistas, rutas, flotilla, fletes y cuentas por pagar. |
 | `ProductoresController` | Ficha del productor, entregas de leche, pagos, cierres semanales y liquidaciones. |
 | `ControlLecheController` | Planilla diaria de leche, resumen semanal y costos de producción por tipo de queso. |
@@ -102,7 +102,7 @@ Recursos Humanos no tiene carpeta propia: vive en `pages/empleados.php`, `Nomina
 | `FacturaController` | Control de facturas CxC: clientes, cobros, devoluciones y estado de cuenta. |
 | `FinanzasController` | Caja y movimientos (efectivo y banco). |
 | `AuditoriaController` | Consulta de la bitácora. Solo administradores. |
-| `RespaldoController` | Descarga del respaldo SQL diario. Solo administradores. |
+| `RespaldoController` | Descarga del respaldo SQL. Administrador y usuario maestro. El maestro descarga sin límite y puede bajar `MAPA_ADARA.md` por `respaldo_mapa_codigo`. |
 
 ### Vistas
 
@@ -134,7 +134,7 @@ La conexión es un PDO singleton. `get_db()` devuelve `Database::connection()`. 
 
 ## 4. Base de datos
 
-Tablas definidas en `sql/schema.sql` y en las migraciones `002` a `030`. El esquema vivo es el resultado de aplicarlas en orden sobre la base `adara`.
+Tablas definidas en `sql/schema.sql` y en las migraciones `002` a `035`. El esquema vivo es el resultado de aplicarlas en orden sobre la base `adara`.
 
 ### Seguridad y sistema
 
@@ -208,3 +208,22 @@ Tablas definidas en `sql/schema.sql` y en las migraciones `002` a `030`. El esqu
 ### Finanzas
 
 - `caja_movimientos`
+
+## 5. Rol usuario maestro
+
+`usuarios.rol` admite `maestro`, `admin` y `empleado`. El usuario maestro tiene acceso total al ERP, igual que un administrador, y además el centro de servicio técnico en `?p=respaldo`.
+
+Reglas:
+
+- Solo un maestro puede crear, editar, desactivar, cambiar la contraseña o eliminar a otro maestro.
+- El maestro principal es Carlos Martínez (`usuarios.id = 6`). No se elimina ni se degrada de `maestro`.
+- Siempre debe quedar al menos un maestro activo.
+- Los permisos por módulo no se editan para `maestro` ni para `admin`.
+
+Ruta exclusiva:
+
+| Clave | Método | Controlador | Quién |
+| --- | --- | --- | --- |
+| `respaldo_mapa_codigo` | POST | `RespaldoController::descargarMapaCodigo` | Solo `maestro`. Descarga `MAPA_ADARA.md` y deja constancia en `auditoria`. |
+
+La migración que crea el rol y el parche de POS, días libres y control de leche es `sql/035_usuario_maestro_y_parche_auxiliar.sql`.

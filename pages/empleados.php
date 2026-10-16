@@ -95,7 +95,7 @@ layout_start('Recursos Humanos', 'empleados');
   </li>
   <?php endforeach; ?>
 </ul>
-<a class="btn btn-sm btn-outline-dark mb-1" href="<?= e(url('hr_planilla_asistencia')) ?>" target="_blank" rel="noopener">🖨️ Imprimir Planilla de Asistencia</a>
+<a class="btn btn-sm btn-outline-dark mb-1" href="<?= e(url('hr_planilla_asistencia')) ?>">🖨️ Imprimir Planilla de Asistencia</a>
 </div>
 
 <div class="tab-content" id="rhPanes">
@@ -140,10 +140,10 @@ layout_start('Recursos Humanos', 'empleados');
         <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('nomina_excel', ['semana' => $nomina['inicio']])) ?>">
           <i class="bi bi-file-earmark-excel"></i> Excel completo
         </a>
-        <a class="btn btn-sm btn-outline-danger" href="<?= e(url('nomina_pdf', ['semana' => $nomina['inicio']])) ?>" target="_blank" rel="noopener">
+        <a class="btn btn-sm btn-outline-danger" href="<?= e(url('nomina_pdf', ['semana' => $nomina['inicio']])) ?>">
           <i class="bi bi-file-earmark-pdf"></i> PDF nómina
         </a>
-        <a class="btn btn-sm btn-notaria" href="<?= e(url('rrhh_notaria', ['semana' => $nomina['inicio']])) ?>" target="_blank" rel="noopener">
+        <a class="btn btn-sm btn-notaria" href="<?= e(url('rrhh_notaria', ['semana' => $nomina['inicio']])) ?>">
           🖨️ Imprimir Notaría
         </a>
       </div>
@@ -377,7 +377,7 @@ layout_start('Recursos Humanos', 'empleados');
                   <i class="bi bi-pencil"></i> Editar
                 </button>
                 <?php endif; ?>
-                <a class="btn btn-sm btn-outline-primary" href="<?= e(url('rrhh_cv_pdf', ['id' => (int) $emp['id']])) ?>" target="_blank" rel="noopener" title="Currículum">
+                <a class="btn btn-sm btn-outline-primary" href="<?= e(url('rrhh_cv_pdf', ['id' => (int) $emp['id']])) ?>" title="Currículum">
                   📄 CV
                 </a>
                 <?php if ($puedeCrear && $emp['activo']): ?>
@@ -800,7 +800,7 @@ layout_start('Recursos Humanos', 'empleados');
       <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('empleados', ['tab' => 'cobranzas'])) ?>">
         <i class="bi bi-x-lg"></i> Limpiar filtro
       </a>
-      <a class="btn btn-sm btn-outline-danger" href="<?= e(url('rrhh_cobranzas_pdf')) ?>" target="_blank" rel="noopener">
+      <a class="btn btn-sm btn-outline-danger" href="<?= e(url('rrhh_cobranzas_pdf')) ?>">
         <i class="bi bi-file-earmark-pdf"></i> Reporte PDF
       </a>
     </div>

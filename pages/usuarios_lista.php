@@ -47,20 +47,31 @@ layout_start('Usuarios del Sistema', 'usuarios');
         <tr><td colspan="8" class="text-center text-muted py-4">Sin usuarios que coincidan.</td></tr>
       <?php endif; ?>
       <?php foreach ($usuarios as $u):
+          $maestro = $u['rol'] === 'maestro';
           $admin = $u['rol'] === 'admin';
           $soyYo = $u['id'] === $yo;
+          $principal = (int) $u['id'] === 6;
+          $puedeGestionar = !$maestro || is_maestro();
           $mods = array_map(static fn (string $m): string => modulos()[$m]['label'] ?? $m, array_keys($u['permisos']));
       ?>
         <tr>
           <td class="fw-semibold"><?= e($u['nombre']) ?><?php if ($soyYo): ?> <span class="badge text-bg-light border">Tú</span><?php endif; ?></td>
           <td class="small"><?= e($u['email']) ?></td>
-          <td><span class="badge <?= $admin ? 'text-bg-danger' : 'text-bg-primary' ?>"><?= $admin ? 'Admin' : 'Empleado' ?></span></td>
+          <td>
+            <?php if ($maestro): ?>
+              <span class="badge text-bg-warning text-dark"><i class="bi bi-cpu-fill"></i> Usuario Maestro</span>
+            <?php elseif ($admin): ?>
+              <span class="badge text-bg-danger">Admin</span>
+            <?php else: ?>
+              <span class="badge text-bg-primary">Empleado</span>
+            <?php endif; ?>
+          </td>
           <td><span class="badge <?= $u['activo'] ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $u['activo'] ? 'Activo' : 'Inactivo' ?></span></td>
           <td>
             <span class="badge <?= $u['acceso_movil'] ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $u['acceso_movil'] ? 'Permitido' : 'Bloqueado' ?></span>
           </td>
-          <td class="small <?= $admin ? 'text-success fw-semibold' : '' ?>">
-            <?= e($admin ? 'Acceso total' : ($mods ? implode(', ', $mods) : 'Solo Dashboard')) ?>
+          <td class="small <?= ($maestro || $admin) ? 'text-success fw-semibold' : '' ?>">
+            <?= e($maestro ? 'Acceso Total + Servicio Técnico y Seguridad' : ($admin ? 'Acceso total' : ($mods ? implode(', ', $mods) : 'Solo Dashboard'))) ?>
           </td>
           <td class="small"><?= e((new DateTimeImmutable($u['creado_en']))->format('d/m/Y')) ?></td>
           <td class="text-nowrap">
@@ -72,7 +83,9 @@ layout_start('Usuarios del Sistema', 'usuarios');
                     data-rol="<?= e($u['rol']) ?>"
                     data-estado="<?= $u['activo'] ? 'activo' : 'inactivo' ?>"
                     data-movil="<?= $u['acceso_movil'] ? '1' : '0' ?>"
-                    data-yo="<?= $soyYo ? '1' : '0' ?>">
+                    data-yo="<?= $soyYo ? '1' : '0' ?>"
+                    data-principal="<?= $principal ? '1' : '0' ?>"
+                    <?= $puedeGestionar ? '' : 'disabled title="Solo un Usuario Maestro puede gestionar a otro Usuario Maestro"' ?>>
               <i class="bi bi-pencil"></i> Editar
             </button>
             <button type="button" class="btn btn-sm btn-outline-primary"
@@ -80,18 +93,19 @@ layout_start('Usuarios del Sistema', 'usuarios');
                     data-id="<?= $u['id'] ?>"
                     data-nombre="<?= e($u['nombre']) ?>"
                     data-permisos="<?= e(json_encode((object) $u['permisos'], JSON_THROW_ON_ERROR)) ?>"
-                    <?= $admin ? 'disabled title="El administrador tiene acceso total"' : '' ?>>
+                    <?= ($maestro || $admin) ? 'disabled title="El administrador tiene acceso total"' : '' ?>>
               <i class="bi bi-key"></i> Permisos
             </button>
             <form method="post" action="<?= e(url('usuarios_movil')) ?>" class="d-inline">
               <?= csrf_field() ?>
               <input type="hidden" name="id" value="<?= $u['id'] ?>">
               <button type="submit" class="btn btn-sm <?= $u['acceso_movil'] ? 'btn-outline-secondary' : 'btn-outline-success' ?>"
-                      title="<?= $u['acceso_movil'] ? 'Bloquear acceso móvil' : 'Permitir acceso móvil' ?>">
+                      title="<?= $u['acceso_movil'] ? 'Bloquear acceso móvil' : 'Permitir acceso móvil' ?>"
+                      <?= $puedeGestionar ? '' : 'disabled' ?>>
                 <i class="bi bi-phone"></i> Móvil
               </button>
             </form>
-            <?php if (!$soyYo): ?>
+            <?php if (!$soyYo && !$principal && $puedeGestionar): ?>
             <button type="button" class="btn btn-sm btn-outline-danger"
                     data-bs-toggle="modal" data-bs-target="#modalEliminar"
                     data-id="<?= $u['id'] ?>"
@@ -146,6 +160,9 @@ layout_start('Usuarios del Sistema', 'usuarios');
               <select class="form-select <?= field_class($errors, 'rol') ?>" id="usrRol" name="rol">
                 <option value="empleado" <?= ($old['rol'] ?? 'empleado') === 'empleado' ? 'selected' : '' ?>>Empleado</option>
                 <option value="admin" <?= ($old['rol'] ?? '') === 'admin' ? 'selected' : '' ?>>Admin</option>
+                <?php if (is_maestro()): ?>
+                <option value="maestro" <?= ($old['rol'] ?? '') === 'maestro' ? 'selected' : '' ?>>Usuario Maestro (Servicio Técnico)</option>
+                <?php endif; ?>
               </select>
               <?= field_error($errors, 'rol') ?>
             </div>
@@ -276,7 +293,9 @@ layout_start('Usuarios del Sistema', 'usuarios');
     document.getElementById('usrEstado').value = attr('estado', 'activo');
     document.getElementById('usrMovil').checked = attr('movil', '0') === '1';
     var yo = attr('yo', '0') === '1';
-    document.getElementById('usrRol').disabled = yo;
+    var principal = attr('principal', '0') === '1';
+    if (principal) document.getElementById('usrRol').value = 'maestro';
+    document.getElementById('usrRol').disabled = yo || principal;
     document.getElementById('usrEstado').disabled = yo;
   });
   formUsuario.addEventListener('submit', function () {

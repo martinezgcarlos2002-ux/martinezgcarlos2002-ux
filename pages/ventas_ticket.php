@@ -23,12 +23,14 @@ $fecha = (new DateTimeImmutable((string) $v['fecha']))->format('d/m/Y H:i');
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= e($v['numero']) ?> – <?= e(APP_NAME) ?></title>
+<link rel="stylesheet" href="<?= e(BOOTSTRAP_ICONS_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_ICONS_CSS['integrity']) ?>" crossorigin="anonymous">
+<link rel="stylesheet" href="<?= e(asset_v('css/reportes.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset_v('css/ventas_ticket.css')) ?>">
 </head>
 <body class="ticket-pos">
 <div class="toolbar no-print">
-  <button type="button" onclick="window.print()">Imprimir / PDF</button>
-  <a href="<?= e(url('ventas_nueva')) ?>">Nueva venta</a>
+  <a class="btn-adara-volver js-btn-volver" href="<?= e(url('ventas_nueva')) ?>"><i class="bi bi-arrow-left"></i> Volver</a>
+  <button type="button" class="btn-adara-print" id="btnImprimir"><i class="bi bi-printer-fill"></i> Imprimir / Guardar PDF</button>
 </div>
 <div class="ticket">
   <div class="ticket-head">
@@ -96,5 +98,17 @@ $fecha = (new DateTimeImmutable((string) $v['fecha']))->format('d/m/Y H:i');
     Operación de lácteos artesanales · Conserve este ticket
   </div>
 </div>
+<script nonce="<?= e(csp_nonce()) ?>">
+document.getElementById('btnImprimir').addEventListener('click', function () { window.print(); });
+document.querySelectorAll('.js-btn-volver').forEach(function (a) {
+  a.addEventListener('click', function (ev) {
+    if (window.opener && !window.opener.closed && window.history.length <= 1) {
+      ev.preventDefault();
+      window.opener.focus();
+      window.close();
+    }
+  });
+});
+</script>
 </body>
 </html>

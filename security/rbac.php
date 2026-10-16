@@ -3,11 +3,23 @@ declare(strict_types=1);
 
 const RBAC_ACCIONES = ['ver', 'crear', 'editar', 'anular'];
 
-/** @return array<string, array{label:string, p:string, icon:string, siempre?:bool, solo_admin?:bool}> */
+/** @return array<string, array{label:string, p:string, icon:string, siempre?:bool, solo_admin?:bool, solo_maestro?:bool}> */
 function modulos(): array
 {
     static $modulos = null;
     return $modulos ??= require ADARA_ROOT . '/config/modulos.php';
+}
+
+function is_maestro(?array $user = null): bool
+{
+    $user ??= current_user();
+    return $user !== null && ($user['rol'] ?? '') === 'maestro';
+}
+
+function is_admin(?array $user = null): bool
+{
+    $user ??= current_user();
+    return $user !== null && in_array($user['rol'] ?? '', ['maestro', 'admin'], true);
 }
 
 function has_permiso(?array $user, string $modulo, string $accion = 'ver'): bool
@@ -17,7 +29,10 @@ function has_permiso(?array $user, string $modulo, string $accion = 'ver'): bool
     }
 
     $def = modulos()[$modulo];
-    if ($user['rol'] === 'admin') {
+    if (!empty($def['solo_maestro'])) {
+        return ($user['rol'] ?? '') === 'maestro';
+    }
+    if (is_admin($user)) {
         return true;
     }
     if (!empty($def['solo_admin'])) {

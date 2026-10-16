@@ -60,7 +60,7 @@ layout_start('Control de Facturas', 'facturas');
     </div>
     <div class="d-flex flex-wrap gap-2">
       <a class="btn btn-sm btn-outline-success rounded-pill" href="<?= e(url('facturas_excel')) ?>"><i class="bi bi-file-earmark-excel"></i> Excel</a>
-      <a class="btn btn-sm btn-outline-danger rounded-pill" href="<?= e(url('facturas_pdf')) ?>" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> Reporte general PDF</a>
+      <a class="btn btn-sm btn-outline-danger rounded-pill" href="<?= e(url('facturas_pdf')) ?>"><i class="bi bi-file-earmark-pdf"></i> Reporte general PDF</a>
       <?php if ($puedeCrear): ?>
       <button type="button" class="btn btn-sm btn-outline-warning rounded-pill" data-bs-toggle="modal" data-bs-target="#modalCliente"><i class="bi bi-plus-lg"></i> Cliente</button>
       <button type="button" class="btn btn-sm btn-outline-info rounded-pill" data-bs-toggle="modal" data-bs-target="#modalPagoRapido"><i class="bi bi-lightning-charge-fill"></i> Pago rápido</button>
@@ -161,7 +161,7 @@ layout_start('Control de Facturas', 'facturas');
       <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" id="btnVolver"><i class="bi bi-arrow-left"></i> Volver</button>
       <h2 class="h6 mb-0"><i class="bi bi-person"></i> <span id="detNombre"></span></h2>
       <span class="small text-muted" id="detDoc"></span>
-      <a class="btn btn-sm btn-success rounded-pill ms-auto" id="btnEstadoCuenta" href="#" target="_blank" rel="noopener"><i class="bi bi-file-earmark-text"></i> Generar Estado de Cuenta</a>
+      <a class="btn btn-sm btn-success rounded-pill ms-auto" id="btnEstadoCuenta" href="#"><i class="bi bi-file-earmark-text"></i> Generar Estado de Cuenta</a>
     </div>
     <div class="row g-3 mb-3">
       <div class="col-6 col-lg-3"><div class="card shadow-sm border-0 rounded-4 border-start border-4 border-dark cf-kpi"><div class="card-body py-2"><div class="cf-kpi-lbl">Debe en total</div><div class="cf-kpi-num" id="detDebe"></div></div></div></div>
@@ -402,7 +402,7 @@ layout_start('Control de Facturas', 'facturas');
         </div>
       </div>
       <div class="modal-footer">
-        <a class="btn btn-outline-primary rounded-pill" id="btnImprimirFactura" href="#" target="_blank" rel="noopener"><i class="bi bi-printer"></i> Imprimir factura</a>
+        <a class="btn btn-outline-primary rounded-pill" id="btnImprimirFactura" href="#"><i class="bi bi-printer"></i> Imprimir factura</a>
         <button type="button" class="btn btn-outline-danger rounded-pill d-none" id="btnAnularFacturaDetalle"><i class="bi bi-slash-circle"></i> Anular factura</button>
         <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
       </div>

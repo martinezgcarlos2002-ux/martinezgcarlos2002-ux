@@ -55,8 +55,7 @@ layout_start('Facturas masivas — Productores', 'productores');
 <?php if ($productores === []): ?>
   <div class="card"><div class="card-body text-center text-muted py-4">No hay entregas en el período seleccionado.</div></div>
 <?php else: ?>
-<form method="post" action="<?= e(url('productores_impresion_masiva')) ?>" id="formLiquidaciones" target="_blank"
-      data-html-url="<?= e(url('productores_liquidacion_html')) ?>"
+<form method="post" action="<?= e(url('productores_impresion_masiva')) ?>" id="formLiquidaciones"      data-html-url="<?= e(url('productores_liquidacion_html')) ?>"
       data-desde="<?= e($desde) ?>"
       data-hasta="<?= e($hasta) ?>">
 <?= csrf_field() ?>
@@ -72,7 +71,7 @@ layout_start('Facturas masivas — Productores', 'productores');
         <?= e($p['nombre']) ?>
         <span class="d-block text-muted"><?= e(num($p['litros'], 1)) ?> L · $<?= e(num($p['monto_usd'])) ?><?= $grupoP !== '' ? ' · ' . e($grupoP) : '' ?></span>
       </label>
-      <a class="btn btn-sm btn-link text-decoration-none p-0" target="_blank" rel="noopener" href="<?= e(url('productores_liquidacion', ['id' => $pid, 'desde' => $desde, 'hasta' => $hasta])) ?>" aria-label="Liquidación de <?= e($p['nombre']) ?>"><i class="bi bi-file-earmark-pdf"></i></a>
+      <a class="btn btn-sm btn-link text-decoration-none p-0" href="<?= e(url('productores_liquidacion', ['id' => $pid, 'desde' => $desde, 'hasta' => $hasta])) ?>" aria-label="Liquidación de <?= e($p['nombre']) ?>"><i class="bi bi-file-earmark-pdf"></i></a>
       <a class="btn btn-sm btn-link text-decoration-none p-0" href="<?= e(url('productor_control', ['id' => $pid, 'tab' => 'historial', 'desde' => $desde, 'hasta' => $hasta])) ?>" aria-label="Ver cuenta de <?= e($p['nombre']) ?>"><i class="bi bi-eye"></i></a>
       <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none p-0 fw-bold" data-excluir aria-label="Excluir <?= e($p['nombre']) ?>">×</button>
     </div>

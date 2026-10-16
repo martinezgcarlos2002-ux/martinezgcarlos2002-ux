@@ -77,7 +77,9 @@ if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.class
     </div>
     <div class="sidebar-footer-text">
       <div class="sidebar-user-name"><?= e($user['nombre']) ?></div>
-      <?php if ($user['rol'] === 'admin'): ?>
+      <?php if ($user['rol'] === 'maestro'): ?>
+        <div class="sidebar-user-maestro"><i class="bi bi-cpu-fill"></i> USUARIO MAESTRO — Servicio Técnico</div>
+      <?php elseif ($user['rol'] === 'admin'): ?>
         <div class="sidebar-user-admin"><i class="bi bi-shield-lock-fill"></i> ADMIN — acceso total</div>
       <?php else: ?>
         <div class="sidebar-user-role">
@@ -106,17 +108,18 @@ if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.class
             <span class="visually-hidden">alertas sin leer</span>
           </span>
         </button>
-        <div class="dropdown-menu dropdown-menu-end shadow p-0 overflow-hidden" id="menuNotificaciones" aria-labelledby="btnNotificaciones">
+        <div class="dropdown-menu dropdown-menu-end shadow p-0" id="menuNotificaciones" aria-labelledby="btnNotificaciones">
           <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom bg-body-tertiary">
             <strong class="small">Notificaciones</strong>
             <span class="badge text-bg-secondary" id="contadorAlertasMenu"><?= $totalAlertas ?></span>
           </div>
+          <div class="notificaciones-scroll">
 
           <h6 class="dropdown-header d-flex justify-content-between align-items-center gap-4 text-warning-emphasis bg-warning-subtle">
             <span><i class="bi bi-calendar-event"></i> Próximos Cierres (2 días)</span>
             <span class="badge text-bg-warning"><?= count($notificaciones['cierres']) ?></span>
           </h6>
-          <ul class="list-unstyled mb-0" id="listaProximosCierres">
+          <ul class="list-unstyled mb-0 dropdown-alertas-lista" id="listaProximosCierres">
             <?php foreach ($notificaciones['cierres'] as $n): ?>
             <li>
               <a class="dropdown-item d-flex gap-2 py-2 border-bottom" href="<?= e($n['url']) ?>">
@@ -137,7 +140,7 @@ if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.class
             <span><i class="bi bi-exclamation-octagon"></i> Pagos Atrasados</span>
             <span class="badge text-bg-danger"><?= count($notificaciones['atrasados']) ?></span>
           </h6>
-          <ul class="list-unstyled mb-0" id="listaPagosAtrasados">
+          <ul class="list-unstyled mb-0 dropdown-alertas-lista" id="listaPagosAtrasados">
             <?php foreach ($notificaciones['atrasados'] as $n): ?>
             <li>
               <a class="dropdown-item d-flex gap-2 py-2 border-bottom" href="<?= e($n['url']) ?>">
@@ -177,6 +180,7 @@ if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.class
             <?php endif; ?>
           </ul>
           <?php endif; ?>
+          </div>
         </div>
       </div>
       <?php if ($tasa !== null): ?>

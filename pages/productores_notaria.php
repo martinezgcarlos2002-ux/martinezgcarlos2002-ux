@@ -20,16 +20,17 @@ $filas = max(count($productores) + 3, 30);
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Notaría Productores <?= e($fecha($impreso)) ?> – <?= e(APP_NAME) ?></title>
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_CSS['integrity']) ?>" crossorigin="anonymous">
+<link rel="stylesheet" href="<?= e(BOOTSTRAP_ICONS_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_ICONS_CSS['integrity']) ?>" crossorigin="anonymous">
 <link rel="stylesheet" href="<?= e(asset_v('css/reportes.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset_v('css/notaria_print.css')) ?>">
 </head>
 <body class="notaria">
 
 <div class="toolbar toolbar-ancha no-print">
-  <button type="button" class="btn btn-sm btn-primary" id="btnImprimir">Imprimir / Guardar PDF</button>
+  <a class="btn-adara-volver js-btn-volver" href="<?= e(url('productores')) ?>"><i class="bi bi-arrow-left"></i> Volver</a>
   <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('productores_notaria', ['semana' => (new DateTimeImmutable($semana))->modify('-7 days')->format('Y-m-d')])) ?>">← Semana anterior</a>
   <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('productores_notaria', ['semana' => (new DateTimeImmutable($semana))->modify('+7 days')->format('Y-m-d')])) ?>">Semana siguiente →</a>
-  <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('productores')) ?>">Volver</a>
+  <button type="button" class="btn-adara-print" id="btnImprimir"><i class="bi bi-printer-fill"></i> Imprimir / Guardar PDF</button>
 </div>
 
 <div class="titulo-logo"><img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt=""> EL CASTILLO DEL QUESO</div>
@@ -66,6 +67,15 @@ $filas = max(count($productores) + 3, 30);
 
 <script nonce="<?= e(csp_nonce()) ?>">
 document.getElementById('btnImprimir').addEventListener('click', function () { window.print(); });
+document.querySelectorAll('.js-btn-volver').forEach(function (a) {
+  a.addEventListener('click', function (ev) {
+    if (window.opener && !window.opener.closed && window.history.length <= 1) {
+      ev.preventDefault();
+      window.opener.focus();
+      window.close();
+    }
+  });
+});
 </script>
 </body>
 </html>

@@ -67,7 +67,7 @@ final class EmpleadosController
             'estadoCobranza' => $estadoCobranza,
             'puedeCrear'     => has_permiso($user, 'empleados', 'crear'),
             'puedeEditar'    => has_permiso($user, 'empleados', 'editar'),
-            'esAdmin'        => $user['rol'] === 'admin',
+            'esAdmin'        => is_admin($user),
             'old'            => $old,
             'errors'         => $errors,
         ]);

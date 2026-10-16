@@ -178,7 +178,7 @@ layout_start('Control Productor: ' . $productor['nombre'], 'productores');
           <?php else: ?>
             <span class="badge text-bg-info">Abierta</span>
           <?php endif; ?>
-          <a class="btn btn-sm btn-outline-dark ms-lg-auto" target="_blank" rel="noopener" href="<?= e(url('productores_liquidacion', ['id' => $pid, 'semana' => $semana])) ?>"><i class="bi bi-file-earmark-pdf"></i> Liquidación</a>
+          <a class="btn btn-sm btn-outline-dark ms-lg-auto" href="<?= e(url('productores_liquidacion', ['id' => $pid, 'semana' => $semana])) ?>"><i class="bi bi-file-earmark-pdf"></i> Liquidación</a>
           <span class="badge text-bg-secondary">Precio base: <?= e($usd($productor['precio_litro_usd'], 4)) ?>/L</span>
         </form>
       </div>
@@ -622,7 +622,7 @@ layout_start('Control Productor: ' . $productor['nombre'], 'productores');
               </td>
               <td class="text-nowrap">
                 <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('productor_control', ['id' => $pid, 'semana' => $c['semana_inicio']])) ?>">Pagos</a>
-                <a class="btn btn-sm btn-outline-dark" target="_blank" rel="noopener" href="<?= e(url('productores_liquidacion', ['id' => $pid, 'semana' => $c['semana_inicio']])) ?>" title="Liquidación de la semana"><i class="bi bi-file-earmark-pdf"></i></a>
+                <a class="btn btn-sm btn-outline-dark" href="<?= e(url('productores_liquidacion', ['id' => $pid, 'semana' => $c['semana_inicio']])) ?>" title="Liquidación de la semana"><i class="bi bi-file-earmark-pdf"></i></a>
                 <?php if ($esAdmin): ?>
                 <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modalReabrir"
                         data-id="<?= (int) $c['id'] ?>"
@@ -664,7 +664,7 @@ layout_start('Control Productor: ' . $productor['nombre'], 'productores');
           </div>
           <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-funnel"></i> Filtrar</button>
           <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('productor_control', ['id' => $pid, 'tab' => 'historial', 'desde' => date('Y-m-01'), 'hasta' => $hoy])) ?>">Este mes</a>
-          <a class="btn btn-sm btn-primary ms-lg-auto" target="_blank" rel="noopener" href="<?= e(url('productores_liquidacion', ['id' => $pid, 'desde' => $histDesde, 'hasta' => $histHasta])) ?>"><i class="bi bi-receipt"></i> Generar Factura</a>
+          <a class="btn btn-sm btn-primary ms-lg-auto" href="<?= e(url('productores_liquidacion', ['id' => $pid, 'desde' => $histDesde, 'hasta' => $histHasta])) ?>"><i class="bi bi-receipt"></i> Generar Factura</a>
         </form>
       </div>
     </div>

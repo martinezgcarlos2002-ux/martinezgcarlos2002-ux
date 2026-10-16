@@ -1,3 +1,64 @@
+.toolbar.no-print,
+.barra.no-print {
+  max-width: 860px;
+  margin: 16px auto 14px;
+  padding: 10px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.toolbar.toolbar-ancha.no-print {
+  max-width: none;
+  margin: 0 0 12px;
+}
+.btn-adara-print,
+.btn-adara-volver {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none !important;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.btn-adara-print {
+  background: linear-gradient(135deg, #1a2e5a 0%, #1e3a8a 100%);
+  color: #ffffff !important;
+  border: 1px solid #142447;
+  box-shadow: 0 2px 6px rgba(26, 46, 90, 0.25);
+}
+.btn-adara-print:hover {
+  background: linear-gradient(135deg, #142447 0%, #172554 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(26, 46, 90, 0.35);
+}
+.btn-adara-volver {
+  background: #f8fafc;
+  color: #1e293b !important;
+  border: 1px solid #cbd5e1;
+}
+.btn-adara-volver:hover {
+  background: #e2e8f0;
+  color: #0f172a !important;
+  border-color: #94a3b8;
+}
+@media print {
+  .no-print { display: none !important; }
+  body.reporte { background: #fff; }
+  .doc { box-shadow: none; }
+}
+
 /* Reportes imprimibles de ADARA (liquidación de productores, notaría). */
 :root { --navy: #1e3a8a; --navy-2: #1e3a8a; --linea: #e8edf5; --gris: #64748b; }
 

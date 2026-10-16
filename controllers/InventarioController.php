@@ -432,7 +432,7 @@ final class InventarioController
 
     private static function esAdmin(?array $user): bool
     {
-        return ($user['rol'] ?? null) === 'admin';
+        return is_admin($user);
     }
 
     private function denegar(string $accion): never

@@ -20,16 +20,27 @@ $puedeEditarHoja = false;
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Control diario de leche <?= e((new DateTimeImmutable($fechaHoja))->format('d/m/Y')) ?> – <?= e(APP_NAME) ?></title>
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_CSS['integrity']) ?>" crossorigin="anonymous">
+<link rel="stylesheet" href="<?= e(BOOTSTRAP_ICONS_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_ICONS_CSS['integrity']) ?>" crossorigin="anonymous">
+<link rel="stylesheet" href="<?= e(asset_v('css/reportes.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset_v('css/control_diario.css')) ?>">
 </head>
 <body>
-<div class="barra no-print p-2 d-flex gap-2">
-  <a class="btn btn-outline-secondary btn-sm" href="<?= e(url('control_leche', ['vista' => 'diaria', 'fecha' => $fechaHoja, 'desde' => $fechaHoja, 'hasta' => $fechaHoja])) ?>">← Volver</a>
-  <button type="button" class="btn btn-primary btn-sm" id="btnImprimir">🖨 Imprimir</button>
+<div class="toolbar no-print">
+  <a class="btn-adara-volver js-btn-volver" href="<?= e(url('control_leche', ['vista' => 'diaria', 'fecha' => $fechaHoja, 'desde' => $fechaHoja, 'hasta' => $fechaHoja])) ?>"><i class="bi bi-arrow-left"></i> Volver</a>
+  <button type="button" class="btn-adara-print" id="btnImprimir"><i class="bi bi-printer-fill"></i> Imprimir / Guardar PDF</button>
 </div>
 <?php require ADARA_ROOT . '/pages/partials/control_diario_hoja.php'; ?>
 <script nonce="<?= e(csp_nonce()) ?>">
 document.getElementById('btnImprimir').addEventListener('click', function () { window.print(); });
+document.querySelectorAll('.js-btn-volver').forEach(function (a) {
+  a.addEventListener('click', function (ev) {
+    if (window.opener && !window.opener.closed && window.history.length <= 1) {
+      ev.preventDefault();
+      window.opener.focus();
+      window.close();
+    }
+  });
+});
 </script>
 </body>
 </html>

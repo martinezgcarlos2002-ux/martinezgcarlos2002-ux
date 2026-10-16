@@ -18,6 +18,24 @@ final class RespaldoController
     public function index(): void
     {
         $inv = $this->respaldo->inventario();
+        $mapaCodigo = null;
+        $integridad = [];
+        if (is_maestro()) {
+            $rutaMapa = ADARA_ROOT . '/MAPA_ADARA.md';
+            $mapaCodigo = is_readable($rutaMapa) ? (string) file_get_contents($rutaMapa) : '';
+            $nucleo = [
+                'index.php'            => ADARA_ROOT . '/index.php',
+                'config/bootstrap.php' => ADARA_ROOT . '/config/bootstrap.php',
+                'security/rbac.php'    => ADARA_ROOT . '/security/rbac.php',
+                'MAPA_ADARA.md'        => $rutaMapa,
+            ];
+            foreach ($nucleo as $nombre => $ruta) {
+                $integridad[] = [
+                    'archivo' => $nombre,
+                    'sha256'  => is_readable($ruta) ? hash_file('sha256', $ruta) : 'no encontrado',
+                ];
+            }
+        }
         view('respaldo', [
             'motor'         => $inv['motor'],
             'tablas'        => $inv['tablas'],
@@ -25,7 +43,47 @@ final class RespaldoController
             'ultimo'        => $this->auditoria->ultimoRespaldo(),
             'descargadoHoy' => $this->auditoria->respaldoDescargadoHoy(),
             'ahora'         => date('Y-m-d H:i'),
+            'mapaCodigo'    => $mapaCodigo,
+            'integridad'    => $integridad,
+            'phpVersion'    => PHP_VERSION,
+            'pdoOk'         => extension_loaded('pdo_mysql'),
         ]);
+    }
+
+    /** Descarga MAPA_ADARA.md. Exclusivo del rol maestro. */
+    public function descargarMapaCodigo(): void
+    {
+        $user = current_user();
+        if (!is_maestro($user)) {
+            audit_log('seguridad', 'acceso_denegado', ['p' => 'respaldo_mapa_codigo']);
+            render_forbidden();
+            exit;
+        }
+
+        $ruta = ADARA_ROOT . '/MAPA_ADARA.md';
+        if (!is_readable($ruta)) {
+            http_response_code(404);
+            exit('MAPA_ADARA.md no encontrado.');
+        }
+
+        $bytes = (int) filesize($ruta);
+        audit_log('respaldo', 'descargar_mapa_codigo', [
+            'archivo' => 'MAPA_ADARA.md',
+            'bytes'   => $bytes,
+            'sha256'  => hash_file('sha256', $ruta),
+        ], 'MAPA_ADARA.md', null, $user['id']);
+
+        session_write_close();
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        header('Content-Type: text/markdown; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="MAPA_ADARA.md"');
+        header('Content-Length: ' . $bytes);
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: no-store, private');
+        readfile($ruta);
     }
 
     /**
@@ -81,7 +139,7 @@ final class RespaldoController
      */
     public static function marcarAutoDescarga(array $user): void
     {
-        if ($user['rol'] !== 'admin' || self::esMovil($_SERVER['HTTP_USER_AGENT'] ?? '')) {
+        if (!is_admin($user) || self::esMovil($_SERVER['HTTP_USER_AGENT'] ?? '')) {
             return;
         }
         if (!(new Auditoria(get_db()))->respaldoDescargadoHoy()) {

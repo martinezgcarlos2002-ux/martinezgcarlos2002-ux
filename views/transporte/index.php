@@ -44,13 +44,13 @@ layout_start('Transportistas', 'transportistas');
       <div class="small text-muted">Rutas, recolecta diaria y cierres semanales</div>
     </div>
     <div class="d-flex flex-wrap gap-2">
-      <a class="btn btn-sm btn-notaria" href="<?= e(url('transporte_notaria')) ?>" target="_blank" rel="noopener">
+      <a class="btn btn-sm btn-notaria" href="<?= e(url('transporte_notaria')) ?>">
         🖨️ Imprimir Notaría
       </a>
-      <a class="btn btn-sm btn-outline-secondary rounded-pill" href="<?= e(url('transporte_directorio_pdf')) ?>" target="_blank" rel="noopener">
+      <a class="btn btn-sm btn-outline-secondary rounded-pill" href="<?= e(url('transporte_directorio_pdf')) ?>">
         <i class="bi bi-file-earmark-pdf"></i> Directorio Transportistas PDF
       </a>
-      <a class="btn btn-sm btn-outline-secondary rounded-pill" href="<?= e(url('transporte_cxp_pdf')) ?>" target="_blank" rel="noopener">
+      <a class="btn btn-sm btn-outline-secondary rounded-pill" href="<?= e(url('transporte_cxp_pdf')) ?>">
         <i class="bi bi-file-earmark-pdf"></i> Reporte CxP Transporte
       </a>
       <?php if ($puedeCrear): ?>

@@ -9,13 +9,78 @@ declare(strict_types=1);
  * @var array{usuario:?string, fecha:string, detalle:?array}|null $ultimo
  * @var bool $descargadoHoy
  * @var string $ahora
+ * @var string|null $mapaCodigo
+ * @var list<array{archivo:string, sha256:string}> $integridad
+ * @var string $phpVersion
+ * @var bool $pdoOk
  */
+$mapaCodigo = $mapaCodigo ?? null;
+$integridad = $integridad ?? [];
+$phpVersion = $phpVersion ?? PHP_VERSION;
+$pdoOk = $pdoOk ?? extension_loaded('pdo_mysql');
 $momento = new DateTimeImmutable($ahora);
 $ultimoMomento = $ultimo === null ? null : new DateTimeImmutable($ultimo['fecha']);
 $mb = static fn (int $bytes): string => num($bytes / 1048576, 2) . ' MB';
 
 layout_start('Cierre Diario — Respaldo SQL', 'respaldo');
 ?>
+<?php if (is_maestro()): ?>
+<div class="card border-warning mb-3">
+  <div class="card-header bg-warning-subtle fw-semibold">
+    <i class="bi bi-cpu-fill"></i> Centro de Servicio Técnico, Seguridad y Mapeo de Código Fuente (Exclusivo Usuario Maestro)
+  </div>
+  <div class="card-body">
+    <h6 class="text-navy">Monitor de Seguridad e Integridad</h6>
+    <ul class="small mb-3">
+      <li>PHP <?= e($phpVersion) ?> activo.</li>
+      <li>PDO MySQL: <?= $pdoOk ? 'disponible' : 'no disponible' ?>.</li>
+      <li>Cabeceras CSP estrictas con nonce por respuesta: activas en <code>index.php</code>.</li>
+      <li>Bloqueos externos: <strong>0</strong>. El sistema no tiene servicios de terceros fuera de <code>cdn.jsdelivr.net</code>.</li>
+    </ul>
+    <div class="table-responsive mb-4">
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Archivo núcleo</th><th>SHA-256</th></tr></thead>
+        <tbody>
+        <?php foreach ($integridad as $fila): ?>
+          <tr>
+            <td><code><?= e($fila['archivo']) ?></code></td>
+            <td><code class="text-break small"><?= e($fila['sha256']) ?></code></td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+
+    <h6 class="text-navy">Descarga Ilimitada de Base de Datos</h6>
+    <p class="small text-muted">El Usuario Maestro puede generar y descargar el SQL completo cuantas veces sea necesario, sin el límite diario del cierre automático.</p>
+    <form method="post" action="<?= e(url('respaldo_descargar')) ?>" class="mb-4">
+      <?= csrf_field() ?>
+      <input type="hidden" name="origen" value="maestro">
+      <button type="submit" class="btn btn-warning text-dark"><i class="bi bi-database-down"></i> Descargar respaldo SQL completo</button>
+    </form>
+
+    <h6 class="text-navy">Mapeo del Código Fuente (MAPA_ADARA.md)</h6>
+    <form method="post" action="<?= e(url('respaldo_mapa_codigo')) ?>" class="mb-3">
+      <?= csrf_field() ?>
+      <button type="submit" class="btn btn-outline-dark"><i class="bi bi-file-earmark-code"></i> Descargar MAPA_ADARA.md</button>
+    </form>
+    <div class="accordion" id="visorMapa">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mapaCodigoCuerpo">
+            Consultar el mapa del código fuente
+          </button>
+        </h2>
+        <div id="mapaCodigoCuerpo" class="accordion-collapse collapse" data-bs-parent="#visorMapa">
+          <div class="accordion-body p-2">
+            <pre class="bg-dark text-light p-3 rounded small panel-scroll mb-0"><?= e($mapaCodigo ?? '') ?></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
   <div>
     <h5 class="mb-1 text-navy"><i class="bi bi-database-down"></i> Cierre Diario — Respaldo SQL</h5>

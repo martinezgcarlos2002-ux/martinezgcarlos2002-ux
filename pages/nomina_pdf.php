@@ -39,12 +39,13 @@ $estado = Nomina::ESTADOS[$datos['estado']] ?? $datos['estado'];
 <title>Nómina <?= e(date('d/m/Y', strtotime($datos['inicio']))) ?> – <?= e(APP_NAME) ?></title>
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_CSS['integrity']) ?>" crossorigin="anonymous">
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_ICONS_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_ICONS_CSS['integrity']) ?>" crossorigin="anonymous">
+<link rel="stylesheet" href="<?= e(asset_v('css/reportes.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset_v('css/nomina_pdf.css')) ?>">
 </head>
 <body>
-<div class="barra no-print d-flex gap-2 p-2">
-  <a class="btn btn-outline-secondary btn-sm" href="<?= e(url('empleados', ['tab' => 'nomina', 'semana' => $datos['inicio']])) ?>"><i class="bi bi-arrow-left"></i> Volver</a>
-  <button type="button" class="btn btn-primary btn-sm" id="btnImprimir"><i class="bi bi-printer"></i> Imprimir / Guardar PDF</button>
+<div class="toolbar no-print">
+  <a class="btn-adara-volver js-btn-volver" href="<?= e(url('empleados', ['tab' => 'nomina', 'semana' => $datos['inicio']])) ?>"><i class="bi bi-arrow-left"></i> Volver</a>
+  <button type="button" class="btn-adara-print" id="btnImprimir"><i class="bi bi-printer-fill"></i> Imprimir / Guardar PDF</button>
 </div>
 
 <section class="hoja">
@@ -125,6 +126,15 @@ $estado = Nomina::ESTADOS[$datos['estado']] ?? $datos['estado'];
 
 <script nonce="<?= e(csp_nonce()) ?>">
 document.getElementById('btnImprimir').addEventListener('click', function () { window.print(); });
+document.querySelectorAll('.js-btn-volver').forEach(function (a) {
+  a.addEventListener('click', function (ev) {
+    if (window.opener && !window.opener.closed && window.history.length <= 1) {
+      ev.preventDefault();
+      window.opener.focus();
+      window.close();
+    }
+  });
+});
 </script>
 </body>
 </html>

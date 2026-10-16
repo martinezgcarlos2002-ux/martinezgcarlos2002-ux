@@ -100,7 +100,7 @@ layout_start('Productores y Proveedores', 'productores');
     <a class="btn btn-sm btn-semanal" href="<?= e(url('productores_control_semanal')) ?>"><i class="bi bi-table"></i> Control Semanal</a>
     <a class="btn btn-sm btn-facturas" href="<?= e(url('productores_facturas_masivas')) ?>"><i class="bi bi-files"></i> Facturas Masivas</a>
     <button type="button" class="btn btn-sm btn-importar"><i class="bi bi-upload"></i> Importar Pagos</button>
-    <a class="btn btn-sm btn-notaria" target="_blank" rel="noopener" href="<?= e(url('productores_notaria')) ?>"><i class="bi bi-journal-text"></i> Notaría</a>
+    <a class="btn btn-sm btn-notaria" href="<?= e(url('productores_notaria')) ?>"><i class="bi bi-journal-text"></i> Notaría</a>
     <?php if ($puedeCrear): ?>
       <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalProductor" data-modo="nuevo">
         <i class="bi bi-plus-lg"></i> Nuevo Productor

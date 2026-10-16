@@ -35,29 +35,15 @@ $volver = count($documentos) === 1
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= e($titulo) ?> – <?= e(APP_NAME) ?></title>
+<link rel="stylesheet" href="<?= e(BOOTSTRAP_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_CSS['integrity']) ?>" crossorigin="anonymous">
+<link rel="stylesheet" href="<?= e(BOOTSTRAP_ICONS_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_ICONS_CSS['integrity']) ?>" crossorigin="anonymous">
 <link rel="stylesheet" href="<?= e(asset_v('css/reportes.css')) ?>">
-<style>
-  .toolbar a, .toolbar button {
-    display: inline-block; padding: 8px 14px; border-radius: 8px; font: 600 14px/1.2 system-ui, sans-serif;
-    text-decoration: none; cursor: pointer; border: 1px solid #cbd5e1; background: #fff; color: #1e293b;
-  }
-  .toolbar button.primario { background: #1e3a8a; color: #fff; border-color: #1e3a8a; }
-  .salto-pagina { page-break-after: always; break-after: page; }
-  .salto-pagina:last-child { page-break-after: auto; break-after: auto; }
-  @media print {
-    .no-print { display: none !important; }
-    .salto-pagina { page-break-after: always; break-after: page; }
-    .salto-pagina:last-child { page-break-after: auto; break-after: auto; }
-    body.reporte { background: #fff; }
-    .doc { box-shadow: none; }
-  }
-</style>
 </head>
 <body class="reporte">
 
 <div class="toolbar no-print">
-  <button type="button" class="primario" id="btnImprimir">🖨 Imprimir<?= count($documentos) > 1 ? ' todas' : '' ?></button>
-  <a href="<?= e($volver) ?>">← Volver</a>
+  <a class="btn-adara-volver js-btn-volver" href="<?= e($volver) ?>"><i class="bi bi-arrow-left"></i> Volver</a>
+  <button type="button" class="btn-adara-print" id="btnImprimir"><i class="bi bi-printer-fill"></i> Imprimir<?= count($documentos) > 1 ? ' todas' : ' / Guardar PDF' ?></button>
 </div>
 
 <div id="docsLiquidacion">
@@ -72,6 +58,15 @@ $volver = count($documentos) === 1
 (function () {
   var btn = document.getElementById('btnImprimir');
   if (btn) btn.addEventListener('click', function () { window.print(); });
+  document.querySelectorAll('.js-btn-volver').forEach(function (a) {
+    a.addEventListener('click', function (ev) {
+      if (window.opener && !window.opener.closed && window.history.length <= 1) {
+        ev.preventDefault();
+        window.opener.focus();
+        window.close();
+      }
+    });
+  });
   <?php if ($autoprint): ?>
   window.addEventListener('load', function () { window.print(); });
   <?php endif; ?>
