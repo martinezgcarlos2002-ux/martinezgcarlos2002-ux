@@ -437,6 +437,16 @@ return [
         'accion'  => 'editar',
         'POST'    => [EmpleadosController::class, 'update'],
     ],
+    'empleados_baja' => [
+        'modulo'  => 'empleados',
+        'accion'  => 'editar',
+        'POST'    => [EmpleadosController::class, 'darDeBaja'],
+    ],
+    'empleados_reingreso' => [
+        'modulo'  => 'empleados',
+        'accion'  => 'editar',
+        'POST'    => [EmpleadosController::class, 'reingresar'],
+    ],
     'nomina_guardar' => [
         'modulo'  => 'empleados',
         'accion'  => 'editar',

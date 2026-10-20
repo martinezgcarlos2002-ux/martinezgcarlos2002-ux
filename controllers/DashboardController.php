@@ -76,11 +76,14 @@ final class DashboardController
 
         $indicadores = [];
         if ($puede('facturas')) {
+            // Misma cifra que "Total a cobrar" de Control de Facturas (CxCService::obtenerMetricasDashboard):
+            // suma de saldo_pendiente de toda la cartera no anulada (vigente, por vencer y vencida).
             $fact = $this->row(
-                'SELECT COUNT(*) AS n, COALESCE(SUM(saldo_usd - pagado_usd), 0) AS usd
-                 FROM productores_cierres
-                 WHERE estado IN (:cerrada, :parcial) AND saldo_usd > pagado_usd',
-                ['cerrada' => 'cerrada', 'parcial' => 'parcial'],
+                "SELECT COALESCE(SUM(saldo_pendiente > 0), 0) AS n,
+                        COALESCE(SUM(saldo_pendiente), 0) AS usd
+                 FROM cxc_facturas
+                 WHERE estado <> 'anulada'",
+                [],
                 ['n' => 0, 'usd' => 0]
             );
             $n = (int) $fact['n'];

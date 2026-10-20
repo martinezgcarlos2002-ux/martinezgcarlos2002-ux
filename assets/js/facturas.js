@@ -323,10 +323,13 @@
       var err = {};
       if (!tabla) return err;
       var self = this;
+      var esDevolucion = tabla.id === 'tablaDevolucion';
       $$('tbody tr', tabla).forEach(function (tr) {
         var cantEl = $('.js-cant', tr), precEl = $('.js-precio', tr);
         var c = self.montoCrudo(cantEl.value), p = self.montoCrudo(precEl.value);
         if (!c && !p) return;
+        /* En una devolución, cantidad vacía o cero significa "este producto no se devuelve". */
+        if (esDevolucion && !(self.num(c) > 0)) return;
       if (!(self.num(c) > 0)) { cantEl.classList.add('is-invalid'); err.monto = 'Cada producto debe tener cantidad y precio positivos, o deja la fila en blanco.'; }
       if (!(self.num(p) > 0)) { precEl.classList.add('is-invalid'); err.monto = err.monto || 'Cada producto debe tener cantidad y precio positivos, o deja la fila en blanco.'; }
       var max = parseFloat(cantEl.getAttribute('data-max') || '0');
@@ -418,19 +421,47 @@
       this.S.facturas.forEach(function (f) {
         var e = self.estadoFactura(f), s = self.saldo(f);
         if (e.clave === 'anulada') return;
+        var pendiente = Number(f.saldo);
         k.facturado += Number(f.monto);
         k.cobrado += Number(f.pagado);
-        if (s > 0.009) { k.por_cobrar++; k.a_cobrar += s; } else { k.pagadas++; }
+        if (pendiente > 0.009) { k.por_cobrar++; k.a_cobrar += Math.round(pendiente * 100); } else { k.pagadas++; }
         if (e.clave === 'vencida') { k.vencido += s; k.vencidas_n++; }
         if (e.clave === 'por_vencer') k.por_vencer++;
       });
       this.S.devoluciones.forEach(function (d) {
         if (d.estado !== 'anulada') k.devoluciones += Number(d.monto);
       });
-      this.S.clientes.forEach(function (c) { k.credito += Number(c.credito || 0); });
+      this.S.clientes.forEach(function (c) { k.credito += Math.round(Number(c.credito || 0) * 100); });
+      k.a_cobrar /= 100;
+      k.credito /= 100;
       ['facturado', 'a_cobrar', 'cobrado', 'vencido', 'credito', 'devoluciones'].forEach(function (x) { k[x] = self.money(k[x]); });
       k.vencidas_n = k.vencidas_n + ' factura(s) vencida(s)';
       $$('[data-kpi]').forEach(function (el) { el.textContent = k[el.dataset.kpi]; });
+      this.renderSaldoFavor();
+    }
+
+    /** Clientes de cxc_clientes con saldo_favor > 0 (campo credito del JSON). */
+    renderSaldoFavor() {
+      var tb = $('#tbSaldoFavor');
+      if (!tb) return;
+      tb.textContent = '';
+      var self = this;
+      var filas = this.S.clientes.filter(function (c) { return Number(c.credito || 0) > 0.009; })
+        .sort(function (a, b) { return Number(b.credito) - Number(a.credito) || String(a.nombre).localeCompare(String(b.nombre), 'es'); });
+      var totalC = 0;
+      filas.forEach(function (c) {
+        var saldo = Number(c.credito || 0);
+        totalC += Math.round(saldo * 100);
+        tb.appendChild(self.h('tr', {}, [
+          self.h('td', { text: c.nombre || '' }),
+          self.h('td', { class: 'text-end fw-semibold', text: self.money(saldo) })
+        ]));
+      });
+      if (!filas.length) {
+        tb.appendChild(this.h('tr', {}, [this.h('td', { colspan: '2', class: 'text-center text-muted py-3', text: 'Ningún cliente tiene saldo a favor.' })]));
+      }
+      var pie = $('#totalSaldoFavor');
+      if (pie) pie.textContent = this.money(totalC / 100);
     }
 
     renderPrioridad() {
@@ -700,12 +731,13 @@
 
     agregarFila(tabla) {
       var self = this;
+      var esDevolucion = tabla.id === 'tablaDevolucion';
       var tr = this.h('tr', {}, [
         this.h('td', {}, [this.h('input', { class: 'form-control form-control-sm js-cant', inputmode: 'decimal', placeholder: 'Cant.' })]),
         this.h('td', {}, [this.h('input', { class: 'form-control form-control-sm js-precio', inputmode: 'decimal', placeholder: 'Precio' })]),
         this.h('td', { class: 'text-end small js-sub', text: this.money(0) }),
         this.h('td', {}, [this.h('input', { class: 'form-control form-control-sm js-desc', maxlength: '120', placeholder: 'Descripción (Ej: queso de año)' })]),
-        this.h('td', { class: 'text-end' }, [this.h('button', { type: 'button', class: 'btn btn-sm btn-outline-danger rounded-circle', 'aria-label': 'Quitar producto', onclick: function () { tr.remove(); self.recalcular(tabla); } }, [this.h('i', { class: 'bi bi-x-lg' })])])
+        this.h('td', { class: 'text-end' }, [this.h('button', { type: 'button', class: 'btn btn-sm btn-outline-danger' + (esDevolucion ? '' : ' rounded-circle'), 'aria-label': esDevolucion ? 'Eliminar' : 'Quitar producto', title: esDevolucion ? 'Eliminar' : 'Quitar producto', onclick: function () { tr.remove(); self.recalcular(tabla); } }, [this.h('i', { class: esDevolucion ? 'bi bi-trash' : 'bi bi-x-lg' })])])
       ]);
       $('tbody', tabla).appendChild(tr);
       this.recalcular(tabla);
@@ -714,12 +746,22 @@
     recalcular(tabla) {
       var self = this, total = 0, hay = false;
       $$('tbody tr', tabla).forEach(function (tr) {
-        var sub = self.num($('.js-cant', tr).value) * self.num($('.js-precio', tr).value);
+        var cant = self.num($('.js-cant', tr).value);
+        var prec = self.num($('.js-precio', tr).value);
+        var sub = cant * prec;
         $('.js-sub', tr).textContent = self.money(sub);
-        if (sub > 0) hay = true;
-        total += sub;
+        if (cant > 0 && prec > 0) {
+          hay = true;
+          total += sub;
+        }
       });
       var input = document.getElementById(tabla.dataset.total);
+      if (!input) return;
+      if (tabla.id === 'tablaDevolucion') {
+        input.value = hay ? this.r2(total).toFixed(2) : '';
+        input.readOnly = hay;
+        return;
+      }
       if (hay) input.value = this.r2(total).toFixed(2);
       input.readOnly = hay;
     }
@@ -883,7 +925,11 @@
         });
         if (!(j.renglones || []).length) {
           this.agregarFila(tabla);
-          if (j.factura && j.factura.monto) $('#devMonto').value = Number(j.factura.monto).toFixed(2);
+          if (j.factura && j.factura.monto) {
+            $('#devMonto').value = Number(j.factura.monto).toFixed(2);
+            $('#devMonto').readOnly = false;
+          }
+          return;
         }
         this.recalcular(tabla);
       } catch (e) {
@@ -896,12 +942,19 @@
       cant.setAttribute('data-max', String(r.cantidad));
       var prec = this.h('input', { class: 'form-control form-control-sm js-precio', inputmode: 'decimal', value: Number(r.precio).toFixed(2), readonly: 'readonly' });
       var desc = this.h('input', { class: 'form-control form-control-sm js-desc', maxlength: '120', value: r.descripcion || '', readonly: 'readonly' });
+      var self = this;
       var tr = this.h('tr', {}, [
         this.h('td', {}, [cant]),
         this.h('td', {}, [prec]),
         this.h('td', { class: 'text-end small js-sub', text: this.money(r.subtotal) }),
         this.h('td', {}, [desc]),
-        this.h('td', {})
+        this.h('td', { class: 'text-end' }, [this.h('button', {
+          type: 'button',
+          class: 'btn btn-sm btn-outline-danger',
+          'aria-label': 'Eliminar',
+          title: 'Eliminar',
+          onclick: function () { tr.remove(); self.recalcular(tabla); }
+        }, [this.h('i', { class: 'bi bi-trash' })])])
       ]);
       $('tbody', tabla).appendChild(tr);
     }
@@ -1332,15 +1385,17 @@
       $('#modalDevolucion').addEventListener('show.bs.modal', function () { self.prepararDevolucion(); });
       formDev.addEventListener('submit', function (e) {
         e.preventDefault();
+        var tablaDev = $('#tablaDevolucion');
+        self.recalcular(tablaDev);
         var destino = $('#devDestino').value, errores = self.validarFormulario(formDev);
-        Object.assign(errores, self.validarRenglones($('#tablaDevolucion')));
+        Object.assign(errores, self.validarRenglones(tablaDev));
         if (destino === 'origen' && !$('#devOrigen').value) errores.factura_id = 'Para descontar de la factura de origen, selecciónala.';
         if (destino === 'otra' && !$('#devOtra').value) errores.factura_destino = 'Selecciona la factura vigente a descontar.';
         var destinoF = self.factura(destino === 'origen' ? $('#devOrigen').value : $('#devOtra').value);
         if (destinoF && destino !== 'credito' && self.num($('#devMonto').value) > self.saldo(destinoF) + 0.009) {
           errores[destino === 'origen' ? 'factura_id' : 'factura_destino'] = 'La devolución supera el saldo de ' + destinoF.numero + ' (' + self.money(self.saldo(destinoF)) + '). Déjala como crédito.';
         }
-        self.enviar(formDev, 'devolucion', { renglones: self.renglones($('#tablaDevolucion')) }, errores);
+        self.enviar(formDev, 'devolucion', { renglones: self.renglones(tablaDev) }, errores);
       });
     }
   }

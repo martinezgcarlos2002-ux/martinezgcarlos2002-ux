@@ -42,6 +42,22 @@
   });
 
   document.addEventListener('show.bs.modal', function (ev) {
+    if (!ev.target || ev.target.id !== 'modalReingreso') return;
+    var btn = ev.relatedTarget;
+    if (!btn || !btn.getAttribute) return;
+    var id = document.getElementById('reingresoId');
+    var nombre = document.getElementById('reingresoNombre');
+    var fecha = document.getElementById('reingresoFecha');
+    if (id) id.value = btn.getAttribute('data-id') || '';
+    if (nombre) nombre.textContent = btn.getAttribute('data-nombre') || '';
+    if (fecha) {
+      var salida = btn.getAttribute('data-salida') || '';
+      fecha.min = salida;
+      if (salida && fecha.value && fecha.value < salida) fecha.value = salida;
+    }
+  });
+
+  document.addEventListener('show.bs.modal', function (ev) {
     if (!ev.target || ev.target.id !== 'modalPrestamoEditar') return;
     var btn = ev.relatedTarget;
     if (!btn || !btn.getAttribute) return;
@@ -97,7 +113,8 @@
     syncCobro = false;
   });
 
-  function filtrar(inputId, contadorId) {
+  function filtrar(inputId, contadorId, opciones) {
+    opciones = opciones || {};
     var input = document.getElementById(inputId);
     if (!input) return;
     var pane = input.closest('.tab-pane');
@@ -105,8 +122,13 @@
     var contador = document.getElementById(contadorId);
     var aplicar = function () {
       var q = input.value.toLowerCase().trim();
+      var soloActivos = typeof opciones.soloActivos === 'function' && opciones.soloActivos();
       var visibles = 0, total = 0;
       pane.querySelectorAll('tbody tr[data-emp]').forEach(function (tr) {
+        if (soloActivos && tr.getAttribute('data-activo') === '0') {
+          tr.classList.add('d-none');
+          return;
+        }
         total++;
         var ok = !q || tr.getAttribute('data-emp').indexOf(q) !== -1;
         tr.classList.toggle('d-none', !ok);
@@ -117,10 +139,33 @@
       if (contador) contador.textContent = q ? (visibles + ' de ' + total + ' empleados') : (total + ' empleados');
     };
     input.addEventListener('input', aplicar);
+    if (typeof opciones.alCambiar === 'function') opciones.alCambiar(aplicar);
     aplicar();
   }
   filtrar('buscarNomina', 'contadorNomina');
-  filtrar('buscarDirectorio', 'contadorDirectorio');
+  var verHistorialEmp = false;
+  filtrar('buscarDirectorio', 'contadorDirectorio', {
+    soloActivos: function () { return !verHistorialEmp; },
+    alCambiar: function (aplicar) {
+      var activos = document.getElementById('btnActivosEmp');
+      var historial = document.getElementById('btnHistorialEmp');
+      function pintar() {
+        if (activos) {
+          activos.classList.toggle('btn-primary', !verHistorialEmp);
+          activos.classList.toggle('btn-outline-secondary', verHistorialEmp);
+          activos.setAttribute('aria-pressed', verHistorialEmp ? 'false' : 'true');
+        }
+        if (historial) {
+          historial.classList.toggle('btn-primary', verHistorialEmp);
+          historial.classList.toggle('btn-outline-secondary', !verHistorialEmp);
+          historial.setAttribute('aria-pressed', verHistorialEmp ? 'true' : 'false');
+        }
+        aplicar();
+      }
+      if (activos) activos.addEventListener('click', function () { verHistorialEmp = false; pintar(); });
+      if (historial) historial.addEventListener('click', function () { verHistorialEmp = true; pintar(); });
+    }
+  });
 
   document.querySelectorAll('[data-confirmar]').forEach(function (btn) {
     btn.addEventListener('click', function (ev) {

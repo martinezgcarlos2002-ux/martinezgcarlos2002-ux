@@ -39,6 +39,7 @@ function layout_start(string $title, string $active = ''): void
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= e($title) ?> – <?= e(APP_NAME) ?></title>
+<link rel="icon" type="image/png" href="<?= e(asset('img/favicon.png')) ?>">
 <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_CSS['integrity']) ?>" crossorigin="anonymous">
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_ICONS_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_ICONS_CSS['integrity']) ?>" crossorigin="anonymous">

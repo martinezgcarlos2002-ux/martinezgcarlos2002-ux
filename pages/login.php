@@ -10,6 +10,7 @@ $alertClass = ['error' => 'danger', 'success' => 'success', 'info' => 'info'];
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Iniciar Sesión – <?= e(APP_NAME) ?></title>
+<link rel="icon" type="image/png" href="<?= e(asset('img/favicon.png')) ?>">
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_CSS['href']) ?>"
       integrity="<?= e(BOOTSTRAP_CSS['integrity']) ?>" crossorigin="anonymous">
 <link rel="stylesheet" href="<?= e(asset_v('css/login.css')) ?>">

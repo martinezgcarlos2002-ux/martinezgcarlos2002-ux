@@ -142,6 +142,68 @@ final class EmpleadosController
         redirect('empleados', ['tab' => 'directorio']);
     }
 
+    /** Baja lógica: UPDATE activo = 0 y fecha_salida = hoy. No elimina la fila. */
+    public function darDeBaja(): void
+    {
+        $id = parse_int_range($_POST['id'] ?? null, 1, PHP_INT_MAX);
+        if ($id === null) {
+            flash('error', 'Empleado no válido.');
+            redirect('empleados', ['tab' => 'directorio']);
+        }
+        $hoy = date('Y-m-d');
+        try {
+            $nombre = Database::transaction(function () use ($id, $hoy): string {
+                $antes = $this->empleados->find($id, true);
+                if ($antes === null) {
+                    throw new ValidationException(['id' => 'El empleado no existe.']);
+                }
+                if (!$antes['activo']) {
+                    throw new ValidationException(['id' => 'Ese empleado ya está inactivo.']);
+                }
+                if (!$this->empleados->darDeBaja($id, $hoy)) {
+                    throw new ValidationException(['id' => 'No se pudo dar de baja al empleado.']);
+                }
+                audit_log('empleados', 'dar_de_baja', [
+                    'activo'       => ['antes' => 1, 'despues' => 0],
+                    'fecha_salida' => ['antes' => $antes['fecha_salida'] !== '' ? $antes['fecha_salida'] : null, 'despues' => $hoy],
+                ], 'empleados', $id);
+                return $antes['nombres'] . ' ' . $antes['apellidos'];
+            });
+        } catch (ValidationException $e) {
+            flash('error', implode(' ', $e->errors));
+            redirect('empleados', ['tab' => 'directorio']);
+        }
+        flash('success', $nombre . ' fue dado de baja. El registro queda en el historial.');
+        redirect('empleados', ['tab' => 'directorio']);
+    }
+
+    /** Recontratación: archiva el periodo cerrado y reactiva la misma ficha. */
+    public function reingresar(): void
+    {
+        $id = parse_int_range($_POST['id'] ?? null, 1, PHP_INT_MAX);
+        $fecha = parse_date($_POST['fecha_ingreso'] ?? null);
+        if ($id === null) {
+            flash('error', 'Empleado no válido.');
+            redirect('empleados', ['tab' => 'directorio']);
+        }
+        if ($fecha === null || $fecha > date('Y-m-d')) {
+            flash('error', 'Indica una fecha de ingreso válida, no futura.');
+            redirect('empleados', ['tab' => 'directorio']);
+        }
+        try {
+            $emp = $this->empleados->reingresarEmpleado($id, $fecha);
+            audit_log('empleados', 'reingreso', [
+                'fecha_ingreso' => $fecha,
+                'activo'        => 1,
+            ], 'empleados', $id);
+        } catch (ValidationException $e) {
+            flash('error', implode(' ', $e->errors));
+            redirect('empleados', ['tab' => 'directorio']);
+        }
+        flash('success', $emp['nombres'] . ' ' . $emp['apellidos'] . ' reingresó el ' . date('d/m/Y', strtotime($fecha)) . '. El periodo anterior quedó en el historial.');
+        redirect('empleados', ['tab' => 'directorio']);
+    }
+
     /** @return array<string, mixed> */
     private function validar(?int $id): array
     {
@@ -336,6 +398,7 @@ final class EmpleadosController
             'empresa'     => APP_EMPRESA,
             'fotoPerfil'  => EmpleadoArchivo::dataUri((string) $emp['foto_perfil']),
             'fotoDoc'     => EmpleadoArchivo::dataUri((string) $emp['foto_documento']),
+            'periodos'    => $this->empleados->historialLaboral($id),
         ]);
     }
 }

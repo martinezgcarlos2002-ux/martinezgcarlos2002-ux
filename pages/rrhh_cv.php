@@ -7,7 +7,9 @@ declare(strict_types=1);
  * @var string $empresa
  * @var string $fotoPerfil
  * @var string $fotoDoc
+ * @var list<array{id:int, fecha_ingreso:string, fecha_salida:string, creado_en:string}> $periodos
  */
+$periodos = $periodos ?? [];
 $fmtFecha = static function (string $iso): string {
     $dt = $iso !== '' ? DateTimeImmutable::createFromFormat('!Y-m-d', substr($iso, 0, 10)) : false;
     return $dt instanceof DateTimeImmutable ? $dt->format('d/m/Y') : '—';
@@ -67,6 +69,25 @@ $domicilio = (string) ($emp['direccion_domicilio'] !== '' ? $emp['direccion_domi
       <div><dt>Fecha de salida</dt><dd><?= e($fmtFecha((string) $emp['fecha_salida'])) ?></dd></div>
       <div><dt>Estado</dt><dd><?= $emp['activo'] ? 'Activo' : 'Inactivo' ?></dd></div>
     </dl>
+  </section>
+
+  <section>
+    <h2>Periodos laborales anteriores</h2>
+    <?php if ($periodos === []): ?>
+      <p class="text-muted">Sin periodos anteriores registrados.</p>
+    <?php else: ?>
+      <table class="cv-periodos">
+        <thead><tr><th>Desde</th><th>Hasta</th></tr></thead>
+        <tbody>
+        <?php foreach ($periodos as $p): ?>
+          <tr>
+            <td><?= e($fmtFecha((string) $p['fecha_ingreso'])) ?></td>
+            <td><?= e($fmtFecha((string) $p['fecha_salida'])) ?></td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    <?php endif; ?>
   </section>
 
   <section class="cv-doc">

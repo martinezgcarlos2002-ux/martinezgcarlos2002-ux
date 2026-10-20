@@ -108,6 +108,11 @@ layout_start('Control de Facturas', 'facturas');
     </div></div></div>
     <div class="col-6 col-lg-4 col-xxl-2"><div class="card shadow-sm border-0 rounded-4 h-100 border-start border-4 border-secondary cf-kpi"><div class="card-body">
       <div class="cf-kpi-lbl"><i class="bi bi-arrow-return-left"></i> Crédito devoluciones sin aplicar</div><div class="cf-kpi-num" data-kpi="credito">$0,00</div><div class="small text-muted">saldo a favor</div>
+      <div class="text-center mt-2">
+        <button type="button" class="btn btn-sm btn-outline-primary btn-saldo-favor" data-bs-toggle="modal" data-bs-target="#modalSaldoFavor">
+          <i class="bi bi-people" aria-hidden="true"></i> Ver a quién pertenece
+        </button>
+      </div>
     </div></div></div>
   </div>
 
@@ -347,8 +352,11 @@ layout_start('Control de Facturas', 'facturas');
           <div class="col-md-6"><label class="form-label" for="devOrigen">Factura de donde viene (opcional)</label><select class="form-select" id="devOrigen" name="factura_id"><option value="">—</option></select><div class="invalid-feedback"></div>
             <div class="form-text">Puede ser una factura ya pagada: la devolución no la modifica, solo queda como referencia.</div></div>
         </div>
-        <div class="d-flex justify-content-between align-items-center mt-3 mb-1">
-          <span class="fw-semibold small">Productos devueltos</span>
+        <div class="d-flex justify-content-between align-items-center gap-2 mt-3 mb-1">
+          <div>
+            <div class="fw-semibold small">Productos devueltos</div>
+            <div class="small text-muted">Quita con la papelera los que no se devuelven. El monto se recalcula solo.</div>
+          </div>
           <button type="button" class="btn btn-sm btn-outline-warning rounded-pill js-agregar-fila" data-tabla="tablaDevolucion"><i class="bi bi-plus-lg"></i> Agregar producto</button>
         </div>
         <div class="table-responsive">
@@ -373,6 +381,32 @@ layout_start('Control de Facturas', 'facturas');
       </div>
       <div class="modal-footer"><button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancelar</button><button type="submit" class="btn btn-warning rounded-pill" id="btnGuardarDevolucion"><i class="bi bi-save"></i> Registrar Devolución</button></div>
     </form>
+  </div>
+</div>
+
+<!-- Modal: desglose de saldo a favor (cxc_clientes.saldo_favor > 0) -->
+<div class="modal fade" id="modalSaldoFavor" tabindex="-1" aria-labelledby="tituloSaldoFavor" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content border-0 rounded-4 shadow">
+      <div class="modal-header">
+        <h5 class="modal-title" id="tituloSaldoFavor"><i class="bi bi-wallet2"></i> Saldo a favor por cliente</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead><tr class="small text-uppercase text-muted">
+              <th>Nombre del cliente</th><th class="text-end">Saldo exacto</th>
+            </tr></thead>
+            <tbody id="tbSaldoFavor"></tbody>
+            <tfoot><tr class="fw-semibold"><td>Total</td><td class="text-end" id="totalSaldoFavor">$0,00</td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
   </div>
 </div>
 

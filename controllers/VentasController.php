@@ -560,7 +560,7 @@ final class VentasController
         $id = (int) $pedido['entidad_id'];
         $ok = match ($pedido['entidad_tipo']) {
             'productor'     => (new Productor(get_db()))->find($id) !== null,
-            'empleado'      => (new Empleado(get_db()))->find($id) !== null,
+            'empleado'      => ($empVenta = (new Empleado(get_db()))->find($id)) !== null && $empVenta['activo'],
             'transportista' => (new TransporteService(get_db()))->existeActivo($id),
             'cxc'           => (new CxCService(get_db(), new CorrelativoService(get_db())))->cliente($id) !== null,
             default         => false,

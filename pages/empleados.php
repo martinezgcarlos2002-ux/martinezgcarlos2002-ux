@@ -331,6 +331,10 @@ layout_start('Recursos Humanos', 'empleados');
         <input id="buscarDirectorio" type="search" class="form-control" placeholder="Buscar en el directorio" autocomplete="off">
       </div>
       <span id="contadorDirectorio" class="text-muted small"></span>
+      <div class="btn-group btn-group-sm" role="group" aria-label="Filtrar empleados">
+        <button type="button" class="btn btn-primary" id="btnActivosEmp" aria-pressed="true">Activos</button>
+        <button type="button" class="btn btn-outline-secondary" id="btnHistorialEmp" aria-pressed="false">Historial</button>
+      </div>
       <?php if ($puedeCrear): ?>
       <button type="button" class="btn btn-primary ms-lg-auto" data-bs-toggle="modal" data-bs-target="#modalEmpleado" data-emp='{"modo":"nuevo"}'>
         <i class="bi bi-plus-lg"></i> Nuevo Empleado
@@ -359,7 +363,7 @@ layout_start('Recursos Humanos', 'empleados');
             <tr><td colspan="10" class="text-center text-muted py-4">Sin empleados. Usa Nuevo Empleado para registrar el primero.</td></tr>
           <?php endif; ?>
           <?php foreach ($empleados as $emp): ?>
-            <tr data-emp="<?= e(mb_strtolower($emp['nombres'] . ' ' . $emp['apellidos'] . ' ' . $emp['cedula'] . ' ' . $emp['cargo'])) ?>">
+            <tr data-emp="<?= e(mb_strtolower($emp['nombres'] . ' ' . $emp['apellidos'] . ' ' . $emp['cedula'] . ' ' . $emp['cargo'])) ?>" data-activo="<?= $emp['activo'] ? '1' : '0' ?>">
               <td class="text-nowrap"><?= e($emp['cedula']) ?></td>
               <td class="fw-semibold"><?= e($emp['nombres']) ?></td>
               <td><?= e($emp['apellidos']) ?></td>
@@ -369,13 +373,39 @@ layout_start('Recursos Humanos', 'empleados');
               <td class="text-center"><?= (int) $emp['dias_libres_mes'] ?></td>
               <?php $deuda = $deudas[$emp['id']] ?? '0.00'; ?>
               <td class="text-end<?= (float) $deuda > 0 ? ' text-danger fw-semibold' : ' text-muted' ?>"><?= e($usd($deuda)) ?></td>
-              <td><span class="badge <?= $emp['activo'] ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $emp['activo'] ? 'Activo' : 'Inactivo' ?></span></td>
+              <td>
+                <?php if ($emp['activo']): ?>
+                  <span class="badge text-bg-success">Activo</span>
+                <?php else: ?>
+                  <span class="badge text-bg-secondary">Inactivo</span>
+                  <?php if ($emp['fecha_salida'] !== ''): ?>
+                    <div class="small text-muted">Salida <?= e($fmtFecha((string) $emp['fecha_salida'])) ?></div>
+                  <?php endif; ?>
+                <?php endif; ?>
+              </td>
               <td class="text-nowrap">
                 <?php if ($puedeEditar): ?>
                 <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalEmpleado"
                         data-emp="<?= e(json_encode($emp + ['modo' => 'editar'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)) ?>">
                   <i class="bi bi-pencil"></i> Editar
                 </button>
+                <?php endif; ?>
+                <?php if ($puedeEditar && !$emp['activo']): ?>
+                <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalReingreso"
+                        data-id="<?= (int) $emp['id'] ?>"
+                        data-nombre="<?= e($emp['nombres'] . ' ' . $emp['apellidos']) ?>"
+                        data-salida="<?= e((string) $emp['fecha_salida']) ?>">
+                  <i class="bi bi-arrow-counterclockwise"></i> Reingresar
+                </button>
+                <?php endif; ?>
+                <?php if ($puedeEditar && $emp['activo']): ?>
+                <form method="post" action="<?= e(url('empleados_baja')) ?>" class="d-inline">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="id" value="<?= (int) $emp['id'] ?>">
+                  <button type="submit" class="btn btn-sm btn-outline-danger" data-confirmar="<?= e('¿Dar de baja a ' . $emp['nombres'] . ' ' . $emp['apellidos'] . '? Dejará de salir en la nómina, préstamos y cobranzas. El registro se conserva.') ?>">
+                    <i class="bi bi-person-x"></i> Dar de baja
+                  </button>
+                </form>
                 <?php endif; ?>
                 <a class="btn btn-sm btn-outline-primary" href="<?= e(url('rrhh_cv_pdf', ['id' => (int) $emp['id']])) ?>" title="Currículum">
                   📄 CV
@@ -861,6 +891,31 @@ layout_start('Recursos Humanos', 'empleados');
     </div>
   </div>
 </div>
+
+<?php if ($puedeEditar): ?>
+<div class="modal fade" id="modalReingreso" tabindex="-1" aria-labelledby="tituloReingreso" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <form method="post" action="<?= e(url('empleados_reingreso')) ?>" class="modal-content">
+      <?= csrf_field() ?>
+      <input type="hidden" name="id" id="reingresoId" value="">
+      <div class="modal-header">
+        <h5 class="modal-title" id="tituloReingreso"><i class="bi bi-arrow-counterclockwise"></i> Reingresar</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-2">Se conserva la misma ficha y la cédula. El periodo que termina queda en el historial.</p>
+        <p class="fw-semibold mb-3" id="reingresoNombre"></p>
+        <label class="form-label" for="reingresoFecha">Nueva fecha de ingreso</label>
+        <input class="form-control" id="reingresoFecha" name="fecha_ingreso" type="date" required max="<?= e($hoyIso) ?>" value="<?= e($hoyIso) ?>">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Reingresar</button>
+      </div>
+    </form>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="modal fade" id="modalEmpleado" tabindex="-1" aria-labelledby="tituloEmpleado" aria-hidden="true"
      data-action-nuevo="<?= e(url('empleados_nuevo')) ?>" data-action-editar="<?= e(url('empleados_editar')) ?>"

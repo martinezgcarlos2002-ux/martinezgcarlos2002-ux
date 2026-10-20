@@ -103,6 +103,79 @@ final class Empleado
         return (int) $this->db->lastInsertId();
     }
 
+    /**
+     * Baja lógica. No borra la fila: activo = 0 y fecha_salida = hoy.
+     * @return bool false si ya estaba inactivo o no existe
+     */
+    public function darDeBaja(int $id, string $fecha): bool
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE empleados
+             SET activo = 0, fecha_salida = :fecha
+             WHERE id = :id AND activo = 1'
+        );
+        $stmt->execute(['fecha' => $fecha, 'id' => $id]);
+        return $stmt->rowCount() === 1;
+    }
+
+    /**
+     * Recontratación de la misma ficha. Archiva el periodo cerrado y reactiva al empleado.
+     * @return array{nombres:string, apellidos:string}
+     */
+    public function reingresarEmpleado(int $id, string $nuevaFechaIngreso): array
+    {
+        return Database::transaction(function () use ($id, $nuevaFechaIngreso): array {
+            $emp = $this->find($id, true);
+            if ($emp === null) {
+                throw new ValidationException(['id' => 'El empleado no existe.']);
+            }
+            if ($emp['activo']) {
+                throw new ValidationException(['id' => 'El empleado ya está activo.']);
+            }
+            $ingreso = $emp['fecha_ingreso'] !== '' ? $emp['fecha_ingreso'] : null;
+            $salida = $emp['fecha_salida'] !== '' ? $emp['fecha_salida'] : null;
+            if ($salida !== null && $nuevaFechaIngreso < $salida) {
+                throw new ValidationException(['fecha_ingreso' => 'La nueva fecha de ingreso no puede ser anterior a la salida del periodo anterior (' . date('d/m/Y', strtotime($salida)) . ').']);
+            }
+
+            $ins = $this->db->prepare(
+                'INSERT INTO hr_empleados_historial (empleado_id, fecha_ingreso, fecha_salida)
+                 VALUES (:empleado, :ingreso, :salida)'
+            );
+            $ins->execute(['empleado' => $id, 'ingreso' => $ingreso, 'salida' => $salida]);
+
+            $upd = $this->db->prepare(
+                'UPDATE empleados
+                 SET activo = 1, fecha_ingreso = :ingreso, fecha_salida = NULL
+                 WHERE id = :id AND activo = 0'
+            );
+            $upd->execute(['ingreso' => $nuevaFechaIngreso, 'id' => $id]);
+            if ($upd->rowCount() !== 1) {
+                throw new ValidationException(['id' => 'No se pudo reingresar al empleado.']);
+            }
+
+            return ['nombres' => $emp['nombres'], 'apellidos' => $emp['apellidos']];
+        });
+    }
+
+    /** @return list<array{id:int, fecha_ingreso:string, fecha_salida:string, creado_en:string}> */
+    public function historialLaboral(int $empleadoId): array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT id, fecha_ingreso, fecha_salida, creado_en
+             FROM hr_empleados_historial
+             WHERE empleado_id = :id
+             ORDER BY fecha_salida IS NULL, fecha_salida, id'
+        );
+        $stmt->execute(['id' => $empleadoId]);
+        return array_map(static fn (array $row): array => [
+            'id'            => (int) $row['id'],
+            'fecha_ingreso' => (string) ($row['fecha_ingreso'] ?? ''),
+            'fecha_salida'  => (string) ($row['fecha_salida'] ?? ''),
+            'creado_en'     => (string) $row['creado_en'],
+        ], $stmt->fetchAll());
+    }
+
     /** @param array<string, mixed> $data */
     public function update(int $id, array $data): void
     {

@@ -24,7 +24,7 @@ $tolerancias = [
 
 layout_start('Productores y Proveedores', 'productores');
 ?>
-<div class="row g-3 mb-3">
+<div class="row g-3 mb-3 kpi-productores">
   <div class="col-6 col-lg-3">
     <div class="card h-100 text-center">
       <div class="card-body py-3">

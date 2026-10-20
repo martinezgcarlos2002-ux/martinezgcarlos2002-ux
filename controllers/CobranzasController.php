@@ -23,8 +23,9 @@ final class CobranzasController
     {
         $errors = [];
         $empId = parse_int_range($_POST['empleado_id'] ?? null, 1, PHP_INT_MAX);
-        if ($empId === null || (new Empleado(get_db()))->find($empId) === null) {
-            $errors['empleado_id'] = 'Selecciona un empleado.';
+        $emp = $empId !== null ? (new Empleado(get_db()))->find($empId) : null;
+        if ($emp === null || !$emp['activo']) {
+            $errors['empleado_id'] = 'Selecciona un empleado activo.';
         }
         $acreedor = preg_replace('/\s+/u', ' ', post_string('acreedor', 100));
         if (mb_strlen($acreedor) < 2 || mb_strlen($acreedor) > 80) {

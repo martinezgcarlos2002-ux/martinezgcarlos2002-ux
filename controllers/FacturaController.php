@@ -655,11 +655,20 @@ final class FacturaController
         if (!is_array($data) || !array_is_list($data)) {
             throw new ValidationException(['renglones' => 'Renglones con formato inválido.']);
         }
-        return array_map(static fn (mixed $r): array => is_array($r) ? [
+        $filas = array_map(static fn (mixed $r): array => is_array($r) ? [
             'cantidad'    => is_int($r['cantidad'] ?? null) || is_float($r['cantidad'] ?? null) ? (float) $r['cantidad'] : (string) ($r['cantidad'] ?? ''),
             'precio'      => is_int($r['precio'] ?? null) || is_float($r['precio'] ?? null) ? (float) $r['precio'] : (string) ($r['precio'] ?? ''),
             'descripcion' => is_string($r['descripcion'] ?? null) ? $r['descripcion'] : null,
         ] : [], $data);
+        /* Filas vacías (producto quitado o no devuelto) no participan del monto. */
+        return array_values(array_filter($filas, static function (array $r): bool {
+            $cant = $r['cantidad'];
+            $precio = $r['precio'];
+            $cantVacio = $cant === '' || $cant === 0 || $cant === 0.0 || $cant === '0' || $cant === '0.00';
+            $precioVacio = $precio === '' || $precio === 0 || $precio === 0.0 || $precio === '0' || $precio === '0.00';
+            $desc = trim((string) ($r['descripcion'] ?? ''));
+            return !($cantVacio && $precioVacio && $desc === '');
+        }));
     }
 
     // ----------------------------------------------------------------------

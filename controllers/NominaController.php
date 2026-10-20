@@ -86,8 +86,8 @@ final class NominaController
         $rawId = is_scalar($rawId) ? trim((string) $rawId) : '';
         $empId = parse_int_range($rawId !== '' ? $rawId : null, 1, PHP_INT_MAX);
         $emp = $empId !== null ? (new Empleado(get_db()))->find($empId) : null;
-        if ($emp === null) {
-            $errors['empleado_id'] = 'Empleado no válido.';
+        if ($emp === null || !$emp['activo']) {
+            $errors['empleado_id'] = 'Selecciona un empleado activo.';
         }
         $monto = parse_decimal($_POST['monto_usd'] ?? ($_POST['monto_total'] ?? null), 2, 100000);
         if ($monto === null) {

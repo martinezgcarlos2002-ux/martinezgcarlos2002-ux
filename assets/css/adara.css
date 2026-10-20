@@ -686,6 +686,26 @@ tr.collapse.show { display: table-row; }
     .page-content .form-control,
     .page-content .form-select { width: 100%; max-width: 100%; }
     .tbl-inv .table, .tbl-prod .table, .table-masiva { min-width: 720px; }
+
+    /* Productores y Proveedores: los totales largos ($917.784,48) no deben romper la tarjeta. */
+    .kpi-productores > [class*="col-"] { min-width: 0; }
+    .kpi-productores .card,
+    .kpi-productores .card-body {
+        min-width: 0;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        word-wrap: break-word;
+        word-break: break-word;
+    }
+    .kpi-productores .kpi-num {
+        font-size: clamp(0.95rem, 4.2vw, 1.35rem);
+        line-height: 1.2;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        word-wrap: break-word;
+        word-break: break-word;
+    }
+    .kpi-productores .d-flex { flex-wrap: wrap; min-width: 0; }
 }
 
 /* ── Control de Facturas ────────────────────────────────────────────── */
@@ -697,6 +717,21 @@ tr.collapse.show { display: table-row; }
 .cf-precio { width: 7.5rem; }
 .cf-kpi .cf-kpi-num { font-size: 1.35rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .cf-kpi .cf-kpi-lbl { font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.btn-saldo-favor {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .35rem;
+    border-radius: 999px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.btn-saldo-favor:hover,
+.btn-saldo-favor:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 .3rem .7rem rgba(13, 110, 253, .2);
+}
 
 /* ── Recursos Humanos ───────────────────────────────────────────────── */
 .rh-tabs .nav-link { color: var(--navy); font-weight: 600; }
