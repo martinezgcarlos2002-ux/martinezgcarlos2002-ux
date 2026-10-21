@@ -30,6 +30,15 @@ $celda = static function (mixed $valor, int $dec = 1): string {
     }
     return is_numeric($valor) ? number_format((float) $valor, $dec, '.', '') : (string) $valor;
 };
+/* Una celda por fila, sin rowspan: un rowspan alto no se puede partir y el navegador
+   salta toda la sección a la hoja siguiente, dejando el resto de la página en blanco. */
+$rolDerecha = [];
+foreach ($seccionesHoja as $inicio => $secRol) {
+    $span = (int) $secRol[0];
+    for ($i = 0; $i < $span; $i++) {
+        $rolDerecha[$inicio + $i] = $span === 1 ? 'solo' : ($i === 0 ? 'inicio' : ($i === $span - 1 ? 'fin' : 'medio'));
+    }
+}
 ?>
 <div class="cd-preview mb-3">
   <div id="cdSheet" class="cd-sheet">
@@ -85,11 +94,13 @@ $celda = static function (mixed $valor, int $dec = 1): string {
                    value="<?= e($celda($fila['faltante'], 2)) ?>"
                    aria-label="Faltante <?= e($fila['nombre']) ?>">
           </td>
-          <?php if ($sec !== null):
+          <?php
+              $rol = $rolDerecha[$n] ?? 'medio';
+              if ($sec !== null):
               $lbl = $sec[1];
               $campo = $camposMerma[$lbl] ?? null;
           ?>
-            <td class="cd-right-section" rowspan="<?= (int) $sec[0] ?>">
+            <td class="cd-right-section cd-right-<?= e($rol) ?>">
               <span class="cd-right-lbl"><?= e($lbl) ?></span>
               <?php if ($campo !== null): ?>
                 <?php $soloLectura = !$puedeEditarHoja || $lbl === 'TOTAL FALTANTE'; ?>
@@ -103,6 +114,8 @@ $celda = static function (mixed $valor, int $dec = 1): string {
                 <div class="cd-sello" aria-label="Sello"></div>
               <?php endif; ?>
             </td>
+          <?php else: ?>
+            <td class="cd-right-follow cd-right-<?= e($rol) ?>"></td>
           <?php endif; ?>
         </tr>
       <?php endforeach; ?>

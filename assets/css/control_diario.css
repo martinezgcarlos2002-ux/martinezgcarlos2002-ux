@@ -56,15 +56,19 @@
     padding: 0 !important;
     background: #fff;
 }
-.cd-right-section {
+.cd-right-section,
+.cd-right-follow {
     text-align: center;
-    vertical-align: middle;
+    vertical-align: top;
     font-weight: 800;
     letter-spacing: .4px;
     padding: 2px 4px !important;
     background: #fff;
-    overflow: hidden;
 }
+.cd-right-inicio,
+.cd-right-medio { border-bottom: none !important; }
+.cd-right-medio,
+.cd-right-fin { border-top: none !important; }
 .cd-right-lbl { display: block; margin-bottom: 2px; color: #1e3a8a; font-size: 10px; line-height: 1.1; }
 #tabla-control-leche td.cd-blank input,
 #tabla-control-leche .cd-inp {
@@ -114,53 +118,95 @@ col.col-num { width: 12%; }
 col.col-right { width: 16%; }
 
 @media print {
-    @page { size: legal portrait; margin: 8mm; }
+    @page { size: legal portrait; margin: 1cm; }
     .no-print { display: none !important; }
-    html, body { background: #fff !important; margin: 0; }
-    .cd-preview { background: #fff; padding: 0; overflow: visible; }
+    html, body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        min-height: 0 !important;
+    }
+    .cd-preview {
+        background: #fff;
+        padding: 0;
+        margin: 0;
+        overflow: visible;
+        height: auto;
+        min-height: 0;
+    }
     .cd-sheet {
         box-shadow: none;
         min-width: 0;
         width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
         border: 1px solid #333;
     }
-    .cd-sheet table { width: 100% !important; table-layout: fixed; }
-    #tabla-control-leche { table-layout: fixed !important; width: 100% !important; }
-    #tabla-control-leche tbody tr { height: 40px !important; }
+    .cd-sheet table,
+    #tabla-control-leche {
+        width: 100% !important;
+        height: auto !important;
+        table-layout: fixed;
+        border-collapse: collapse;
+        page-break-inside: auto;
+        break-inside: auto;
+    }
+    #tabla-control-leche thead { display: table-header-group; }
+    #tabla-control-leche tbody { display: table-row-group; }
+    #tabla-control-leche tr {
+        height: auto !important;
+        min-height: 0 !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+    #tabla-control-leche th,
+    #tabla-control-leche td {
+        height: auto !important;
+        min-height: 0 !important;
+        padding: 1px 3px !important;
+        line-height: 1.15 !important;
+        font-size: 10px !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
     #tabla-control-leche td.cd-num-n,
     #tabla-control-leche td.cd-name,
     #tabla-control-leche td.cd-blank {
-        height: 40px !important;
+        height: auto !important;
         white-space: nowrap;
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
     }
     #tabla-control-leche input {
-        height: 38px !important;
+        display: block !important;
+        height: auto !important;
+        min-height: 0 !important;
+        padding: 0 2px !important;
+        font-size: 10px !important;
+        line-height: 1.15 !important;
         color: #000 !important;
         background-color: transparent !important;
         border: none !important;
-    }
-    #tabla-control-leche td.cd-blank { padding: 0 !important; }
-    .cd-sheet th, .cd-sheet td { border: 1px solid #333 !important; background: #fff !important; }
-    .cd-head th, .cd-col-name-head { background: #f8f9fa !important; color: #1e3a8a !important; }
-    .cd-name { background: #fff !important; color: #111 !important; }
-    #tabla-control-leche input,
-    #tabla-control-leche input:focus {
-        border: none !important;
-        border-radius: 0 !important;
         box-shadow: none !important;
         outline: none !important;
-        background-color: transparent !important;
-        appearance: none !important;
-        -webkit-appearance: none !important;
     }
-    .cd-right-section {
-        break-inside: avoid;
-        page-break-inside: avoid;
-        width: 16%;
+    .cd-head .cd-logo img { max-height: 28px; }
+    .cd-head .cd-title { font-size: 13px; padding: 2px !important; }
+    .cd-right-section,
+    .cd-right-follow {
+        height: auto !important;
+        page-break-inside: auto;
+        break-inside: auto;
     }
-    .cd-sello { min-height: 56px; }
+    .cd-right-lbl { font-size: 8px; margin-bottom: 0; }
+    .cd-inp-block { margin-top: 0; }
+    .cd-sello { height: 12px; min-height: 0; margin-top: 1px; }
+    .cd-sheet th, .cd-sheet td { border: 1px solid #333 !important; background: #fff !important; }
+    .cd-right-inicio,
+    .cd-right-medio { border-bottom-color: transparent !important; }
+    .cd-right-medio,
+    .cd-right-fin { border-top-color: transparent !important; }
+    .cd-head th, .cd-col-name-head { background: #f8f9fa !important; color: #1e3a8a !important; }
+    .cd-name { background: #fff !important; color: #111 !important; }
     .cd-head th, .cd-col-name-head, .cd-right-lbl {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
