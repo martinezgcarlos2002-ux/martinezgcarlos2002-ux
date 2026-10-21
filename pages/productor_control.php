@@ -750,7 +750,7 @@ layout_start('Control Productor: ' . $productor['nombre'], 'productores');
         <input type="hidden" name="cierre_id" id="ecId" value="">
         <div class="modal-body">
           <div class="alert alert-info py-2 small">
-            Corrige los datos de esta semana ya cerrada. Si cambias litros o precio, la factura se recalcula sola (o puedes escribirla a mano).
+            Corrige los datos de esta semana ya cerrada. El precio $/L se escribe en cada entrega del ciclo y la factura queda en la suma de esos subtotales.
             Los saldos de las semanas siguientes se recalculan y el cambio queda en auditoría.
           </div>
           <div class="row g-2">

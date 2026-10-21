@@ -344,13 +344,68 @@ final class CierreSemanal
         return $id === false ? null : (int) $id;
     }
 
-    /** Corrección administrativa del snapshot. Las entregas no se tocan: son el histórico inmutable. */
-    public function editar(int $id, string $litros, string $brutoUsd, ?string $notas): void
+    /**
+     * Corrige el snapshot y, cuando hay precio, lo escribe en cada entrega de esa semana.
+     *
+     * trg_entregas_semana_abierta_upd rechaza el cambio de precio si el cierre no está anulado.
+     * El estado pasa a 'anulada' solo dentro de la transacción del llamador y se restaura en el
+     * mismo UPDATE que guarda litros, factura y notas. No hay trigger al actualizar el cierre,
+     * así que ese estado intermedio no suelta entregas ni pagos.
+     *
+     * subtotal_usd no se asigna: es columna generada, ROUND(litros * precio_litro_usd, 2).
+     * La factura guardada es la suma de esos subtotales, para que el panel global y la semana coincidan.
+     *
+     * @return array{entregas:int, bruto_usd:string}
+     */
+    public function editar(int $id, string $estadoOriginal, string $litros, string $brutoUsd, ?string $notas, ?string $precio): array
     {
+        if ($precio !== null) {
+            $contar = $this->db->prepare(
+                'SELECT COUNT(*) FROM productores_entregas WHERE cierre_id = :id'
+            );
+            $contar->execute(['id' => $id]);
+            $entregas = (int) $contar->fetchColumn();
+
+            if ($entregas > 0) {
+                $anular = $this->db->prepare(
+                    "UPDATE productores_cierres SET estado = 'anulada' WHERE id = :id AND estado = :estado"
+                );
+                $anular->execute(['id' => $id, 'estado' => $estadoOriginal]);
+                if ($anular->rowCount() !== 1) {
+                    throw new ValidationException(['cierre_id' => 'No se pudo abrir el cierre para corregir el precio.']);
+                }
+
+                $precios = $this->db->prepare(
+                    'UPDATE productores_entregas
+                     SET precio_litro_usd = :precio
+                     WHERE cierre_id = :cierre_id'
+                );
+                $precios->execute(['precio' => $precio, 'cierre_id' => $id]);
+
+                $suma = $this->db->prepare(
+                    'SELECT COALESCE(SUM(subtotal_usd), 0) AS bruto_usd
+                     FROM productores_entregas
+                     WHERE cierre_id = :id'
+                );
+                $suma->execute(['id' => $id]);
+                $brutoUsd = (string) $suma->fetchColumn();
+            }
+        }
+
         $stmt = $this->db->prepare(
-            'UPDATE productores_cierres SET litros = :litros, bruto_usd = :bruto_usd, notas = :notas WHERE id = :id'
+            'UPDATE productores_cierres
+             SET litros = :litros, bruto_usd = :bruto_usd, notas = :notas, estado = :estado
+             WHERE id = :id'
         );
-        $stmt->execute(['litros' => $litros, 'bruto_usd' => $brutoUsd, 'notas' => $notas, 'id' => $id]);
+        $stmt->execute([
+            'litros'    => $litros,
+            'bruto_usd' => $brutoUsd,
+            'notas'     => $notas,
+            'estado'    => $estadoOriginal,
+            'id'        => $id,
+        ]);
+
+        return ['entregas' => $precio === null ? 0 : ($entregas ?? 0), 'bruto_usd' => $brutoUsd];
     }
 
     /**

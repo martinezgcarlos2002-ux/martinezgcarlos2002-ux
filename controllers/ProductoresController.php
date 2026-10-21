@@ -809,32 +809,49 @@ final class ProductoresController
         }
 
         $bruto = $total ?? number_format(round((float) $litros * (float) $precio, 2), 2, '.', '');
+        $precioPropagar = $precio;
+        if ($precioPropagar === null && (float) $litros > 0) {
+            $precioPropagar = number_format(round((float) $bruto / (float) $litros, 4), 4, '.', '');
+        }
         $userId = current_user()['id'];
 
         try {
-            Database::transaction(function () use ($cierreId, $original, $litros, $bruto, $notas, $motivo, $userId): void {
+            $efecto = Database::transaction(function () use ($cierreId, $original, $litros, $bruto, $notas, $motivo, $userId, $precioPropagar): array {
                 $this->productores->find((int) $original['productor_id'], true);
                 $antes = $this->cierres->find($cierreId, true);
                 if ($antes === null || $antes['estado'] === 'anulada') {
                     throw new ValidationException(['cierre_id' => 'El cierre no existe o está anulado.']);
                 }
 
-                $this->cierres->editar($cierreId, $litros, $bruto, $notas === '' ? null : $notas);
+                $efecto = $this->cierres->editar(
+                    $cierreId,
+                    (string) $antes['estado'],
+                    $litros,
+                    $bruto,
+                    $notas === '' ? null : $notas,
+                    $precioPropagar
+                );
                 $this->cierres->recalcular((int) $antes['productor_id']);
                 $despues = $this->cierres->find($cierreId);
 
                 audit_log('productores', 'editar_cierre', [
-                    'motivo'  => $motivo,
-                    'admin'   => $userId,
-                    'antes'   => self::snapshotCierre($antes),
-                    'despues' => self::snapshotCierre($despues),
+                    'motivo'   => $motivo,
+                    'admin'    => $userId,
+                    'precio'   => $precioPropagar,
+                    'entregas' => $efecto['entregas'],
+                    'antes'    => self::snapshotCierre($antes),
+                    'despues'  => self::snapshotCierre($despues),
                 ], 'productores_cierres', $cierreId);
+
+                return $efecto;
             });
         } catch (ValidationException $e) {
             form_fail($_POST, $e->errors, 'productor_control', $volver);
         }
 
-        flash('success', 'Cierre corregido. Los saldos de las semanas siguientes se recalcularon.');
+        flash('success', $efecto['entregas'] > 0
+            ? sprintf('Cierre corregido. El precio quedó en %d entrega(s) y los saldos siguientes se recalcularon.', $efecto['entregas'])
+            : 'Cierre corregido. Los saldos de las semanas siguientes se recalcularon.');
         redirect('productor_control', $volver);
     }
 
