@@ -44,6 +44,43 @@ final class EntregaLeche
         $stmt->execute($data + ['id' => $id]);
     }
 
+    /**
+     * Propaga el precio base a las entregas de semanas abiertas de un productor.
+     * Se llama solo al editar el precio del perfil, dentro de la transacción que ya bloqueó al productor.
+     *
+     * Semana abierta: la fecha no cae en un cierre vigente (cerrada, parcial, pagada o arrastrada).
+     * No existe el estado 'abierta': reabrir pone el cierre en 'anulada' y suelta las entregas.
+     * Esas filas históricas no se tocan aquí salvo que, en este mismo instante, sigan sin cierre vigente.
+     * Reabrir una semana no llama a este método, así que no hereda el precio base actual.
+     *
+     * El trigger trg_entregas_semana_abierta_upd rechaza cualquier cambio de precio con cierre vigente.
+     * @return int entregas cuyo precio cambió
+     */
+    public function aplicarPrecioEnSemanasAbiertas(int $productorId, string $precio): int
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE productores_entregas AS e
+             LEFT JOIN productores_cierres AS c ON c.id = e.cierre_id
+             SET e.precio_litro_usd = :precio
+             WHERE e.productor_id = :productor_id
+               AND e.precio_litro_usd <> :precio_distinto
+               AND (e.cierre_id IS NULL OR c.estado = \'anulada\')
+               AND NOT EXISTS (
+                   SELECT 1
+                   FROM productores_cierres AS v
+                   WHERE v.productor_id = e.productor_id
+                     AND e.fecha BETWEEN v.semana_inicio AND v.semana_fin
+                     AND v.estado <> \'anulada\'
+               )'
+        );
+        $stmt->execute([
+            'precio'          => $precio,
+            'precio_distinto' => $precio,
+            'productor_id'    => $productorId,
+        ]);
+        return $stmt->rowCount();
+    }
+
     /** subtotal_usd lo calcula MySQL (columna generada): no se recibe del cliente. */
     public function create(array $data): int
     {

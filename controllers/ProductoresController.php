@@ -458,13 +458,14 @@ final class ProductoresController
             $data = $this->validarProductor(true);
             $userId = current_user()['id'];
 
-            Database::transaction(function () use ($id, $data, $userId): void {
+            $entregasAbiertas = Database::transaction(function () use ($id, $data, $userId): int {
                 $actual = $this->productores->find($id, true);
                 if ((int) $actual['dia_cierre'] !== $data['dia_cierre'] && $this->pagos->abiertosDe($id) > 0) {
                     throw new ValidationException(['dia_cierre' => 'Hay pagos aplicados a un ciclo sin cerrar. Cierra ese ciclo antes de cambiar el día de cierre.']);
                 }
                 $this->productores->update($id, $data);
 
+                $entregasAbiertas = 0;
                 if (!self::mismoDecimal($actual['precio_litro_usd'], $data['precio_litro_usd'])) {
                     $this->productores->registrarPrecio(
                         $id,
@@ -473,6 +474,8 @@ final class ProductoresController
                         $data['motivo_precio'] ?: 'Actualización de precio',
                         $userId
                     );
+                    // Solo en este instante. Reabrir una semana cerrada no vuelve a pasar por aquí.
+                    $entregasAbiertas = $this->entregas->aplicarPrecioEnSemanasAbiertas($id, $data['precio_litro_usd']);
                 }
 
                 $cambios = [];
@@ -484,7 +487,11 @@ final class ProductoresController
                         $cambios[$campo] = ['antes' => $actual[$campo], 'despues' => $valor];
                     }
                 }
+                if ($entregasAbiertas > 0) {
+                    $cambios['entregas_semanas_abiertas'] = $entregasAbiertas;
+                }
                 audit_log('productores', 'editar', $cambios, 'productores', $id);
+                return $entregasAbiertas;
             });
         } catch (ValidationException $e) {
             form_fail($_POST, $e->errors, 'productores_editar', ['id' => $id]);
@@ -492,7 +499,13 @@ final class ProductoresController
             $this->failOnDuplicate($e, 'productores_editar', ['id' => $id]);
         }
 
-        flash('success', 'Productor actualizado.');
+        flash('success', $entregasAbiertas > 0
+            ? sprintf(
+                'Productor actualizado. El precio se aplicó a %d entrega%s de semanas abiertas. Las cerradas conservan su precio.',
+                $entregasAbiertas,
+                $entregasAbiertas === 1 ? '' : 's'
+            )
+            : 'Productor actualizado.');
         redirect('productores');
     }
 

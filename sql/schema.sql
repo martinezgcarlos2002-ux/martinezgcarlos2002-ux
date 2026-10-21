@@ -180,7 +180,9 @@ CREATE TABLE productores_cierres (
     CONSTRAINT ck_cierres_montos    CHECK (litros >= 0 AND bruto_usd >= 0 AND traslado_usd >= 0 AND abonos_usd >= 0 AND pagado_usd >= 0)
 ) ENGINE=InnoDB;
 
--- El precio se congela en cada entrega: cambiar el precio del productor no altera el histórico.
+-- El precio se congela al registrar la entrega. Cambiar el precio base del productor
+-- solo reescribe semanas abiertas (sin cierre vigente), y únicamente en ese momento.
+-- Las semanas cerradas, parciales, pagadas o arrastradas conservan su precio histórico.
 CREATE TABLE productores_entregas (
     id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     productor_id       INT UNSIGNED    NOT NULL,

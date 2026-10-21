@@ -298,6 +298,8 @@ final class CierreSemanal
      * Reabre la semana: el cierre pasa a 'anulada' (la semana vuelve a estar abierta), se liberan sus entregas
      * y pagos vigentes y se recalcula la cadena, con lo que el arrastre que generaba desaparece de las semanas siguientes.
      * El llamador debe haber bloqueado la fila del productor.
+     * No reescribe precio_litro_usd: una reapertura de auditoría conserva el precio histórico.
+     * El precio base solo se propaga en EntregaLeche::aplicarPrecioEnSemanasAbiertas, al editar el perfil.
      */
     public function reabrir(int $id): void
     {
