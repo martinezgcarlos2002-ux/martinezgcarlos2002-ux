@@ -195,6 +195,13 @@ final class ControlLecheController
         ]);
     }
 
+    /** Misma planilla del día, en Excel, oficio y una página. */
+    public function planillaExcel(): void
+    {
+        $fecha = self::fechaGet('fecha') ?? date('Y-m-d');
+        (new PlanillaRecepcionExcel())->enviar($this->datosHoja($fecha));
+    }
+
     // ----- Motor de costos -------------------------------------------------
 
     /** Vista previa sin persistir: el cálculo vive solo en el servidor. */

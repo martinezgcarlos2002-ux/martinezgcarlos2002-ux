@@ -64,6 +64,7 @@ require_once ADARA_ROOT . '/models/CobranzaTercero.php';
 require_once ADARA_ROOT . '/models/PrestamoEmpleado.php';
 require_once ADARA_ROOT . '/services/NominaService.php';
 require_once ADARA_ROOT . '/helpers/XlsxWriter.php';
+require_once ADARA_ROOT . '/helpers/PlanillaRecepcionExcel.php';
 require_once ADARA_ROOT . '/helpers/PngTexto.php';
 require_once ADARA_ROOT . '/helpers/LiquidacionArchivo.php';
 require_once ADARA_ROOT . '/helpers/EmpleadoArchivo.php';

@@ -175,6 +175,10 @@ return [
         'modulo'  => 'control_leche',
         'GET'     => [ControlLecheController::class, 'generarPlanillaPdf'],
     ],
+    'control_leche_excel' => [
+        'modulo'  => 'control_leche',
+        'GET'     => [ControlLecheController::class, 'planillaExcel'],
+    ],
     'control_leche_entrega' => [
         'modulo'  => 'control_leche',
         'accion'  => 'crear',

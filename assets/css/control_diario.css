@@ -118,8 +118,15 @@ col.col-num { width: 12%; }
 col.col-right { width: 16%; }
 
 @media print {
-    @page { size: legal portrait; margin: 1cm; }
-    .no-print { display: none !important; }
+    @page { size: legal portrait; margin: 0.4cm; }
+    .no-print,
+    .toolbar,
+    .navbar,
+    nav,
+    header,
+    footer,
+    .btn,
+    .alert { display: none !important; }
     html, body {
         background: #fff !important;
         margin: 0 !important;
@@ -128,30 +135,35 @@ col.col-right { width: 16%; }
         min-height: 0 !important;
     }
     .cd-preview {
-        background: #fff;
-        padding: 0;
-        margin: 0;
-        overflow: visible;
-        height: auto;
-        min-height: 0;
+        background: #fff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 0 !important;
+        border-radius: 0 !important;
     }
     .cd-sheet {
-        box-shadow: none;
-        min-width: 0;
+        box-shadow: none !important;
+        min-width: 0 !important;
         width: 100% !important;
         height: auto !important;
         min-height: 0 !important;
-        border: 1px solid #333;
+        border: 0.5pt solid #000;
     }
     .cd-sheet table,
     #tabla-control-leche {
         width: 100% !important;
         height: auto !important;
-        table-layout: fixed;
+        table-layout: fixed !important;
         border-collapse: collapse;
         page-break-inside: auto;
         break-inside: auto;
     }
+    #tabla-control-leche col.col-n { width: 22px; }
+    #tabla-control-leche col.col-name { width: 40%; }
+    #tabla-control-leche col.col-num { width: 11%; }
+    #tabla-control-leche col.col-right { width: 15%; }
     #tabla-control-leche thead { display: table-header-group; }
     #tabla-control-leche tbody { display: table-row-group; }
     #tabla-control-leche tr {
@@ -164,9 +176,9 @@ col.col-right { width: 16%; }
     #tabla-control-leche td {
         height: auto !important;
         min-height: 0 !important;
-        padding: 1px 3px !important;
-        line-height: 1.15 !important;
-        font-size: 10px !important;
+        padding: 0 2px !important;
+        line-height: 1 !important;
+        font-size: 8px !important;
         page-break-inside: avoid;
         break-inside: avoid;
     }
@@ -180,35 +192,35 @@ col.col-right { width: 16%; }
         display: block !important;
         height: auto !important;
         min-height: 0 !important;
-        padding: 0 2px !important;
-        font-size: 10px !important;
-        line-height: 1.15 !important;
+        padding: 0 1px !important;
+        margin: 0 !important;
+        font-size: 8px !important;
+        line-height: 1 !important;
         color: #000 !important;
         background-color: transparent !important;
         border: none !important;
         box-shadow: none !important;
         outline: none !important;
     }
-    .cd-head .cd-logo img { max-height: 28px; }
-    .cd-head .cd-title { font-size: 13px; padding: 2px !important; }
+    .cd-head .cd-logo { padding: 0 !important; }
+    .cd-head .cd-logo img { max-height: 16px; }
+    .cd-head .cd-title { font-size: 11px; padding: 0 !important; letter-spacing: 0; }
+    .cd-head .cd-date { font-size: 8px; padding: 0 !important; }
     .cd-right-section,
     .cd-right-follow {
         height: auto !important;
+        padding: 0 1px !important;
         page-break-inside: auto;
         break-inside: auto;
     }
-    .cd-right-lbl { font-size: 8px; margin-bottom: 0; }
-    .cd-inp-block { margin-top: 0; }
-    .cd-sello { height: 12px; min-height: 0; margin-top: 1px; }
-    .cd-sheet th, .cd-sheet td { border: 1px solid #333 !important; background: #fff !important; }
+    .cd-right-lbl { font-size: 7px; margin: 0; line-height: 1; }
+    .cd-inp-block { margin: 0; }
+    .cd-sello { height: 8px; min-height: 0; margin: 0; }
+    .cd-sheet th, .cd-sheet td { border: 0.5pt solid #000 !important; background: #fff !important; }
     .cd-right-inicio,
     .cd-right-medio { border-bottom-color: transparent !important; }
     .cd-right-medio,
     .cd-right-fin { border-top-color: transparent !important; }
-    .cd-head th, .cd-col-name-head { background: #f8f9fa !important; color: #1e3a8a !important; }
-    .cd-name { background: #fff !important; color: #111 !important; }
-    .cd-head th, .cd-col-name-head, .cd-right-lbl {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
+    .cd-head th, .cd-col-name-head { background: #fff !important; color: #000 !important; }
+    .cd-name { background: #fff !important; color: #000 !important; }
 }

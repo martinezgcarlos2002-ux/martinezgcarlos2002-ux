@@ -123,6 +123,9 @@ $puedeEditarHoja = $puedeCrear ?? false;
        href="<?= e(url('control_leche_planilla', ['fecha' => $hasta])) ?>">
       <i class="bi bi-printer"></i> Imprimir Planilla de Recolección
     </a>
+    <a class="btn btn-outline-success" href="<?= e(url('control_leche_excel', ['fecha' => $fechaHoja])) ?>">
+      <i class="bi bi-file-earmark-excel"></i> Excel
+    </a>
     <?php if ($puedeCrear): ?>
     <button type="button" class="btn btn-semanal" data-bs-toggle="modal" data-bs-target="#modalEntrega" data-modo="nuevo">
       <i class="bi bi-plus-lg"></i> Nueva Entrega
@@ -223,6 +226,9 @@ $puedeEditarHoja = $puedeCrear ?? false;
   <button type="submit" class="btn btn-outline-primary">Ver día</button>
   <a class="btn btn-planilla" target="_blank" rel="noopener" href="<?= e(url('control_leche_planilla', ['fecha' => $fechaHoja])) ?>">
     <i class="bi bi-printer"></i> Imprimir planilla
+  </a>
+  <a class="btn btn-outline-success" href="<?= e(url('control_leche_excel', ['fecha' => $fechaHoja])) ?>">
+    <i class="bi bi-file-earmark-excel"></i> Excel
   </a>
   <?php if ($puedeEditarHoja): ?>
   <button type="submit" class="btn btn-success" form="formHojaDia">💾 Guardar Cambios</button>
