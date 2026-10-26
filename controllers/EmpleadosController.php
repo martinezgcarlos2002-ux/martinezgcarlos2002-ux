@@ -17,6 +17,7 @@ final class EmpleadosController
     {
         [$old, $errors] = form_state();
         $db = get_db();
+        $this->asegurarEsquema($db);
         $user = current_user();
 
         $tab = $_GET['tab'] ?? 'nomina';
@@ -74,6 +75,27 @@ final class EmpleadosController
             'old'            => $old,
             'errors'         => $errors,
         ]);
+    }
+
+    /** Crea dia_cierre y el estatus justificado si el PHP nuevo llegó antes que la migración. */
+    private function asegurarEsquema(PDO $db): void
+    {
+        $dia = $db->query("SHOW COLUMNS FROM empleados LIKE 'dia_cierre'")->fetch();
+        if ($dia === false) {
+            $db->exec(
+                "ALTER TABLE empleados
+                 ADD COLUMN dia_cierre TINYINT UNSIGNED NOT NULL DEFAULT 6
+                 COMMENT '1=lunes … 7=domingo. 6 = ciclo domingo a sabado'
+                 AFTER dias_libres_mes"
+            );
+        }
+        $tipo = $db->query("SHOW COLUMNS FROM dias_libres LIKE 'tipo'")->fetch();
+        if ($tipo !== false && !str_contains((string) $tipo['Type'], 'justificado')) {
+            $db->exec(
+                "ALTER TABLE dias_libres
+                 MODIFY tipo ENUM('libre','no_trabajado','justificado') NOT NULL DEFAULT 'libre'"
+            );
+        }
     }
 
     public function diasLibres(): void
