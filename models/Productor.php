@@ -34,13 +34,17 @@ final class Productor
      * @param 'activos'|'inactivos'|'todos' $estado
      * @param key-of<self::ORDENES> $orden
      * @param int|null $diaCierre  1 = lunes … 7 = domingo; null = todos
+     * @param int|null $id         si viene, ignora el texto y deja solo ese productor
      */
-    public function listar(string $q, string $estado, string $orden = 'nombre', ?int $diaCierre = null): array
+    public function listar(string $q, string $estado, string $orden = 'nombre', ?int $diaCierre = null, ?int $id = null): array
     {
         $where = [];
         $params = [];
 
-        if ($q !== '') {
+        if ($id !== null) {
+            $where[] = 'p.id = :id';
+            $params['id'] = $id;
+        } elseif ($q !== '') {
             $like = '%' . addcslashes($q, '%_\\') . '%';
             $where[] = '(p.nombre LIKE :q1 OR p.documento LIKE :q2)';
             $params['q1'] = $like;
@@ -124,6 +128,14 @@ final class Productor
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch();
         return $row === false ? null : $row;
+    }
+
+    /** @return list<array{id:int, nombre:string}> */
+    public function catalogoNombres(): array
+    {
+        return $this->db
+            ->query('SELECT id, nombre FROM productores ORDER BY nombre ASC, id ASC')
+            ->fetchAll();
     }
 
     /** @return list<string> etiquetas distintas de grupo_cierre */

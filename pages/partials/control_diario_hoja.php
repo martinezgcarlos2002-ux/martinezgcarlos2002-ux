@@ -78,7 +78,7 @@ foreach ($seccionesHoja as $inicio => $secRol) {
           <td class="cd-name"><?= e(mb_strtoupper((string) $fila['nombre'])) ?></td>
           <?php $productorId = (int) ($fila['productor_id'] ?? 0); ?>
           <td class="cd-blank">
-            <input class="cd-inp" type="number" inputmode="decimal" min="0" step="0.001"
+            <input class="cd-inp<?= ($puedeEditarHoja && $productorId > 0) ? ' input-litros' : '' ?>" type="number" inputmode="decimal" min="0" step="0.001"
                    <?= $puedeEditarHoja && $productorId > 0 ? 'name="litros[' . $productorId . ']"' : 'readonly tabindex="-1"' ?>
                    value="<?= e($celda($fila['litros'], 3)) ?>" aria-label="Litros <?= e($fila['nombre']) ?>">
           </td>

@@ -23,6 +23,7 @@ final class EmpleadosController
         $tab = is_string($tab) && in_array($tab, self::TABS, true) ? $tab : 'nomina';
 
         [$semana] = Nomina::periodo(parse_date($_GET['semana'] ?? null) ?? date('Y-m-d'));
+        [$cicloHoyInicio, $cicloHoyFin] = Nomina::periodo(date('Y-m-d'));
         $anio = parse_int_range($_GET['anio'] ?? null, 2000, 2100) ?? (int) date('Y');
         $mes = parse_int_range($_GET['mes'] ?? null, 1, 12) ?? (int) date('n');
         $mesDesde = sprintf('%04d-%02d-01', $anio, $mes);
@@ -50,6 +51,8 @@ final class EmpleadosController
             'rif'            => 'V-26011525-8',
             'tipoNomina'     => 'Semanal',
             'nomina'         => $nomina->semana($semana, $tasa['tasa'] ?? null),
+            'cicloHoyInicio' => $cicloHoyInicio,
+            'cicloHoyFin'    => $cicloHoyFin,
             'deudas'         => $nomina->saldosDeuda(),
             'empleados'      => $this->empleados->listar(),
             'cargos'         => $cargos,
@@ -252,6 +255,10 @@ final class EmpleadosController
         if ($libres === null) {
             $errors['dias_libres_mes'] = 'Indica cuántos libres pagados tiene al mes (0 a 31).';
         }
+        $diaCierre = parse_int_range($_POST['dia_cierre'] ?? null, 1, 7);
+        if ($diaCierre === null) {
+            $errors['dia_cierre'] = 'Selecciona el día en que cierra la semana de este empleado.';
+        }
 
         $fechas = [];
         foreach (['fecha_ingreso', 'fecha_salida', 'fecha_nacimiento'] as $campo) {
@@ -317,6 +324,7 @@ final class EmpleadosController
             'fecha_nacimiento' => $fechas['fecha_nacimiento'],
             'salario_semanal'  => $salario,
             'dias_libres_mes'  => $libres,
+            'dia_cierre'       => $diaCierre ?? 6,
             'tipo_cuenta'      => $tipoCuenta,
             'banco'            => $banco,
             'titular_cedula'   => $titularCedula,
@@ -376,8 +384,11 @@ final class EmpleadosController
     public function planillaAsistencia(): void
     {
         header('Content-Disposition: inline; filename="planilla_asistencia.html"');
+        [$inicio, $fin] = Nomina::periodo(date('Y-m-d'));
         view('planilla_asistencia', [
             'empleados' => $this->empleados->paraPlanilla(),
+            'inicio'    => $inicio,
+            'fin'       => $fin,
         ]);
     }
 

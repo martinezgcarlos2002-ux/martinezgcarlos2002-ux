@@ -6,7 +6,7 @@ final class Empleado
     public const TIPOS_CUENTA = ['propia' => 'Cuenta Propia', 'tercero' => 'Cuenta de Tercero'];
 
     private const COLUMNAS = 'id, cedula, nombres, apellidos, cargo, profesion, telefono, direccion, direccion_domicilio,
-                              fecha_nacimiento, fecha_ingreso, fecha_salida, salario_semanal_usd, dias_libres_mes,
+                              fecha_nacimiento, fecha_ingreso, fecha_salida, salario_semanal_usd, dias_libres_mes, dia_cierre,
                               tipo_cuenta, banco, titular_cedula, titular_telefono, numero_cuenta,
                               expediente_penal, foto_perfil, foto_documento, activo';
 
@@ -92,11 +92,11 @@ final class Empleado
         $stmt = $this->db->prepare(
             'INSERT INTO empleados
                  (cedula, nombres, apellidos, cargo, profesion, telefono, direccion, direccion_domicilio, fecha_nacimiento, fecha_ingreso, fecha_salida,
-                  salario_semanal_usd, dias_libres_mes, tipo_cuenta, banco, titular_cedula, titular_telefono,
+                  salario_semanal_usd, dias_libres_mes, dia_cierre, tipo_cuenta, banco, titular_cedula, titular_telefono,
                   numero_cuenta, expediente_penal, activo)
              VALUES
                  (:cedula, :nombres, :apellidos, :cargo, :profesion, :telefono, :direccion, :direccion_domicilio, :fecha_nacimiento, :fecha_ingreso, :fecha_salida,
-                  :salario_semanal_usd, :dias_libres_mes, :tipo_cuenta, :banco, :titular_cedula, :titular_telefono,
+                  :salario_semanal_usd, :dias_libres_mes, :dia_cierre, :tipo_cuenta, :banco, :titular_cedula, :titular_telefono,
                   :numero_cuenta, :expediente_penal, :activo)'
         );
         $stmt->execute(self::params($data));
@@ -185,6 +185,7 @@ final class Empleado
                  telefono = :telefono, direccion = :direccion, direccion_domicilio = :direccion_domicilio,
                  fecha_nacimiento = :fecha_nacimiento, fecha_ingreso = :fecha_ingreso,
                  fecha_salida = :fecha_salida, salario_semanal_usd = :salario_semanal_usd, dias_libres_mes = :dias_libres_mes,
+                 dia_cierre = :dia_cierre,
                  tipo_cuenta = :tipo_cuenta, banco = :banco, titular_cedula = :titular_cedula,
                  titular_telefono = :titular_telefono, numero_cuenta = :numero_cuenta,
                  expediente_penal = :expediente_penal, activo = :activo
@@ -231,6 +232,7 @@ final class Empleado
             'fecha_salida'     => (string) ($row['fecha_salida'] ?? ''),
             'salario_semanal'  => (string) $row['salario_semanal_usd'],
             'dias_libres_mes'  => (int) $row['dias_libres_mes'],
+            'dia_cierre'       => (int) ($row['dia_cierre'] ?? 6),
             'tipo_cuenta'      => (string) $row['tipo_cuenta'],
             'banco'            => (string) ($row['banco'] ?? ''),
             'titular_cedula'   => (string) ($row['titular_cedula'] ?? ''),
@@ -259,6 +261,7 @@ final class Empleado
             'fecha_salida'        => $nulo($d['fecha_salida']),
             'salario_semanal_usd' => $d['salario_semanal'],
             'dias_libres_mes'     => $d['dias_libres_mes'],
+            'dia_cierre'          => $d['dia_cierre'] ?? 6,
             'tipo_cuenta'         => $d['tipo_cuenta'],
             'banco'               => $nulo($d['banco']),
             'titular_cedula'      => $nulo($d['titular_cedula']),

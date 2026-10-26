@@ -27,11 +27,16 @@ final class Nomina
         $this->prestamos = new PrestamoEmpleado($db);
     }
 
-    /** @return array{0:string, 1:string} inicio y fin del ciclo que contiene $fecha */
-    public static function periodo(string $fecha): array
+    /**
+     * Inicio y fin del ciclo que contiene $fecha.
+     * dia_cierre 6 (sábado) abre el domingo y cierra el sábado. Es el ciclo por defecto.
+     * @return array{0:string, 1:string}
+     */
+    public static function periodo(string $fecha, int $diaCierre = 6): array
     {
+        $apertura = CierreSemanal::diaCierreValido($diaCierre) % 7 + 1;
         $dia = new DateTimeImmutable($fecha);
-        $atras = ((int) $dia->format('N') - NOMINA_DIA_INICIO + self::DIAS_CICLO) % self::DIAS_CICLO;
+        $atras = ((int) $dia->format('N') - $apertura + self::DIAS_CICLO) % self::DIAS_CICLO;
         $inicio = $dia->modify('-' . $atras . ' days');
         return [$inicio->format('Y-m-d'), $inicio->modify('+' . (self::DIAS_CICLO - 1) . ' days')->format('Y-m-d')];
     }
@@ -105,10 +110,15 @@ final class Nomina
         foreach ($vigentes as $emp) {
             $porId[$emp['id']] = $emp;
         }
-        foreach (array_keys($guardadas) as $empId) {
-            if (!isset($porId[$empId]) && ($emp = $this->empleados->find($empId)) !== null) {
-                $porId[$empId] = $emp;
+        foreach ($guardadas as $empId => $g) {
+            if (isset($porId[$empId])) {
+                continue;
             }
+            $emp = $this->empleados->find((int) $empId);
+            if ($emp === null || (!$emp['activo'] && $g['estado'] === 'borrador')) {
+                continue;
+            }
+            $porId[$empId] = $emp;
         }
 
         $marcas = $this->dias->rango($this->inicioMarcas($inicio), $fin);
@@ -388,5 +398,64 @@ final class Nomina
             'monto_bs'              => $tasa === null ? null : NominaService::aBs($netoC, $tasa),
             'resto_bs'              => $tasa === null ? null : NominaService::restoBsDesdeDeudaUsd($netoC, Caja::aCentavos($g['cobranzas_usd']), $tasa),
         ];
+    }
+
+    /**
+     * Marca la semana cerrada como pagada y deja un egreso de caja por cada neto positivo.
+     * @return array{pagadas:int, egresos:int, total_usd:string}
+     */
+    public function pagar(string $inicio, string $tasa, int $userId): array
+    {
+        [$inicio, $fin] = self::periodo($inicio);
+        $stmt = $this->db->prepare(
+            'SELECT id, neto_usd, estado, tasa_bs_por_usd
+             FROM nomina_semanal
+             WHERE semana_inicio = :inicio
+             FOR UPDATE'
+        );
+        $stmt->execute(['inicio' => $inicio]);
+        $filas = $stmt->fetchAll();
+        if ($filas === []) {
+            throw new ValidationException(['semana' => 'No hay nómina guardada en esta semana. Guárdala y ciérrala antes de pagarla.']);
+        }
+        $borrador = 0;
+        $cerradas = [];
+        foreach ($filas as $fila) {
+            if ($fila['estado'] === 'borrador') {
+                $borrador++;
+            } elseif ($fila['estado'] === 'cerrada') {
+                $cerradas[] = $fila;
+            }
+        }
+        if ($borrador > 0) {
+            throw new ValidationException(['semana' => 'Hay filas abiertas. Cierra la nómina antes de pagarla.']);
+        }
+        if ($cerradas === []) {
+            throw new ValidationException(['semana' => 'Esta semana ya está pagada.']);
+        }
+
+        $this->db->prepare(
+            "UPDATE nomina_semanal SET estado = 'pagada' WHERE semana_inicio = :inicio AND estado = 'cerrada'"
+        )->execute(['inicio' => $inicio]);
+
+        $caja = new Caja($this->db);
+        $egresos = 0;
+        $total = 0;
+        $concepto = 'Nómina ' . (new DateTimeImmutable($inicio))->format('d/m/Y') . ' al ' . (new DateTimeImmutable($fin))->format('d/m/Y');
+        foreach ($cerradas as $fila) {
+            $centavos = Caja::aCentavos($fila['neto_usd']);
+            if ($centavos <= 0) {
+                continue;
+            }
+            $total += $centavos;
+            $tasaFila = $fila['tasa_bs_por_usd'] !== null && (float) $fila['tasa_bs_por_usd'] > 0
+                ? (string) $fila['tasa_bs_por_usd']
+                : $tasa;
+            if ($caja->egresoNomina((int) $fila['id'], Caja::desdeCentavos($centavos), $tasaFila, $concepto, $userId)) {
+                $egresos++;
+            }
+        }
+
+        return ['pagadas' => count($cerradas), 'egresos' => $egresos, 'total_usd' => Caja::desdeCentavos($total)];
     }
 }

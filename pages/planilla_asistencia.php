@@ -5,9 +5,18 @@ declare(strict_types=1);
  * Planilla física de asistencia. Sin menú del ERP.
  *
  * @var list<array<string, mixed>> $empleados
+ * @var string $inicio
+ * @var string $fin
  */
 $empleados = $empleados ?? [];
-$dias = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM'];
+$inicio = $inicio ?? date('Y-m-d');
+$fin = $fin ?? $inicio;
+$inicioDia = new DateTimeImmutable($inicio);
+$dias = [];
+for ($i = 0; $i < 7; $i++) {
+    $fecha = $inicioDia->modify('+' . $i . ' days');
+    $dias[] = ['etiqueta' => ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'][(int) $fecha->format('w')], 'fecha' => $fecha];
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -28,7 +37,7 @@ $dias = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM'];
   <header class="cabecera">
     <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="El Castillo del Queso" class="logo">
     <h1>CONTROL DE ASISTENCIA SEMANAL</h1>
-    <div class="semana">Semana del: ___/___/___ al ___/___/___</div>
+    <div class="semana">Semana del <?= e($inicioDia->format('d/m/Y')) ?> (domingo) al <?= e((new DateTimeImmutable($fin))->format('d/m/Y')) ?> (sábado)</div>
   </header>
   <table class="grid">
     <colgroup>
@@ -44,7 +53,7 @@ $dias = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM'];
         <th class="c-n">N°</th>
         <th class="c-nom">NOMBRE Y APELLIDO</th>
         <th class="c-cargo">CARGO</th>
-        <?php foreach ($dias as $dia): ?><th class="c-dia"><?= e($dia) ?></th><?php endforeach; ?>
+        <?php foreach ($dias as $dia): ?><th class="c-dia"><?= e($dia['etiqueta']) ?><br><?= e($dia['fecha']->format('d/m')) ?></th><?php endforeach; ?>
         <th class="c-total">TOTAL DÍAS</th>
         <th class="c-firma">FIRMA</th>
       </tr>

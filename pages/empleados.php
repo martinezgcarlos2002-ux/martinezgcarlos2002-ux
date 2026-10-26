@@ -133,6 +133,15 @@ layout_start('Recursos Humanos', 'empleados');
         </button>
         <?php endif; ?>
         <?php if ($esAdmin && in_array($nomina['estado'], ['cerrada', 'mixta'], true)): ?>
+        <form method="post" action="<?= e(url('nomina_pagar')) ?>" class="m-0">
+          <?= csrf_field() ?>
+          <input type="hidden" name="semana" value="<?= e($nomina['inicio']) ?>">
+          <button type="submit" class="btn btn-sm btn-success" data-confirmar="¿Pagar la nómina de esta semana? Se marcará como pagada y el neto de cada empleado quedará como egreso en Finanzas.">
+            <i class="bi bi-cash-coin"></i> Pagar semana de nómina
+          </button>
+        </form>
+        <?php endif; ?>
+        <?php if ($esAdmin && in_array($nomina['estado'], ['cerrada', 'mixta'], true)): ?>
         <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalReabrir">
           <i class="bi bi-unlock"></i> Reabrir nómina
         </button>
@@ -651,8 +660,11 @@ layout_start('Recursos Humanos', 'empleados');
             <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center">
               <span>Asignación por cargo</span>
               <span class="small fw-normal text-muted">
+                Semana de nómina en curso: <strong><?= e($fmtFecha($cicloHoyInicio)) ?> (domingo) al <?= e($fmtFecha($cicloHoyFin)) ?> (sábado)</strong>.
+                Los días resaltados son esa semana.
                 Clic en la celda: <span class="rh-dia rh-dia-libre">L</span> libre ·
                 <span class="rh-dia rh-dia-falta">F</span> no trabajado ·
+                <span class="rh-dia rh-dia-justificado">J</span> día justificado (no descuenta) ·
                 <span class="rh-dia rh-dia-libre rh-dia-exceso">L</span> libre sobre el cupo (se descuenta)
               </span>
               <?php if ($puedeEditar): ?>
@@ -676,7 +688,8 @@ layout_start('Recursos Humanos', 'empleados');
                     <th class="col-emp">Empleado</th>
                     <?php for ($dia = 1; $dia <= $diasMes; $dia++):
                         $f = $primerDia->modify('+' . ($dia - 1) . ' days');
-                        $clase = (isset($diaCritico[$dia]) ? 'dia-alerta ' : '') . ($f->format('Y-m-d') === $hoyIso ? 'dia-hoy' : '');
+                        $enCiclo = $f->format('Y-m-d') >= $cicloHoyInicio && $f->format('Y-m-d') <= $cicloHoyFin;
+                        $clase = (isset($diaCritico[$dia]) ? 'dia-alerta ' : '') . ($f->format('Y-m-d') === $hoyIso ? 'dia-hoy ' : '') . ($enCiclo ? 'bg-warning-subtle' : '');
                     ?>
                       <th class="<?= e(trim($clase)) ?>"><span class="d-block"><?= e($inicialDia[(int) $f->format('N')]) ?></span><?= $dia ?></th>
                     <?php endfor; ?>
@@ -708,9 +721,9 @@ layout_start('Recursos Humanos', 'empleados');
                         <?php if ($fuera): ?>
                           <span class="rh-dia rh-dia-fuera" title="Fuera de contrato">·</span>
                         <?php else: ?>
-                          <button type="button" class="rh-dia js-dia<?= $tipo === 'libre' ? ' rh-dia-libre' : ($tipo === 'no_trabajado' ? ' rh-dia-falta' : '') ?><?= $exceso ? ' rh-dia-exceso' : '' ?>"
+                          <button type="button" class="rh-dia js-dia<?= $tipo === 'libre' ? ' rh-dia-libre' : ($tipo === 'no_trabajado' ? ' rh-dia-falta' : ($tipo === 'justificado' ? ' rh-dia-justificado' : '')) ?><?= $exceso ? ' rh-dia-exceso' : '' ?>"
                                   data-fecha="<?= e($fecha) ?>" data-tipo="<?= e($tipo) ?>"<?= $puedeEditar ? '' : ' disabled' ?>
-                                  aria-label="<?= e($emp['nombres']) ?> día <?= $dia ?>"><?= $tipo === 'libre' ? 'L' : ($tipo === 'no_trabajado' ? 'F' : '') ?></button>
+                                  aria-label="<?= e($emp['nombres']) ?> día <?= $dia ?>"><?= $tipo === 'libre' ? 'L' : ($tipo === 'no_trabajado' ? 'F' : ($tipo === 'justificado' ? 'J' : '')) ?></button>
                           <input type="hidden" value="<?= e($tipo) ?>"<?= $tipo !== '' ? ' name="dias[' . (int) $emp['id'] . '][' . $dia . ']"' : '' ?> data-name="dias[<?= (int) $emp['id'] ?>][<?= $dia ?>]">
                         <?php endif; ?>
                       </td>
@@ -992,6 +1005,15 @@ layout_start('Recursos Humanos', 'empleados');
               <input class="form-control <?= field_class($err, 'dias_libres_mes') ?>" id="empLibres" name="dias_libres_mes" type="number" min="0" max="31" value="2">
               <?= field_error($err, 'dias_libres_mes') ?>
             </div>
+            <div class="col-md-3">
+              <label class="form-label" for="empCierre">Día de cierre de semana</label>
+              <select class="form-select <?= field_class($err, 'dia_cierre') ?>" id="empCierre" name="dia_cierre">
+                <?php foreach (CierreSemanal::DIAS as $n => $dia): ?>
+                  <option value="<?= $n ?>" <?= $n === 6 ? 'selected' : '' ?>><?= e($dia) ?><?= $n === 6 ? ' (domingo a sábado)' : '' ?></option>
+                <?php endforeach; ?>
+              </select>
+              <?= field_error($err, 'dia_cierre') ?>
+            </div>
             <div class="col-md-6">
               <label class="form-label" for="empProfesion">Profesión</label>
               <input class="form-control <?= field_class($err, 'profesion') ?>" id="empProfesion" name="profesion" maxlength="80">
@@ -1100,5 +1122,50 @@ layout_start('Recursos Humanos', 'empleados');
 </div>
 
 <script src="<?= e(asset_v('js/rrhh.js')) ?>" nonce="<?= e(csp_nonce()) ?>"></script>
+<style>
+  .rh-dia-justificado { background: #dbeafe; color: #1d4ed8; font-weight: 700; }
+</style>
+<script nonce="<?= e(csp_nonce()) ?>">
+(function () {
+  var modal = document.getElementById('modalEmpleado');
+  if (modal) {
+    modal.addEventListener('show.bs.modal', function (ev) {
+      var origen = ev.relatedTarget && ev.relatedTarget.closest('[data-emp]');
+      var raw = origen ? origen.getAttribute('data-emp') : modal.getAttribute('data-reabrir');
+      if (!raw) return;
+      var datos = {};
+      try { datos = JSON.parse(raw); } catch (e) { datos = {}; }
+      var sel = document.getElementById('empCierre');
+      if (sel) sel.value = String(datos.dia_cierre || 6);
+    });
+  }
+  var formLibres = document.getElementById('formLibres');
+  if (!formLibres) return;
+  var ciclo = { '': 'libre', 'libre': 'no_trabajado', 'no_trabajado': 'justificado', 'justificado': '' };
+  formLibres.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('.js-dia');
+    if (!btn || btn.disabled) return;
+    ev.stopPropagation();
+    var tipo = ciclo[btn.getAttribute('data-tipo')] || '';
+    var hidden = btn.nextElementSibling;
+    btn.setAttribute('data-tipo', tipo);
+    btn.textContent = tipo === 'libre' ? 'L' : (tipo === 'no_trabajado' ? 'F' : (tipo === 'justificado' ? 'J' : ''));
+    btn.classList.toggle('rh-dia-libre', tipo === 'libre');
+    btn.classList.toggle('rh-dia-falta', tipo === 'no_trabajado');
+    btn.classList.toggle('rh-dia-justificado', tipo === 'justificado');
+    btn.classList.remove('rh-dia-exceso');
+    hidden.value = tipo;
+    if (tipo) hidden.setAttribute('name', hidden.getAttribute('data-name')); else hidden.removeAttribute('name');
+    if (!tipo) return;
+    var fd = new FormData();
+    fd.append('_csrf', formLibres.querySelector('input[name="_csrf"]').value);
+    fd.append('empleado_id', btn.closest('tr').getAttribute('data-empleado'));
+    fd.append('fecha', btn.getAttribute('data-fecha'));
+    fd.append('tipo', tipo);
+    fetch(formLibres.getAttribute('data-verificar'), { method: 'POST', body: fd, headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+      .catch(function () {});
+  }, true);
+})();
+</script>
 <?php
 layout_end();

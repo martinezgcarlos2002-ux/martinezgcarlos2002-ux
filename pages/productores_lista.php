@@ -5,7 +5,9 @@ declare(strict_types=1);
  * Directorio de productores.
  * @var list<array> $productores
  * @var array{productores:int, suministrado_usd:string, pagado_usd:string, saldo_usd:string} $kpis
+ * @var list<array{id:int, nombre:string}> $catalogo
  * @var string $q
+ * @var int|null $productorId
  * @var 'activos'|'inactivos'|'todos' $estado
  * @var 'nombre'|'id' $orden
  * @var int|null $diaCierre  filtro ?dia_cierre=1..7
@@ -71,7 +73,13 @@ layout_start('Productores y Proveedores', 'productores');
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
   <form class="d-flex flex-wrap gap-2" method="get" action="<?= e(base_path() . 'index.php') ?>">
     <input type="hidden" name="p" value="productores">
-    <input type="search" name="q" class="form-control form-control-sm w-filtro" placeholder="Buscar..." maxlength="60" value="<?= e($q) ?>" aria-label="Buscar productor">
+    <input type="search" list="lista-productores" id="buscador-productor" name="q" class="form-control form-control-sm w-filtro" placeholder="Buscar..." maxlength="60" value="<?= e($q) ?>" autocomplete="off" aria-label="Buscar productor">
+    <datalist id="lista-productores">
+      <?php foreach ($catalogo as $sugerido): ?>
+        <option value="<?= e($sugerido['nombre']) ?>" data-id="<?= (int) $sugerido['id'] ?>"></option>
+      <?php endforeach; ?>
+    </datalist>
+    <input type="hidden" name="productor_id" id="productor_id_oculto" value="<?= $productorId !== null ? (int) $productorId : '' ?>">
     <select name="tipo" class="form-select form-select-sm w-tipo" aria-label="Tipo">
       <option value="">Todos (<?= count($productores) ?>)</option>
       <option value="leche">Leche</option>
@@ -92,11 +100,17 @@ layout_start('Productores y Proveedores', 'productores');
       <option value="id" <?= $orden === 'id' ? 'selected' : '' ?>>N° de registro</option>
     </select>
     <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-search"></i> Filtrar</button>
-    <?php if ($q !== '' || $estado !== 'todos' || $orden !== 'nombre' || $diaCierreFiltro !== null): ?>
+    <?php if ($q !== '' || $productorId !== null || $estado !== 'todos' || $orden !== 'nombre' || $diaCierreFiltro !== null): ?>
       <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('productores')) ?>"><i class="bi bi-x-lg"></i> Limpiar</a>
     <?php endif; ?>
   </form>
   <div class="d-flex flex-wrap gap-2">
+    <?php if ($puedeCrear): ?>
+    <form method="post" action="<?= e(url('productores_cerrar_semanas')) ?>" id="formCerrarSemanas" class="m-0">
+      <?= csrf_field() ?>
+      <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-lock"></i> Cerrar todas las semanas</button>
+    </form>
+    <?php endif; ?>
     <a class="btn btn-sm btn-semanal" href="<?= e(url('productores_control_semanal')) ?>"><i class="bi bi-table"></i> Control Semanal</a>
     <a class="btn btn-sm btn-facturas" href="<?= e(url('productores_facturas_masivas')) ?>"><i class="bi bi-files"></i> Facturas Masivas</a>
     <button type="button" class="btn btn-sm btn-importar"><i class="bi bi-upload"></i> Importar Pagos</button>
@@ -308,6 +322,29 @@ layout_start('Productores y Proveedores', 'productores');
 <?php endif; ?>
 
 <script nonce="<?= e(csp_nonce()) ?>">
+document.getElementById('buscador-productor').addEventListener('input', function (e) {
+  var inputVal = e.target.value;
+  var opciones = document.getElementById('lista-productores').options;
+  var oculto = document.getElementById('productor_id_oculto');
+  oculto.value = '';
+  for (var i = 0; i < opciones.length; i++) {
+    if (opciones[i].value === inputVal) {
+      oculto.value = opciones[i].getAttribute('data-id') || '';
+      break;
+    }
+  }
+  if (oculto.value !== '') {
+    e.target.form.submit();
+  }
+});
+var formCerrar = document.getElementById('formCerrarSemanas');
+if (formCerrar) {
+  formCerrar.addEventListener('submit', function (ev) {
+    if (!window.confirm('¿Cerrar todas las semanas ya terminadas de todos los productores?')) {
+      ev.preventDefault();
+    }
+  });
+}
 (function () {
   var modal = document.getElementById('modalProductor');
   var selTolerancia = document.getElementById('prodTolerancia');

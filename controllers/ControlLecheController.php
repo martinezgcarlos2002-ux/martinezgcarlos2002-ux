@@ -73,6 +73,7 @@ final class ControlLecheController
             ...$this->datosHoja($fechaHoja),
             'puedeCrear'     => has_permiso($user, 'control_leche', 'crear'),
             'puedeEditar'    => has_permiso($user, 'control_leche', 'editar'),
+            'litraje'        => $this->datosLitraje(),
         ]);
     }
 
@@ -182,6 +183,32 @@ final class ControlLecheController
             }
             $this->entregas->actualizar((int) $actual['id'], ['litros' => $litros]);
         }
+    }
+
+    /**
+     * Litros ya registrados y rangos de semanas cerradas, para el modal de carga por día.
+     * @return array{litros: array<int, array<string, float>>, cierres: array<int, list<array{0:string, 1:string}>>}
+     */
+    private function datosLitraje(): array
+    {
+        $db = get_db();
+        $litros = [];
+        foreach ($db->query(
+            'SELECT e.productor_id, e.fecha, e.litros
+             FROM productores_entregas e
+             JOIN productores p ON p.id = e.productor_id AND p.activo = 1'
+        ) as $row) {
+            $litros[(int) $row['productor_id']][(string) $row['fecha']] = (float) $row['litros'];
+        }
+        $cierres = [];
+        foreach ($db->query(
+            "SELECT productor_id, semana_inicio, semana_fin
+             FROM productores_cierres
+             WHERE estado <> 'anulada'"
+        ) as $row) {
+            $cierres[(int) $row['productor_id']][] = [(string) $row['semana_inicio'], (string) $row['semana_fin']];
+        }
+        return ['litros' => $litros, 'cierres' => $cierres];
     }
 
     /** Planilla física de recolección: productores activos en orden alfabético, lista para imprimir o guardar como PDF. */

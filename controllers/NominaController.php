@@ -75,6 +75,51 @@ final class NominaController
         redirect('empleados', $volver);
     }
 
+    /** Semana cerrada → pagada, y un egreso de caja por cada neto positivo. */
+    public function pagar(): void
+    {
+        $this->exigirAdmin();
+        $semana = parse_date($_POST['semana'] ?? null);
+        if ($semana === null) {
+            flash('error', 'Semana inválida.');
+            redirect('empleados', ['tab' => 'nomina']);
+        }
+        [$inicio, $fin] = Nomina::periodo($semana);
+        $volver = ['tab' => 'nomina', 'semana' => $inicio];
+        $userId = current_user()['id'];
+
+        try {
+            $r = Database::transaction(function () use ($inicio, $fin, $userId): array {
+                $tasa = TasaCambio::vigenteEn(get_db(), date('Y-m-d H:i:s'));
+                if ($tasa === null) {
+                    throw new ValidationException(['tasa' => 'No hay tasa BCV registrada. Actualízala en Finanzas antes de pagar la nómina.']);
+                }
+                $r = $this->nomina->pagar($inicio, $tasa['tasa'], $userId);
+                audit_log('empleados', 'pagar_nomina', [
+                    'semana_inicio' => $inicio,
+                    'semana_fin'    => $fin,
+                    'filas'         => $r['pagadas'],
+                    'egresos'       => $r['egresos'],
+                    'total_usd'     => $r['total_usd'],
+                ], 'nomina_semanal');
+                return $r;
+            });
+        } catch (ValidationException $e) {
+            flash('error', implode(' ', $e->errors));
+            redirect('empleados', $volver);
+        }
+
+        flash('success', sprintf(
+            'Nómina pagada: %d empleado%s, %s USD registrados en Finanzas (%d egreso%s).',
+            $r['pagadas'],
+            $r['pagadas'] === 1 ? '' : 's',
+            num($r['total_usd']),
+            $r['egresos'],
+            $r['egresos'] === 1 ? '' : 's'
+        ));
+        redirect('empleados', $volver);
+    }
+
     /** Préstamo interno: aumenta la deuda del empleado que luego se descuenta en cuotas. */
     public function prestamoStore(): void
     {

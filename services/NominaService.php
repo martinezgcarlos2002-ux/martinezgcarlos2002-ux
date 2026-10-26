@@ -10,8 +10,9 @@ final class NominaService
     public const DIAS_CICLO = 7;
 
     /**
-     * Recorre el rango lunes-domingo y clasifica cada día.
-     * F / no_trabajado siempre descuenta. L solo si ya se agotó el cupo mensual.
+     * Recorre el ciclo (domingo–sábado por defecto) y clasifica cada día.
+     * F / no_trabajado descuenta. Un día justificado no descuenta ni gasta cupo de libres.
+     * L solo si ya se agotó el cupo mensual.
      *
      * @param array<string, mixed> $emp
      * @param array<string, string> $marcas Y-m-d => libre|no_trabajado
@@ -26,11 +27,14 @@ final class NominaService
         $fechaFin = new DateTimeImmutable($fin);
         for ($d = new DateTimeImmutable($inicio); $d <= $fechaFin; $d = $d->modify('+1 day')) {
             $fecha = $d->format('Y-m-d');
+            $tipo = $marcas[$fecha] ?? null;
             if (!DiaLibre::enContrato($emp, $fecha)) {
                 $fuera++;
-            } elseif (($marcas[$fecha] ?? null) === 'no_trabajado') {
+            } elseif ($tipo === 'no_trabajado') {
                 $ausencia++;
-            } elseif (($marcas[$fecha] ?? null) === 'libre' && isset($excedidos[$fecha])) {
+            } elseif ($tipo === 'justificado') {
+                continue;
+            } elseif ($tipo === 'libre' && isset($excedidos[$fecha])) {
                 $excedido++;
             }
         }

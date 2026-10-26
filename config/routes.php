@@ -463,6 +463,11 @@ return [
         'POST'    => [NominaController::class, 'cerrar'],
     ],
     // Además del permiso RBAC, el controlador exige rol admin y motivo (queda en auditoria).
+    'nomina_pagar' => [
+        'modulo'  => 'empleados',
+        'accion'  => 'editar',
+        'POST'    => [NominaController::class, 'pagar'],
+    ],
     'nomina_reabrir' => [
         'modulo'  => 'empleados',
         'accion'  => 'editar',

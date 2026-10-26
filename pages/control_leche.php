@@ -83,16 +83,10 @@ $detalleTabla = static function (array $detalle, bool $conFecha) use ($usd, $gui
           <?php if ($puedeEditar): ?>
           <td class="text-end text-nowrap">
             <button type="button" class="btn btn-sm btn-outline-warning"
-                    data-bs-toggle="modal" data-bs-target="#modalEntrega"
-                    data-id="<?= (int) $dr['id'] ?>"
+                    data-bs-toggle="modal" data-bs-target="#modalLitraje"
                     data-fecha="<?= e((string) $dr['fecha']) ?>"
-                    data-productor="<?= (int) $dr['productor_id'] ?>"
-                    data-litros="<?= e((string) $dr['litros']) ?>"
-                    data-precio="<?= e((string) $dr['precio']) ?>"
-                    data-cuajada="<?= e((string) $dr['cuajada']) ?>"
-                    data-traslado="<?= e((string) $dr['traslado']) ?>"
-                    data-obs="<?= e((string) ($dr['observaciones'] ?? '')) ?>"
-                    aria-label="Editar entrega de <?= e($dr['productor']) ?>">
+                    data-pid="<?= (int) $dr['productor_id'] ?>"
+                    aria-label="Editar litros de <?= e($dr['productor']) ?>">
               <i class="bi bi-pencil"></i>
             </button>
           </td>
@@ -127,7 +121,7 @@ $puedeEditarHoja = $puedeCrear ?? false;
       <i class="bi bi-file-earmark-excel"></i> Excel
     </a>
     <?php if ($puedeCrear): ?>
-    <button type="button" class="btn btn-semanal" data-bs-toggle="modal" data-bs-target="#modalEntrega" data-modo="nuevo">
+    <button type="button" class="btn btn-semanal" data-bs-toggle="modal" data-bs-target="#modalLitraje">
       <i class="bi bi-plus-lg"></i> Nueva Entrega
     </button>
     <?php endif; ?>
@@ -231,7 +225,7 @@ $puedeEditarHoja = $puedeCrear ?? false;
     <i class="bi bi-file-earmark-excel"></i> Excel
   </a>
   <?php if ($puedeEditarHoja): ?>
-  <button type="submit" class="btn btn-success" form="formHojaDia">💾 Guardar Cambios</button>
+  <button type="submit" class="btn btn-success" id="btn-guardar-lote" form="formHojaDia">💾 Guardar Cambios</button>
   <?php endif; ?>
 </form>
 <form id="formHojaDia" method="post" action="<?= e(url('control_leche_diario')) ?>" autocomplete="off">
@@ -563,81 +557,59 @@ $puedeEditarHoja = $puedeCrear ?? false;
 </div>
 <?php endif; ?>
 
-<div class="modal fade" id="modalEntrega" tabindex="-1" aria-labelledby="tituloEntrega" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content modal-entrega">
+<?php
+$fechaLitraje = ($fechaHoja ?? date('Y-m-d')) > date('Y-m-d') ? date('Y-m-d') : ($fechaHoja ?? date('Y-m-d'));
+$litraje = $litraje ?? ['litros' => [], 'cierres' => []];
+?>
+<?php if ($puedeCrear): ?>
+<div class="modal fade" id="modalLitraje" tabindex="-1" aria-labelledby="tituloLitraje" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content modal-navy">
       <div class="modal-header">
-        <h5 class="modal-title" id="tituloEntrega"><i class="bi bi-droplet-fill"></i> Nueva Entrega de Leche</h5>
+        <h5 class="modal-title" id="tituloLitraje"><i class="bi bi-pencil-square"></i> Cargar litraje por día</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
-      <form id="frmEntrega" method="post" action="<?= e(url('control_leche_entrega')) ?>" autocomplete="off">
-        <?= csrf_field() ?>
-        <input type="hidden" name="volver" value="control_leche">
-        <div class="modal-body">
-          <p class="small text-muted mb-3" id="eAyuda">Si el productor ya tiene entrega ese día, se sobrescriben los litros. El precio se congela con el vigente del productor.</p>
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label" for="eProductor">Productor</label>
-              <select class="form-select" id="eProductor" name="productor_id" required>
-                <option value="">— Seleccionar —</option>
-                <?php foreach ($productores as $pl): ?>
-                <option value="<?= (int) $pl['id'] ?>" data-precio="<?= e((string) $pl['precio_litro_usd']) ?>"><?= e($pl['nombre']) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label" for="eFecha">Fecha</label>
-              <input type="date" class="form-control" id="eFecha" name="fecha" value="<?= e(date('Y-m-d')) ?>" required>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" for="eLitros">Litros</label>
-              <div class="input-group">
-                <input type="number" class="form-control" id="eLitros" name="litros" min="0.001" max="100000" step="0.001" required>
-                <span class="input-group-text">L</span>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" for="ePrecio">Precio / Litro $ <span class="text-muted">(del productor)</span></label>
-              <div class="input-group">
-                <span class="input-group-text">$</span>
-                <input type="number" class="form-control" id="ePrecio" step="0.0001" readonly tabindex="-1">
-              </div>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" for="eSubtotal">Subtotal $ <span class="text-muted">(calculado)</span></label>
-              <div class="input-group">
-                <span class="input-group-text">$</span>
-                <input type="text" class="form-control" id="eSubtotal" value="0.00" readonly>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" for="eCuajada">Cuajada kg <span class="text-muted">(opc.)</span></label>
-              <div class="input-group">
-                <input type="number" class="form-control" id="eCuajada" name="cuajada_kg" min="0" step="0.001" placeholder="0.000">
-                <span class="input-group-text">kg</span>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" for="eTraslado">Gasto traslado $ <span class="text-muted">(opc.)</span></label>
-              <div class="input-group">
-                <span class="input-group-text">$</span>
-                <input type="number" class="form-control" id="eTraslado" name="traslado_usd" min="0" step="0.01" placeholder="0.00">
-              </div>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" for="eObs">Observaciones</label>
-              <input type="text" class="form-control" id="eObs" name="observaciones" maxlength="255" placeholder="Notas...">
-            </div>
+      <div class="modal-body">
+        <p class="text-muted small">Escribe el litraje y pulsa la flecha (o Enter): se guarda esa fila y pasa a la siguiente. Si el día ya tenía litros, se sobrescriben.</p>
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="diaLitraje">Día</label>
+          <input type="date" class="form-control" id="diaLitraje" max="<?= e(date('Y-m-d')) ?>" value="<?= e($fechaLitraje) ?>">
+        </div>
+        <div class="input-group input-group-sm mb-3">
+          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+          <input type="search" id="buscarLitraje" class="form-control" placeholder="Buscar productor..." aria-label="Buscar en la carga por día">
+        </div>
+        <div class="list-group" id="listaLitraje">
+          <?php foreach ($productores as $i => $pl): $pid = (int) $pl['id']; ?>
+          <div class="list-group-item d-flex align-items-center gap-2 py-2" data-nombre="<?= e(mb_strtolower($pl['nombre'])) ?>" data-pid="<?= $pid ?>">
+            <span class="text-muted small text-nowrap">#<?= $i + 1 ?></span>
+            <span class="flex-grow-1 text-truncate fw-semibold">
+              <i class="bi bi-lock-fill text-muted js-candado d-none" title="Semana cerrada"></i>
+              <?= e($pl['nombre']) ?>
+            </span>
+            <span class="small text-nowrap js-estado" aria-live="polite"></span>
+            <input type="number" form="formLitraje" class="form-control form-control-sm text-end inp-litros" min="0" max="100000" step="0.001" placeholder="0"
+                   data-pid="<?= $pid ?>" aria-label="Litros <?= e($pl['nombre']) ?>">
+            <button type="button" class="btn btn-sm btn-cian js-guardar-fila" aria-label="Guardar litros de <?= e($pl['nombre']) ?> y continuar"><i class="bi bi-arrow-right"></i></button>
           </div>
+          <?php endforeach; ?>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancelar</button>
-          <button type="submit" class="btn btn-semanal"><i class="bi bi-save"></i> Guardar Entrega</button>
-        </div>
-      </form>
+        <p class="text-muted small mt-3 mb-0">Los productores con la semana cerrada <i class="bi bi-lock-fill"></i> no se pueden editar.</p>
+      </div>
+      <div class="modal-footer">
+        <form method="post" action="<?= e(url('productores_semana_guardar')) ?>" id="formLitraje" autocomplete="off" class="d-flex gap-2 m-0">
+          <?= csrf_field() ?>
+          <input type="hidden" name="volver" value="control_leche">
+          <input type="hidden" name="fecha" id="fechaLitraje" value="<?= e($fechaLitraje) ?>">
+          <input type="hidden" name="semana" id="semanaLitraje" value="">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cerrar</button>
+          <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Guardar día</button>
+        </form>
+      </div>
     </div>
   </div>
 </div>
+<?php endif; ?>
 
 <script nonce="<?= e(csp_nonce()) ?>">
 (function () {
@@ -653,46 +625,6 @@ $puedeEditarHoja = $puedeCrear ?? false;
   document.querySelectorAll('.js-dropdown').forEach(function (el) {
     el.addEventListener('click', function (ev) { ev.stopPropagation(); });
   });
-
-  var modal = document.getElementById('modalEntrega');
-  var form = document.getElementById('frmEntrega');
-  function num(id) { return document.getElementById(id); }
-  function calcEntrega() {
-    var l = parseFloat(num('eLitros').value) || 0;
-    var p = parseFloat(num('ePrecio').value) || 0;
-    num('eSubtotal').value = (l * p).toFixed(2);
-  }
-  num('eLitros').addEventListener('input', calcEntrega);
-  num('eProductor').addEventListener('change', function () {
-    var opt = this.options[this.selectedIndex];
-    num('ePrecio').value = opt && opt.dataset.precio ? opt.dataset.precio : '';
-    calcEntrega();
-  });
-  if (modal) {
-    modal.addEventListener('show.bs.modal', function (ev) {
-      var btn = ev.relatedTarget;
-      var editar = !!btn && !!btn.getAttribute('data-id');
-      var dato = function (k) { return editar ? (btn.getAttribute('data-' + k) || '') : ''; };
-      form.reset();
-      num('eFecha').value = editar ? dato('fecha') : '<?= e(date('Y-m-d')) ?>';
-      num('eProductor').value = dato('productor');
-      num('eLitros').value = dato('litros');
-      num('ePrecio').value = dato('precio');
-      num('eCuajada').value = dato('cuajada');
-      num('eTraslado').value = dato('traslado');
-      num('eObs').value = dato('obs');
-      num('eFecha').readOnly = editar;
-      num('eProductor').classList.toggle('pe-none', editar);
-      num('eProductor').tabIndex = editar ? -1 : 0;
-      if (!editar && num('eProductor').value) {
-        num('eProductor').dispatchEvent(new Event('change'));
-      }
-      document.getElementById('tituloEntrega').innerHTML = editar
-        ? '<i class="bi bi-pencil"></i> Editar Entrega de Leche'
-        : '<i class="bi bi-droplet-fill"></i> Nueva Entrega de Leche';
-      calcEntrega();
-    });
-  }
 
   var body = document.getElementById('cc_price_body');
   if (!body) return;
@@ -902,6 +834,168 @@ $puedeEditarHoja = $puedeCrear ?? false;
     });
   }
   calcular();
+})();
+</script>
+<script nonce="<?= e(csp_nonce()) ?>">
+document.addEventListener('DOMContentLoaded', function () {
+  function encadenarEnter(selector, botonId) {
+    var inputs = document.querySelectorAll(selector);
+    var btn = document.getElementById(botonId);
+    inputs.forEach(function (input, index) {
+      input.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        var siguiente = inputs[index + 1];
+        if (siguiente) {
+          siguiente.focus();
+          if (typeof siguiente.select === 'function') siguiente.select();
+        } else if (btn) {
+          btn.focus();
+        }
+      });
+    });
+  }
+  encadenarEnter('#formHojaDia .input-litros', 'btn-guardar-lote');
+});
+</script>
+<script nonce="<?= e(csp_nonce()) ?>">
+(function () {
+  var modal = document.getElementById('modalLitraje');
+  if (!modal) return;
+  var form = document.getElementById('formLitraje');
+  var dia = document.getElementById('diaLitraje');
+  var fecha = document.getElementById('fechaLitraje');
+  var semana = document.getElementById('semanaLitraje');
+  var buscar = document.getElementById('buscarLitraje');
+  var inputs = Array.prototype.slice.call(document.querySelectorAll('#listaLitraje .inp-litros'));
+  var litros = <?= json_encode($litraje['litros'] ?? new stdClass(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_FORCE_OBJECT | JSON_THROW_ON_ERROR) ?>;
+  var cierres = <?= json_encode($litraje['cierres'] ?? new stdClass(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_THROW_ON_ERROR) ?>;
+  var huboCambios = false;
+  var focoPid = '';
+
+  function semanaDe(iso) {
+    var p = iso.split('-');
+    var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
+    var n = d.getUTCDay();
+    var isoN = n === 0 ? 7 : n;
+    var atras = (isoN - 6 + 7) % 7;
+    d.setUTCDate(d.getUTCDate() - atras);
+    return d.toISOString().slice(0, 10);
+  }
+  function cerrado(pid, diaIso) {
+    var rangos = cierres[pid] || cierres[String(pid)] || [];
+    for (var i = 0; i < rangos.length; i++) {
+      if (diaIso >= rangos[i][0] && diaIso <= rangos[i][1]) return true;
+    }
+    return false;
+  }
+  function estado(inp, texto, clase) {
+    var el = inp.closest('.list-group-item').querySelector('.js-estado');
+    el.className = 'small text-nowrap js-estado ' + (clase || '');
+    el.textContent = texto;
+  }
+  function aplicarDia() {
+    var diaIso = dia.value;
+    if (!diaIso) return;
+    fecha.value = diaIso;
+    semana.value = semanaDe(diaIso);
+    inputs.forEach(function (inp) {
+      var pid = inp.getAttribute('data-pid');
+      var mapa = litros[pid] || litros[String(pid)] || {};
+      var bloqueado = cerrado(pid, diaIso);
+      inp.disabled = bloqueado;
+      inp.closest('.list-group-item').querySelector('.js-guardar-fila').disabled = bloqueado;
+      inp.closest('.list-group-item').querySelector('.js-candado').classList.toggle('d-none', !bloqueado);
+      inp.value = Object.prototype.hasOwnProperty.call(mapa, diaIso) ? mapa[diaIso] : '';
+      if (!bloqueado) inp.name = 'litros[' + pid + '][' + diaIso + ']';
+      else inp.removeAttribute('name');
+      estado(inp, '', '');
+    });
+  }
+  function siguiente(actual) {
+    var i = inputs.indexOf(actual);
+    for (var j = i + 1; j < inputs.length; j++) {
+      var fila = inputs[j].closest('.list-group-item');
+      if (!inputs[j].disabled && !fila.classList.contains('d-none')) {
+        inputs[j].focus();
+        inputs[j].select();
+        return;
+      }
+    }
+  }
+  function guardarFila(inp) {
+    var valor = inp.value.trim();
+    if (inp.disabled || valor === '' || parseFloat(valor) === 0) { siguiente(inp); return; }
+    var datos = new FormData();
+    datos.append('_csrf', form.querySelector('input[name="_csrf"]').value);
+    datos.append('volver', 'control_leche');
+    datos.append('fecha', dia.value);
+    datos.append('semana', semana.value);
+    datos.append(inp.name, valor);
+    estado(inp, 'Guardando…', 'text-muted');
+    fetch(form.action, {
+      method: 'POST',
+      body: datos,
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'fetch', 'Accept': 'application/json' }
+    }).then(function (r) {
+      var tipo = r.headers.get('Content-Type') || '';
+      if (tipo.indexOf('application/json') === -1) throw new Error('La sesión expiró. Recarga la página.');
+      return r.json();
+    }).then(function (res) {
+      if (!res.ok) throw new Error((res.mensajes || ['No se pudo guardar.']).join(' '));
+      var pid = inp.getAttribute('data-pid');
+      litros[pid] = litros[pid] || {};
+      litros[pid][dia.value] = parseFloat(valor);
+      var accion = res.guardadas && res.guardadas.length ? res.guardadas[0].accion : 'sin_cambios';
+      estado(inp, accion === 'actualizada' ? '✓ Sobrescrito' : (accion === 'creada' ? '✓ Guardado' : '✓ Sin cambios'), 'text-success');
+      if (accion !== 'sin_cambios') huboCambios = true;
+      siguiente(inp);
+    }).catch(function (err) {
+      estado(inp, '✗', 'text-danger');
+      window.alert(err.message);
+    });
+  }
+  dia.addEventListener('change', aplicarDia);
+  buscar.addEventListener('input', function () {
+    var q = buscar.value.trim().toLowerCase();
+    document.querySelectorAll('#listaLitraje .list-group-item').forEach(function (fila) {
+      var nombre = fila.getAttribute('data-nombre') || '';
+      fila.classList.toggle('d-none', q !== '' && nombre.indexOf(q) === -1);
+    });
+  });
+  document.getElementById('listaLitraje').addEventListener('click', function (ev) {
+    var btn = ev.target.closest('.js-guardar-fila');
+    if (btn && !btn.disabled) guardarFila(btn.parentNode.querySelector('.inp-litros'));
+  });
+  inputs.forEach(function (inp) {
+    inp.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      guardarFila(inp);
+    });
+  });
+  modal.addEventListener('show.bs.modal', function (ev) {
+    var btn = ev.relatedTarget;
+    if (btn && btn.getAttribute('data-fecha')) dia.value = btn.getAttribute('data-fecha');
+    focoPid = btn && btn.getAttribute('data-pid') ? btn.getAttribute('data-pid') : '';
+    buscar.value = '';
+    aplicarDia();
+  });
+  modal.addEventListener('shown.bs.modal', function () {
+    if (!focoPid) return;
+    var fila = document.querySelector('#listaLitraje .list-group-item[data-pid="' + focoPid + '"]');
+    if (!fila) return;
+    fila.scrollIntoView({ block: 'center' });
+    var inp = fila.querySelector('.inp-litros');
+    if (inp && !inp.disabled) { inp.focus(); inp.select(); }
+  });
+  modal.addEventListener('hidden.bs.modal', function () {
+    if (!huboCambios) return;
+    var params = new URLSearchParams({ p: 'control_leche', vista: 'diaria', fecha: dia.value, desde: dia.value, hasta: dia.value });
+    window.location = 'index.php?' + params.toString();
+  });
+  aplicarDia();
 })();
 </script>
 <?php

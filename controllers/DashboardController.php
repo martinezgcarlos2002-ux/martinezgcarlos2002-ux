@@ -59,14 +59,19 @@ final class DashboardController
         $finanzas = null;
         if ($puede('finanzas')) {
             $caja = $this->row(
-                'SELECT COALESCE(SUM(CASE WHEN tipo = :ing THEN monto_usd END), 0) AS ingresos,
-                        COALESCE(SUM(CASE WHEN tipo = :egr THEN monto_usd END), 0) AS egresos
-                 FROM caja_movimientos',
+                'SELECT COALESCE(SUM(CASE WHEN m.tipo = :ing THEN m.monto_usd END), 0) AS ingresos,
+                        COALESCE(SUM(CASE WHEN m.tipo = :egr THEN m.monto_usd END), 0) AS egresos
+                 FROM caja_movimientos m
+                 WHERE m.revierte_id IS NULL
+                   AND NOT EXISTS (SELECT 1 FROM caja_movimientos r WHERE r.revierte_id = m.id)',
                 ['ing' => 'ingreso', 'egr' => 'egreso'],
                 ['ingresos' => 0, 'egresos' => 0]
             );
-            $ingresos = (float) $caja['ingresos'];
-            $egresos = (float) $caja['egresos'];
+            $libro = new Caja($this->db);
+            $cobrado = $libro->cobradoClientes();
+            $salidas = $libro->desembolsosOperativos();
+            $ingresos = (float) $caja['ingresos'] + (float) $cobrado['usd'];
+            $egresos = (float) $caja['egresos'] + (float) $salidas['usd'];
             $finanzas = [
                 'ingresos' => $this->money($ingresos),
                 'egresos'  => $this->money($egresos),

@@ -7,7 +7,7 @@ declare(strict_types=1);
  */
 final class DiaLibre
 {
-    public const TIPOS = ['libre' => 'Libre', 'no_trabajado' => 'No trabajado'];
+    public const TIPOS = ['libre' => 'Libre', 'no_trabajado' => 'No trabajado', 'justificado' => 'Día justificado'];
     private const DIAS_SEMANA = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
 
     public function __construct(private PDO $db)
@@ -197,7 +197,7 @@ final class DiaLibre
             $id = $emp['id'];
             $libresFijos = 0;
             foreach ($actual[$id] ?? [] as $fecha => $tipo) {
-                if (isset($bloqueadas[$id][$fecha]) || $tipo === 'no_trabajado') {
+                if (isset($bloqueadas[$id][$fecha]) || $tipo === 'no_trabajado' || $tipo === 'justificado') {
                     $marcas[$id][$fecha] = $tipo;
                     $libresFijos += $tipo === 'libre' ? 1 : 0;
                 }

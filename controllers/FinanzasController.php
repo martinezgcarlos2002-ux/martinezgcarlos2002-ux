@@ -12,7 +12,11 @@ final class FinanzasController
         $this->caja = new Caja(get_db());
     }
 
-    /** Ingresos y egresos respetan el filtro; el balance y los saldos por cuenta son siempre globales. */
+    /**
+     * Ingresos y egresos respetan el filtro; el balance y los saldos por cuenta son siempre globales.
+     * Los ingresos suman la caja vigente y los cobros de facturas. Los egresos suman la caja vigente
+     * más liquidaciones a productores, fletes pagados y nóminas pagadas que aún no tienen asiento.
+     */
     public function index(): void
     {
         [$old, $errors] = form_state();

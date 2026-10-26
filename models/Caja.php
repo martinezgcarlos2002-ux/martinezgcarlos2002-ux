@@ -96,6 +96,33 @@ final class Caja
         return (int) $this->db->lastInsertId();
     }
 
+    /** Egreso de nómina. Devuelve false si esa fila ya tiene movimiento, para no duplicar el pago. */
+    public function egresoNomina(int $nominaId, string $montoUsd, string $tasa, string $concepto, int $usuarioId): bool
+    {
+        $ya = $this->db->prepare(
+            "SELECT 1 FROM caja_movimientos WHERE nomina_id = :id AND origen = 'nomina' AND revierte_id IS NULL LIMIT 1"
+        );
+        $ya->execute(['id' => $nominaId]);
+        if ($ya->fetchColumn() !== false) {
+            return false;
+        }
+        $stmt = $this->db->prepare(
+            "INSERT INTO caja_movimientos
+                 (fecha, tipo, cuenta, moneda, monto, tasa_bs_por_usd, monto_usd, concepto, origen, nomina_id, registrado_por)
+             VALUES
+                 (NOW(), 'egreso', 'caja', 'USD', :monto, :tasa, :monto_usd, :concepto, 'nomina', :nomina_id, :usuario)"
+        );
+        $stmt->execute([
+            'monto'      => $montoUsd,
+            'monto_usd'  => $montoUsd,
+            'tasa'       => $tasa,
+            'concepto'   => mb_substr($concepto, 0, 160),
+            'nomina_id'  => $nominaId,
+            'usuario'    => $usuarioId,
+        ]);
+        return true;
+    }
+
     public function movimientoDeAbono(int $abonoId): ?array
     {
         $stmt = $this->db->prepare('SELECT * FROM caja_movimientos WHERE abono_id = :abono_id');
@@ -152,6 +179,8 @@ final class Caja
     public function totales(array $filtros = []): array
     {
         [$where, $params] = self::filtrosSql($filtros);
+        $vigente = 'm.revierte_id IS NULL AND NOT EXISTS (SELECT 1 FROM caja_movimientos r WHERE r.revierte_id = m.id)';
+        $where = $where === '' ? ' WHERE ' . $vigente : $where . ' AND ' . $vigente;
         $bs = "IF(m.moneda = 'VES', m.monto, ROUND(m.monto_usd * m.tasa_bs_por_usd, 2))";
         $stmt = $this->db->prepare(
             "SELECT COUNT(*) AS movimientos,
@@ -164,6 +193,20 @@ final class Caja
         $stmt->execute($params);
         $r = $stmt->fetch();
 
+        $desde = isset($params['desde']) ? (string) $params['desde'] : null;
+        $hasta = isset($params['hasta']) ? (string) $params['hasta'] : null;
+        $sinBusqueda = ($filtros['q'] ?? '') === '';
+        if ($sinBusqueda && ($filtros['tipo'] ?? null) !== 'egreso') {
+            $cobrado = $this->cobradoClientes($desde, $hasta);
+            $r['ingresos_usd'] = self::desdeCentavos(self::aCentavos($r['ingresos_usd']) + self::aCentavos($cobrado['usd']));
+            $r['ingresos_bs'] = self::desdeCentavos(self::aCentavos($r['ingresos_bs']) + self::aCentavos($cobrado['bs']));
+        }
+        if ($sinBusqueda && ($filtros['tipo'] ?? null) !== 'ingreso') {
+            $salidas = $this->desembolsosOperativos($desde, $hasta);
+            $r['egresos_usd'] = self::desdeCentavos(self::aCentavos($r['egresos_usd']) + self::aCentavos($salidas['usd']));
+            $r['egresos_bs'] = self::desdeCentavos(self::aCentavos($r['egresos_bs']) + self::aCentavos($salidas['bs']));
+        }
+
         return [
             'movimientos'  => (int) $r['movimientos'],
             'ingresos_usd' => (string) $r['ingresos_usd'],
@@ -173,6 +216,119 @@ final class Caja
             'balance_usd'  => self::desdeCentavos(self::aCentavos($r['ingresos_usd']) - self::aCentavos($r['egresos_usd'])),
             'balance_bs'   => self::desdeCentavos(self::aCentavos($r['ingresos_bs']) - self::aCentavos($r['egresos_bs'])),
         ];
+    }
+
+    /**
+     * Cobros de facturas de clientes que sí entraron dinero. El saldo a favor no es un ingreso nuevo.
+     * @return array{usd:string, bs:string}
+     */
+    public function cobradoClientes(?string $desde = null, ?string $hasta = null): array
+    {
+        $sql = "SELECT COALESCE(SUM(monto), 0) AS usd,
+                       COALESCE(SUM(COALESCE(monto_bs, ROUND(monto * tasa_cambio, 2), 0)), 0) AS bs
+                FROM cxc_pagos
+                WHERE estado = 'aplicado' AND metodo <> 'saldo_favor'";
+        $params = [];
+        if ($desde !== null) {
+            $sql .= ' AND fecha >= :desde';
+            $params['desde'] = $desde;
+        }
+        if ($hasta !== null) {
+            $sql .= ' AND fecha < :hasta';
+            $params['hasta'] = $hasta;
+        }
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $row = $stmt->fetch();
+        return ['usd' => (string) $row['usd'], 'bs' => (string) $row['bs']];
+    }
+
+    /**
+     * Salidas de dinero que no están ya como egreso vigente en caja.
+     * Productores: liquidación en efectivo, pago móvil o transferencia (la mercancía es descuento, no caja).
+     * Transporte: abonos en dinero de semanas ya pagadas.
+     * Nómina: neto de filas pagadas que todavía no tienen asiento.
+     *
+     * @return array{usd:string, bs:string}
+     */
+    public function desembolsosOperativos(?string $desde = null, ?string $hasta = null): array
+    {
+        $usd = 0;
+        $bs = 0;
+        $sumar = function (string $sql, array $params) use (&$usd, &$bs): void {
+            try {
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute($params);
+                $row = $stmt->fetch();
+            } catch (PDOException $e) {
+                if ($e->getCode() === '42S02') {
+                    return;
+                }
+                throw $e;
+            }
+            if ($row === false) {
+                return;
+            }
+            $usd += self::aCentavos($row['usd']);
+            $bs += self::aCentavos($row['bs']);
+        };
+
+        $cajaVigente = "m.revierte_id IS NULL AND NOT EXISTS (SELECT 1 FROM caja_movimientos r WHERE r.revierte_id = m.id)";
+        [$filtroA, $paramsA] = $this->filtroFecha('a.fecha', $desde, $hasta);
+        $sumar(
+            "SELECT COALESCE(SUM(a.monto_usd), 0) AS usd,
+                    COALESCE(SUM(CASE WHEN a.moneda = 'VES' THEN a.monto
+                                      ELSE ROUND(a.monto_usd * IFNULL(a.tasa_bs_por_usd, 0), 2) END), 0) AS bs
+             FROM productores_abonos a
+             WHERE a.anulado_en IS NULL
+               AND a.tipo IN ('efectivo','pago_movil','transferencia','pm_trans')
+               AND NOT EXISTS (
+                   SELECT 1 FROM caja_movimientos m
+                   WHERE m.abono_id = a.id AND m.tipo = 'egreso' AND $cajaVigente
+               )" . $filtroA,
+            $paramsA
+        );
+
+        [$filtroN, $paramsN] = $this->filtroFecha('n.semana_fin', $desde, $hasta);
+        $sumar(
+            "SELECT COALESCE(SUM(n.neto_usd), 0) AS usd,
+                    COALESCE(SUM(ROUND(n.neto_usd * IFNULL(n.tasa_bs_por_usd, 0), 2)), 0) AS bs
+             FROM nomina_semanal n
+             WHERE n.estado = 'pagada' AND n.neto_usd > 0
+               AND NOT EXISTS (
+                   SELECT 1 FROM caja_movimientos m
+                   WHERE m.nomina_id = n.id AND m.origen = 'nomina' AND $cajaVigente
+               )" . $filtroN,
+            $paramsN
+        );
+
+        [$filtroT, $paramsT] = $this->filtroFecha('t.fecha', $desde, $hasta);
+        $sumar(
+            "SELECT COALESCE(SUM(t.monto), 0) AS usd, 0 AS bs
+             FROM log_pagos_transporte t
+             JOIN log_pagos_semanales s ON s.id = t.pago_semanal_id
+             WHERE s.estado = 'pagado'
+               AND t.tipo IN ('efectivo','transferencia')" . $filtroT,
+            $paramsT
+        );
+
+        return ['usd' => self::desdeCentavos($usd), 'bs' => self::desdeCentavos($bs)];
+    }
+
+    /** @return array{0:string, 1:array<string, string>} */
+    private function filtroFecha(string $columna, ?string $desde, ?string $hasta): array
+    {
+        $sql = '';
+        $params = [];
+        if ($desde !== null) {
+            $sql .= " AND $columna >= :desde";
+            $params['desde'] = $desde;
+        }
+        if ($hasta !== null) {
+            $sql .= " AND $columna < :hasta";
+            $params['hasta'] = $hasta;
+        }
+        return [$sql, $params];
     }
 
     /** @return array<string, array<string, string>>  [cuenta][moneda] => saldo en la moneda nativa */

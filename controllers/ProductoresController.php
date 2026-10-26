@@ -35,6 +35,7 @@ final class ProductoresController
     public function index(): void
     {
         $q = self::queryString('q', 60);
+        $productorId = parse_int_range($_GET['productor_id'] ?? null, 1, PHP_INT_MAX);
         $estado = match ($_GET['estado'] ?? '') {
             'activo'   => 'activos',
             'inactivo' => 'inactivos',
@@ -48,9 +49,11 @@ final class ProductoresController
         $user = current_user();
 
         view('productores_lista', [
-            'productores'   => $this->productores->listar($q, $estado, $orden, $diaCierre),
+            'productores'   => $this->productores->listar($q, $estado, $orden, $diaCierre, $productorId),
+            'catalogo'      => $this->productores->catalogoNombres(),
             'kpis'          => $this->productores->kpis(),
             'q'             => $q,
+            'productorId'   => $productorId,
             'estado'        => $estado,
             'orden'         => $orden,
             'diaCierre'     => $diaCierre,
@@ -192,7 +195,11 @@ final class ProductoresController
     public function semanaStore(): void
     {
         $ajax = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
+        $fechaSuelta = parse_date($_POST['fecha'] ?? '');
         $semana = parse_date($_POST['semana'] ?? '');
+        if ($semana === null && $fechaSuelta !== null) {
+            $semana = CierreSemanal::semanaDe($fechaSuelta, CierreSemanal::DIA_CIERRE_DEFAULT);
+        }
         if ($semana === null || !CierreSemanal::esInicioDeCiclo($semana, CierreSemanal::DIA_CIERRE_DEFAULT)) {
             $this->responderSemana($ajax, false, ['Semana inválida.'], []);
         }
@@ -321,11 +328,16 @@ final class ProductoresController
             echo json_encode(['ok' => $ok, 'mensajes' => array_values($mensajes), 'guardadas' => $guardadas], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             exit;
         }
+        $pagina = ($_POST['volver'] ?? '') === 'control_leche' ? 'control_leche' : 'productores_control_semanal';
+        if ($pagina === 'control_leche') {
+            $fecha = parse_date($_POST['fecha'] ?? '') ?? ($query['semana'] ?? date('Y-m-d'));
+            $query = ['vista' => 'diaria', 'fecha' => $fecha, 'desde' => $fecha, 'hasta' => $fecha];
+        }
         if ($ok) {
             flash('success', implode(' ', $mensajes));
-            redirect('productores_control_semanal', $query);
+            redirect($pagina, $query);
         }
-        $this->fallar($mensajes, 'productores_control_semanal', $query);
+        $this->fallar($mensajes, $pagina, $query);
     }
 
     // ----- Facturas masivas ------------------------------------------------

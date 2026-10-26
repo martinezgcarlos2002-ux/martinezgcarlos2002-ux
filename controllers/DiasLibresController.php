@@ -33,11 +33,14 @@ final class DiasLibresController
             [$emp['id'] => [$fecha => $tipo]],
             [['fecha' => $fecha, 'cargo' => $emp['cargo']]]
         );
+        [$semanaInicio, $semanaFin] = Nomina::periodo($fecha, (int) ($emp['dia_cierre'] ?? 6));
         json_response(200, [
             'ok'                 => true,
             'empleado_id'        => $emp['id'],
             'fecha'              => $fecha,
             'tipo'               => $tipo,
+            'semana_inicio'      => $semanaInicio,
+            'semana_fin'         => $semanaFin,
             'alertas_cobertura'  => $alertas,
             'cupo'               => $this->dias->cupoMes($emp, $fecha, $tipo),
         ]);
@@ -45,7 +48,7 @@ final class DiasLibresController
 
     /**
      * Guarda el mes para los empleados enviados en emps[]. Solo viajan las celdas marcadas:
-     * dias[empleado_id][día] = libre|no_trabajado. Las celdas ausentes quedan sin marca.
+     * dias[empleado_id][día] = libre|no_trabajado|justificado. Las celdas ausentes quedan sin marca.
      */
     public function guardar(): void
     {
