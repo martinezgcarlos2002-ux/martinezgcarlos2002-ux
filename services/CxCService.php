@@ -29,6 +29,8 @@ final class CxCService
     private const MAX_RENGLONES = 200;
     /** DECIMAL(12,2) y DECIMAL(10,2) expresados en centésimas. */
     private const MAX_CENTAVOS = 999999999999;
+    /** Desvío máximo entre monto_bs y monto_usd × tasa (fracción). */
+    private const TOLERANCIA_BS = 0.01;
     private const MAX_CANTIDAD_CENTESIMAS = 9999999999;
     private const INTENTOS_NUMERO = 3;
 
@@ -1085,12 +1087,18 @@ final class CxCService
         if ($tasa === null || (float) $tasa <= 0) {
             throw new ValidationException(['tasa_cambio' => 'La tasa de cambio debe ser mayor que 0 (Bs por 1 USD).']);
         }
-        $bs = $montoBs;
-        if ($bs === null) {
-            $bs = number_format(round($montoUsdC * (float) $tasa / 100, 2), 2, '.', '');
-        }
+        $esperado = round($montoUsdC * (float) $tasa / 100, 2);
+        $bs = $montoBs ?? number_format($esperado, 2, '.', '');
         if ((float) $bs <= 0) {
             throw new ValidationException(['monto_bs' => 'El monto en bolívares debe ser mayor que 0.']);
+        }
+        // El cliente envía USD, tasa y Bs por separado (formulario o cola offline editable en DevTools):
+        // el trío tiene que ser coherente. La tolerancia cubre una tasa redondeada a mano.
+        if (abs((float) $bs - $esperado) > max(0.01, $esperado * self::TOLERANCIA_BS)) {
+            throw new ValidationException(['monto_bs' => sprintf(
+                'El monto en Bs no coincide con el pago × la tasa (≈ Bs %s). Revisa la tasa o el monto.',
+                num($esperado)
+            )]);
         }
         return [$tasa, $bs];
     }

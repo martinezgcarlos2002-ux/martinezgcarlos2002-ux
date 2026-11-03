@@ -32,7 +32,7 @@ $usd = static fn (string $n): string => (float) $n === 0.0 ? '' : '$' . num($n);
 
 <section class="hoja">
   <header class="d-flex align-items-center gap-3 mb-2">
-    <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="" class="logo">
+    <img src="<?= e(marca_logo_src()) ?>" alt="" class="logo">
     <div class="flex-grow-1 titulo-notaria">NOTARÍA</div>
   </header>
   <div class="small text-center mb-2"><?= e($empresa) ?> · Semana <?= e($periodo) ?></div>

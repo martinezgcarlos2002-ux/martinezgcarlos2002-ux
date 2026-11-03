@@ -35,7 +35,8 @@ final class Auditoria
         );
         $stmt->execute($params);
 
-        return ['filas' => $stmt->fetchAll(), 'total' => $total, 'pagina' => $pagina, 'paginas' => $paginas];
+        $filas = array_map(self::atribuirSoporte(...), $stmt->fetchAll());
+        return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'paginas' => $paginas];
     }
 
     public function contarTodo(): int
@@ -66,6 +67,7 @@ final class Auditoria
             return null;
         }
         $detalle = $row['detalle'] === null ? null : json_decode((string) $row['detalle'], true);
+        $row = self::atribuirSoporte($row);
         return ['usuario' => $row['usuario'], 'fecha' => (string) $row['fecha'], 'detalle' => is_array($detalle) ? $detalle : null];
     }
 
@@ -101,5 +103,34 @@ final class Auditoria
             $params['hasta'] = (new DateTimeImmutable($f['hasta']))->modify('+1 day')->format('Y-m-d 00:00:00');
         }
         return [$where ? ' WHERE ' . implode(' AND ', $where) : '', $params];
+    }
+
+    /**
+     * Si el JSON trae la marca de Modo Soporte, el nombre visible es el del personal del SaaS.
+     * Cubre filas nuevas (usuario_id NULL) y las anteriores, que aún apuntan al empleado suplantado.
+     *
+     * @param array<string, mixed> $fila
+     * @return array<string, mixed>
+     */
+    private static function atribuirSoporte(array $fila): array
+    {
+        $crudo = $fila['detalle'] ?? null;
+        $data = is_string($crudo) ? json_decode($crudo, true) : null;
+        if (!is_array($data)) {
+            return $fila;
+        }
+        $etiqueta = $data['usuario'] ?? null;
+        $soporteId = $data['soporte_super_admin_id'] ?? null;
+        $id = is_int($soporteId) || (is_string($soporteId) && ctype_digit($soporteId)) ? (int) $soporteId : null;
+        if (!is_string($etiqueta) || !str_starts_with($etiqueta, 'SOPORTE TÉCNICO')) {
+            $etiqueta = $id === null ? null : 'SOPORTE TÉCNICO (ID Maestro: ' . $id . ')';
+        }
+        if ($etiqueta === null) {
+            return $fila;
+        }
+        $fila['usuario'] = $etiqueta;
+        $fila['usuario_email'] = null;
+        $fila['usuario_rol'] = null;
+        return $fila;
     }
 }

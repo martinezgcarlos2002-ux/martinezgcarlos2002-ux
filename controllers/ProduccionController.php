@@ -378,7 +378,7 @@ final class ProduccionController
         view('produccion_diaria_pdf', [
             'fecha'   => $fecha,
             'semana'  => $semana,
-            'empresa' => APP_EMPRESA,
+            'empresa' => marca()['nombre_empresa'],
             'filas'   => $this->catalogo->reporteDiario($fecha),
         ]);
     }

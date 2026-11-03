@@ -116,9 +116,11 @@ function wants_json(): bool
 
 function json_response(int $status, array $payload): never
 {
+    $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    [$status, $body] = Idempotencia::alResponder($status, $body);
     http_response_code($status);
     header('Content-Type: application/json; charset=UTF-8');
-    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    echo $body;
     exit;
 }
 

@@ -48,8 +48,8 @@ final class EmpleadosController
         $nomina = new Nomina($db);
         view('empleados', [
             'tab'            => $tab,
-            'empresa'        => APP_EMPRESA,
-            'rif'            => 'V-26011525-8',
+            'empresa'        => marca()['nombre_empresa'],
+            'rif'            => marca()['rif_documento'],
             'tipoNomina'     => 'Semanal',
             'nomina'         => $nomina->semana($semana, $tasa['tasa'] ?? null),
             'cicloHoyInicio' => $cicloHoyInicio,
@@ -428,7 +428,7 @@ final class EmpleadosController
         }
         view('rrhh_cv', [
             'emp'         => $emp,
-            'empresa'     => APP_EMPRESA,
+            'empresa'     => marca()['nombre_empresa'],
             'fotoPerfil'  => EmpleadoArchivo::dataUri((string) $emp['foto_perfil']),
             'fotoDoc'     => EmpleadoArchivo::dataUri((string) $emp['foto_documento']),
             'periodos'    => $this->empleados->historialLaboral($id),

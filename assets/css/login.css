@@ -43,7 +43,7 @@ body.login-page::before {
   margin-bottom: .75rem;
   border: 3px solid #f0c14b;
 }
-.brand-title { color: #1a2e5a; font-weight: 800; letter-spacing: .3px; margin: 0; }
+.brand-title { color: var(--color-secundario, #1a2e5a); font-weight: 800; letter-spacing: .3px; margin: 0; }
 .brand-sub { color: #6c757d; font-size: .8rem; margin-top: .25rem; }
 .brand-mark {
   margin-top: .7rem;
@@ -53,10 +53,28 @@ body.login-page::before {
   letter-spacing: .12em;
 }
 .login-page .btn-primary {
-  background: #f97316; border-color: #f97316; font-weight: 600;
+  background: var(--color-primario, #f97316); border-color: var(--color-primario, #f97316); font-weight: 600;
   padding: .6rem; border-radius: 10px;
 }
 .login-page .btn-primary:hover,
-.login-page .btn-primary:focus { background: #ea6c0c; border-color: #ea6c0c; }
+.login-page .btn-primary:focus { background: var(--orange-hover, #ea6c0c); border-color: var(--orange-hover, #ea6c0c); }
 .login-page .form-control { border-radius: 10px; padding: .55rem .75rem; }
+.login-page .adara-clave { position: relative; }
+.login-page .adara-clave .form-control { padding-right: 2.6rem; }
+.login-page .adara-clave-ojo {
+  position: absolute; top: 50%; right: .35rem; transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: .4rem;
+  background: transparent; color: #64748b; cursor: pointer;
+}
+.login-page .adara-clave-ojo:hover { color: #1e293b; }
 .login-page .form-label { font-weight: 500; color: #37425a; font-size: .85rem; margin-bottom: .3rem; }
+.login-link {
+  display: block; margin-top: 1rem; text-align: center;
+  color: #6b7280; font-size: .82rem; font-weight: 500; letter-spacing: .01em;
+  text-decoration: none;
+  transition: color .3s ease;
+}
+.login-link:hover,
+.login-link:focus-visible { color: var(--color-primario, #f97316); text-decoration: none; }
+.login-link:focus-visible { outline: 2px solid var(--color-primario, #f97316); outline-offset: 3px; border-radius: 4px; }

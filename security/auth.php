@@ -18,7 +18,7 @@ function current_user(): ?array
     $loaded = true;
 
     $uid = $_SESSION['uid'] ?? null;
-    if (!is_int($uid)) {
+    if (!is_int($uid) || (Database::multiempresa() && Database::empresaActiva() === null)) {
         return null;
     }
 

@@ -121,8 +121,8 @@ final class VentasController
             header('Content-Disposition: inline; filename="' . $doc['numero'] . '.html"');
             view('ventas_ticket', [
                 'venta'   => $doc,
-                'empresa' => APP_EMPRESA,
-                'rif'     => APP_RIF,
+                'empresa' => marca()['nombre_empresa'],
+                'rif'     => marca()['rif_documento'],
                 'logo'    => $this->logoDataUri(),
                 'metodos' => Venta::METODOS_PAGO,
             ]);
@@ -191,11 +191,7 @@ final class VentasController
 
     private function logoDataUri(): string
     {
-        $path = ADARA_ROOT . '/assets/' . LOGO_EMPRESA;
-        if (!is_file($path)) {
-            return '';
-        }
-        return 'data:image/jpeg;base64,' . base64_encode((string) file_get_contents($path));
+        return marca_data_uri(marca()['ruta_logo']);
     }
 
     /**

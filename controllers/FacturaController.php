@@ -353,7 +353,7 @@ final class FacturaController
             header('Content-Disposition: inline; filename="factura_' . $d['factura']['numero_factura'] . '.html"');
             view('facturas_imprimir', [
                 'hoy'           => date('Y-m-d'),
-                'empresa'       => APP_EMPRESA,
+                'empresa'       => marca()['nombre_empresa'],
                 'firmante'      => self::firmante(),
                 'factura'       => self::jsonFactura($d['factura']),
                 'observaciones' => (string) ($d['factura']['observaciones'] ?? ''),
@@ -379,7 +379,7 @@ final class FacturaController
             header('Content-Disposition: inline; filename="estado_cuenta_' . $id . '.html"');
             view('facturas_estado_cuenta', [
                 'hoy'      => date('Y-m-d'),
-                'empresa'  => APP_EMPRESA,
+                'empresa'  => marca()['nombre_empresa'],
                 'firmante' => self::firmante(),
                 'cliente'  => self::jsonCliente($cliente),
                 'asientos' => $this->cxc->libroMayorCliente($id),
@@ -398,7 +398,7 @@ final class FacturaController
         $txt = XlsxWriter::S_TEXTO;
         $tot = XlsxWriter::S_TOTAL_USD;
         $ttx = XlsxWriter::S_TOTAL_TEXTO;
-        $titulo = APP_EMPRESA . ' — Control de Facturas · ' . self::dmy($r['hoy']);
+        $titulo = marca()['nombre_empresa'] . ' — Control de Facturas · ' . self::dmy($r['hoy']);
 
         $resumen = [];
         foreach ([
@@ -552,7 +552,7 @@ final class FacturaController
         }
         return [
             'hoy'          => date('Y-m-d'),
-            'empresa'      => APP_EMPRESA,
+            'empresa'      => marca()['nombre_empresa'],
             'metricas'     => $metricas,
             'prioridad'    => $metricas['prioridad'],
             'clientes'     => array_values(array_filter($clientes)),
@@ -678,7 +678,7 @@ final class FacturaController
     private static function firmante(): string
     {
         $u = current_user();
-        return is_array($u) && ($u['nombre'] ?? '') !== '' ? (string) $u['nombre'] : APP_EMPRESA;
+        return is_array($u) && ($u['nombre'] ?? '') !== '' ? (string) $u['nombre'] : marca()['nombre_empresa'];
     }
 
     private static function dmy(string $iso): string

@@ -26,9 +26,10 @@ $dmy = static fn (string $iso): string => $iso !== '' ? date('d/m/Y', strtotime(
 </div>
 <section class="hoja">
   <header class="cab">
-    <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="" class="logo">
+    <img src="<?= e(marca_logo_src()) ?>" alt="" class="logo">
     <div>
       <h1><?= e($empresa) ?></h1>
+      <?php if (marca_datos() !== ''): ?><p class="small"><?= e(marca_datos()) ?></p><?php endif; ?>
       <p>Directorio de transportistas · <?= e($dmy($hoy)) ?></p>
     </div>
   </header>

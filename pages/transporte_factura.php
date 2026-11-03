@@ -51,10 +51,12 @@ $netoCls = (float) $neto > 0 ? 'neto-deuda' : '';
 <section class="hoja">
   <header class="doc-header">
     <div class="brand">
-      <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="" class="logo">
+      <img src="<?= e(marca_logo_src()) ?>" alt="" class="logo">
       <div>
         <h1><?= e($empresa) ?></h1>
+        <?php if (marca_datos() !== ''): ?><p><?= e(marca_datos()) ?></p><?php endif; ?>
         <p>Servicio de transporte · Rutas y recolecta</p>
+        <?php if (marca()['ruta_sello'] !== ''): ?><img src="<?= e(asset_v(marca()['ruta_sello'])) ?>" alt="Sello" width="72" height="72"><?php endif; ?>
       </div>
     </div>
     <div>

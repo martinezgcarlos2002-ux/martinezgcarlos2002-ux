@@ -37,11 +37,12 @@ final class EmpleadoArchivo
                 continue;
             }
             $ext = self::MIMES[$f['mime']];
-            $nombre = $empleadoId . '-' . $campo . '-' . str_replace('.', '', uniqid('', true)) . '.' . $ext;
+            $nombre = $empleadoId . '-' . $campo . '-' . bin2hex(random_bytes(16)) . '.' . $ext;
             $rel = self::DIR_REL . '/' . $nombre;
-            $dest = ADARA_ROOT . '/' . $rel;
-            if (!move_uploaded_file($f['tmp'], $dest)) {
-                throw new ValidationException([$campo => 'No se pudo guardar la imagen.']);
+            try {
+                ImagenSegura::guardar($f['tmp'], $f['mime'], ADARA_ROOT . '/' . $rel);
+            } catch (RuntimeException $e) {
+                throw new ValidationException([$campo => $e->getMessage()]);
             }
             $out[$campo] = $rel;
         }
@@ -105,10 +106,11 @@ final class EmpleadoArchivo
         if (!is_uploaded_file($tmp)) {
             throw new ValidationException([$campo => 'Archivo de carga inválido.']);
         }
-        $mime = (string) (new finfo(FILEINFO_MIME_TYPE))->file($tmp);
-        if (!isset(self::MIMES[$mime])) {
-            throw new ValidationException([$campo => 'Solo se aceptan imágenes JPG o PNG.']);
+        try {
+            $tipo = ImagenSegura::inspeccionar($tmp, array_keys(self::MIMES));
+        } catch (InvalidArgumentException $e) {
+            throw new ValidationException([$campo => $e->getMessage()]);
         }
-        return ['tmp' => $tmp, 'mime' => $mime];
+        return ['tmp' => $tmp, 'mime' => $tipo['mime']];
     }
 }

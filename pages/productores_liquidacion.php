@@ -13,7 +13,7 @@ declare(strict_types=1);
  * @var bool $autoprint
  */
 $autoprint = !empty($autoprint);
-$empresaRif = defined('APP_RIF') ? APP_RIF : 'V-286013356';
+$empresaRif = marca()['rif_documento'];
 
 $fecha = static fn (string $f): string => (new DateTimeImmutable($f))->format('d/m/Y');
 $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];

@@ -19,7 +19,8 @@ $p = $doc['productor'];
 $pagosDoc = $doc['pagos'] ?? [];
 $saldo = (float) $doc['saldo_usd'];
 $saldoCls = $saldo > 0 ? 'saldo-positivo' : ($saldo == 0.0 ? 'saldo-cero' : '');
-$logoSrc = $logoSrc ?? asset_v(LOGO_EMPRESA);
+$logoSrc = $logoSrc ?? marca_logo_src();
+$empresaNombre = marca()['nombre_empresa'];
 ?>
 <div class="doc">
   <div class="doc-header">
@@ -29,12 +30,11 @@ $logoSrc = $logoSrc ?? asset_v(LOGO_EMPRESA);
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td width="100" valign="middle">
-                <img src="<?= e($logoSrc) ?>" class="logo-box" alt="Logo El Castillo del Queso" width="88" height="88">
+                <img src="<?= e($logoSrc) ?>" class="logo-box" alt="<?= e($empresaNombre) ?>" width="88" height="88">
               </td>
               <td valign="middle">
-                <p class="empresa-nombre">El Castillo del Queso</p>
-                <p class="empresa-sub">Productora Artesanal de Quesos Venezolanos</p>
-                <p class="empresa-sub">RIF: <?= e($empresaRif) ?></p>
+                <p class="empresa-nombre"><?= e($empresaNombre) ?></p>
+                <?php if (marca_datos() !== ''): ?><p class="empresa-sub"><?= e(marca_datos()) ?></p><?php endif; ?>
                 <div class="periodo-badge">Período: <?= e($fecha($desde)) ?> — <?= e($fecha($hasta)) ?></div>
               </td>
             </tr>
@@ -165,7 +165,8 @@ $logoSrc = $logoSrc ?? asset_v(LOGO_EMPRESA);
     </td></tr></table>
 
     <div class="doc-footer">
-      <strong>El Castillo del Queso</strong> · RIF: <?= e($empresaRif) ?> · Quesos Artesanales Venezolanos<br>
+      <strong><?= e($empresaNombre) ?></strong><?= marca_datos() !== '' ? ' · ' . e(marca_datos()) : '' ?><br>
+      <?php if (marca()['ruta_sello'] !== ''): ?><img src="<?= e(asset_v(marca()['ruta_sello'])) ?>" alt="Sello" width="72" height="72"><?php endif; ?>
       Documento generado por <?= e(APP_NAME) ?> el <?= e((new DateTimeImmutable($emitida))->format('d/m/Y H:i')) ?> · Período <?= e($fecha($desde)) ?> al <?= e($fecha($hasta)) ?>
     </div>
   </div>

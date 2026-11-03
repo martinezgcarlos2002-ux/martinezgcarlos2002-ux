@@ -62,7 +62,7 @@ final class PlanillaRecepcionExcel
         $altos = [1 => 18, 2 => 14, 4 => 16];
 
         $porFila[1] = [
-            self::texto('A1', APP_EMPRESA, 2),
+            self::texto('A1', marca()['nombre_empresa'], 2),
             self::texto('C1', 'CONTROL DIARIO DE LECHE', 2),
             self::texto('H1', $fechaTxt, 2),
         ];
@@ -142,7 +142,7 @@ final class PlanillaRecepcionExcel
             . '<printOptions horizontalCentered="1"/>'
             . '<pageMargins left="0.35" right="0.35" top="0.4" bottom="0.4" header="0.15" footer="0.15"/>'
             . '<pageSetup paperSize="5" orientation="portrait" fitToWidth="1" fitToHeight="1" horizontalDpi="300" verticalDpi="300"/>'
-            . '<headerFooter><oddFooter>Recepción de leche ' . htmlspecialchars($fechaTxt, ENT_XML1) . ' · El Castillo del Queso</oddFooter></headerFooter>'
+            . '<headerFooter><oddFooter>Recepción de leche ' . htmlspecialchars($fechaTxt, ENT_XML1) . ' · ' . htmlspecialchars(marca()['nombre_empresa'], ENT_XML1) . '</oddFooter></headerFooter>'
             . '</worksheet>';
     }
 

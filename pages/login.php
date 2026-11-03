@@ -5,11 +5,11 @@ declare(strict_types=1);
 $alertClass = ['error' => 'danger', 'success' => 'success', 'info' => 'info'];
 ?>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" style="<?= e(EmpresaConfig::estilo()) ?>">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Iniciar Sesión – <?= e(APP_NAME) ?></title>
+<title>Iniciar Sesión – <?= e(marca()['nombre_empresa']) ?></title>
 <link rel="icon" type="image/png" href="<?= e(asset('img/favicon.png')) ?>">
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_CSS['href']) ?>"
       integrity="<?= e(BOOTSTRAP_CSS['integrity']) ?>" crossorigin="anonymous">
@@ -19,8 +19,8 @@ $alertClass = ['error' => 'danger', 'success' => 'success', 'info' => 'info'];
 <div class="login-overlay">
 <div class="card login-card">
   <div class="text-center mb-3">
-    <img src="<?= e(asset('img/logo.jpg')) ?>" alt="El Castillo del Queso" class="brand-logo">
-    <h4 class="brand-title">El Castillo del Queso</h4>
+    <img src="<?= e(marca_logo_src()) ?>" alt="<?= e(marca()['nombre_empresa']) ?>" class="brand-logo">
+    <h4 class="brand-title"><?= e(marca()['nombre_empresa']) ?></h4>
     <div class="brand-sub">Artesanal · Sistema ERP</div>
     <div class="brand-mark">ADARA ERP</div>
   </div>
@@ -39,9 +39,11 @@ $alertClass = ['error' => 'danger', 'success' => 'success', 'info' => 'info'];
     </div>
     <button type="submit" class="btn btn-primary w-100">Ingresar</button>
   </form>
+  <a class="login-link" href="<?= e(url('olvide_clave')) ?>">¿Olvidaste tu contraseña?</a>
 </div>
 </div>
 <script src="<?= e(BOOTSTRAP_JS['src']) ?>" integrity="<?= e(BOOTSTRAP_JS['integrity']) ?>"
         crossorigin="anonymous"></script>
+<script src="<?= e(asset_v('js/ver_clave.js')) ?>"></script>
 </body>
 </html>

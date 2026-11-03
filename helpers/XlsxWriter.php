@@ -40,7 +40,7 @@ final class XlsxWriter
         return $this;
     }
 
-    public function enviar(string $archivo): never
+    public function contenido(): string
     {
         $zip = new ZipStore();
         $zip->agregar('[Content_Types].xml', $this->contentTypes());
@@ -54,7 +54,12 @@ final class XlsxWriter
         foreach ($this->hojas as $i => $hoja) {
             $zip->agregar('xl/worksheets/sheet' . ($i + 1) . '.xml', self::hojaXml($hoja));
         }
-        $bytes = $zip->cerrar();
+        return $zip->cerrar();
+    }
+
+    public function enviar(string $archivo): never
+    {
+        $bytes = $this->contenido();
 
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment; filename="' . $archivo . '"');

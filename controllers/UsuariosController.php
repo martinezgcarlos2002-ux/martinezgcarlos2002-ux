@@ -24,7 +24,7 @@ final class UsuariosController
         $q = is_string($q) ? mb_substr(trim($q), 0, 80) : '';
 
         view('usuarios_lista', [
-            'usuarios'   => $this->usuarios->listar($q),
+            'usuarios'   => $this->usuarios->listar($q, (current_user()['rol'] ?? '') !== 'maestro'),
             'q'          => $q,
             'asignables' => self::modulosAsignables(),
             'acciones'   => RBAC_ACCIONES,

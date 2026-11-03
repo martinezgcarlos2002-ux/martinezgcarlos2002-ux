@@ -39,6 +39,11 @@ require_once ADARA_ROOT . '/security/csrf.php';
 require_once ADARA_ROOT . '/security/auth.php';
 require_once ADARA_ROOT . '/security/rbac.php';
 require_once ADARA_ROOT . '/security/audit.php';
+require_once ADARA_ROOT . '/security/idempotencia.php';
+require_once ADARA_ROOT . '/security/tenant.php';
+require_once ADARA_ROOT . '/models/Saas.php';
+require_once ADARA_ROOT . '/helpers/SqlScript.php';
+require_once ADARA_ROOT . '/services/SaaSManager.php';
 
 require_once ADARA_ROOT . '/models/Usuario.php';
 require_once ADARA_ROOT . '/models/LoginIntento.php';
@@ -46,6 +51,8 @@ require_once ADARA_ROOT . '/models/TasaCambio.php';
 require_once ADARA_ROOT . '/models/Productor.php';
 require_once ADARA_ROOT . '/models/EntregaLeche.php';
 require_once ADARA_ROOT . '/models/Caja.php';
+require_once ADARA_ROOT . '/models/Gas.php';
+require_once ADARA_ROOT . '/models/Banco.php';
 require_once ADARA_ROOT . '/models/PagoProductor.php';
 require_once ADARA_ROOT . '/models/CierreSemanal.php';
 require_once ADARA_ROOT . '/models/CostoProduccion.php';
@@ -64,11 +71,19 @@ require_once ADARA_ROOT . '/models/CobranzaTercero.php';
 require_once ADARA_ROOT . '/models/PrestamoEmpleado.php';
 require_once ADARA_ROOT . '/services/NominaService.php';
 require_once ADARA_ROOT . '/helpers/XlsxWriter.php';
+require_once ADARA_ROOT . '/helpers/XmlSeguro.php';
+require_once ADARA_ROOT . '/helpers/ConciliacionExcel.php';
+require_once ADARA_ROOT . '/helpers/PlantillaBancos.php';
+require_once ADARA_ROOT . '/helpers/PlantillaLibroDiario.php';
+require_once ADARA_ROOT . '/helpers/PlantillaClasificada.php';
 require_once ADARA_ROOT . '/helpers/PlanillaRecepcionExcel.php';
 require_once ADARA_ROOT . '/helpers/PngTexto.php';
 require_once ADARA_ROOT . '/helpers/LiquidacionArchivo.php';
+require_once ADARA_ROOT . '/helpers/ImagenSegura.php';
 require_once ADARA_ROOT . '/helpers/EmpleadoArchivo.php';
+require_once ADARA_ROOT . '/services/EmailService.php';
 require_once ADARA_ROOT . '/controllers/AuthController.php';
+require_once ADARA_ROOT . '/controllers/PasswordController.php';
 require_once ADARA_ROOT . '/controllers/DashboardController.php';
 require_once ADARA_ROOT . '/controllers/ProductoresController.php';
 require_once ADARA_ROOT . '/controllers/ControlLecheController.php';
@@ -93,9 +108,17 @@ require_once ADARA_ROOT . '/services/ResumenService.php';
 require_once ADARA_ROOT . '/controllers/ResumenController.php';
 require_once ADARA_ROOT . '/services/TransporteService.php';
 require_once ADARA_ROOT . '/controllers/TransporteController.php';
+require_once ADARA_ROOT . '/controllers/GasController.php';
+require_once ADARA_ROOT . '/controllers/BancosController.php';
+require_once ADARA_ROOT . '/models/EmpresaConfig.php';
+require_once ADARA_ROOT . '/controllers/ConfiguracionController.php';
+require_once ADARA_ROOT . '/controllers/MasterController.php';
 
 require_once ADARA_ROOT . '/layout.php';
 
 if (PHP_SAPI !== 'cli') {
     session_start_secure();
+    tenant_restaurar();
+} else {
+    tenant_cli();
 }

@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/layout_master.php';
+
 const BOOTSTRAP_CSS = [
     'href'      => 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
     'integrity' => 'sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH',
@@ -24,8 +26,23 @@ function asset_v(string $path): string
     return is_file($file) ? $url . '?v=' . filemtime($file) : $url;
 }
 
+/** La apertura y el cierre tienen que ser el mismo cascarón, aunque la sesión cambie a mitad de la petición. */
+function layout_usa_maestro(bool $fijar = false): bool
+{
+    static $activo = false;
+    if ($fijar) {
+        $activo = true;
+    }
+    return $activo;
+}
+
 function layout_start(string $title, string $active = ''): void
 {
+    if (sesion_es_panel_maestro()) {
+        layout_usa_maestro(true);
+        layout_master_start($title, $active);
+        return;
+    }
     $user = current_user();
     $tasa = $user ? TasaCambio::vigente(get_db()) : null;
     $alertClass = ['error' => 'danger', 'success' => 'success', 'info' => 'info', 'warning' => 'warning'];
@@ -34,28 +51,43 @@ function layout_start(string $title, string $active = ''): void
     $totalAlertas = $otrasAlertas + count($notificaciones['cxc']);
     ?>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" style="<?= e(EmpresaConfig::estilo()) ?>">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title><?= e($title) ?> – <?= e(APP_NAME) ?></title>
+<title><?= e($title) ?> – <?= e(marca()['nombre_empresa']) ?></title>
 <link rel="icon" type="image/png" href="<?= e(asset('img/favicon.png')) ?>">
 <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
+<?php if ($user): ?>
+<meta name="adara-user" content="<?= (int) $user['id'] ?>">
+<?php endif; ?>
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_CSS['integrity']) ?>" crossorigin="anonymous">
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_ICONS_CSS['href']) ?>" integrity="<?= e(BOOTSTRAP_ICONS_CSS['integrity']) ?>" crossorigin="anonymous">
 <link rel="stylesheet" href="<?= e(asset_v('css/adara.css')) ?>">
 <script src="<?= e(asset_v('js/contacto.js')) ?>" nonce="<?= e(csp_nonce()) ?>"></script>
+<?php if ($user): ?>
+<script src="<?= e(asset_v('js/offlineSync.js')) ?>" nonce="<?= e(csp_nonce()) ?>"></script>
+<?php endif; ?>
 </head>
-<body class="<?= $user ? 'app' : 'auth' ?>">
+<body class="<?= $user ? 'app' : 'auth' ?><?= is_int($_SESSION['impersonado_por'] ?? null) ? ' modo-soporte' : '' ?>">
+<?php if (is_int($_SESSION['impersonado_por'] ?? null)): ?>
+<div class="soporte-banner" role="alert">
+  <span><i class="bi bi-exclamation-octagon-fill"></i> MODO SOPORTE TÉCNICO ACTIVO. Estás viendo los datos del cliente.</span>
+  <form method="post" action="<?= e(url('master_salir_soporte')) ?>">
+    <?= csrf_field() ?>
+    <button type="submit" class="btn btn-sm btn-light">Salir del Soporte</button>
+  </form>
+</div>
+<?php endif; ?>
 <?php if ($user): ?>
 <script nonce="<?= e(csp_nonce()) ?>">
 if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.classList.add('sidebar-collapsed');
 </script>
 <div class="sidebar" id="appSidebar">
   <div class="sidebar-brand">
-    <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="El Castillo del Queso" class="sidebar-brand-logo">
+    <img src="<?= e(marca_logo_src()) ?>" alt="<?= e(marca()['nombre_empresa']) ?>" class="sidebar-brand-logo">
     <div class="sidebar-brand-text">
-      <h6>El Castillo del Queso</h6>
+      <h6><?= e(marca()['nombre_empresa']) ?></h6>
       <small><?= e(APP_NAME) ?> ERP</small>
     </div>
     <button type="button" class="sidebar-toggle" id="sidebarToggle" title="Contraer menú" aria-label="Contraer menú">
@@ -64,6 +96,7 @@ if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.class
   </div>
   <nav class="sidebar-nav">
     <?php foreach (modulos() as $key => $modulo): ?>
+      <?php if ($key === 'respaldo' && Database::multiempresa() && !is_int($_SESSION['impersonado_por'] ?? null)) continue; ?>
       <?php if (has_permiso($user, $key)): ?>
     <a class="nav-link<?= $active === $key ? ' active' : '' ?>" href="<?= e(url($modulo['p'])) ?>" title="<?= e($modulo['label']) ?>"<?= $active === $key ? ' aria-current="page"' : '' ?>>
       <span class="nav-icon"><i class="bi <?= e($modulo['icon']) ?>"></i></span>
@@ -214,6 +247,10 @@ if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.class
 
 function layout_end(): void
 {
+    if (layout_usa_maestro()) {
+        layout_master_end();
+        return;
+    }
     $user = current_user();
     ?>
 <?php if ($user): ?>
@@ -281,6 +318,22 @@ window.addEventListener('load', function () { document.getElementById('formAutoR
 </main>
 <?php endif; ?>
 <script src="<?= e(BOOTSTRAP_JS['src']) ?>" integrity="<?= e(BOOTSTRAP_JS['integrity']) ?>" crossorigin="anonymous"></script>
+<script src="<?= e(asset_v('js/ver_clave.js')) ?>"></script>
+<script nonce="<?= e(csp_nonce()) ?>">
+// La flecha Atrás puede restaurar la página desde la memoria del navegador aunque las cabeceras prohíban caché.
+window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
+</script>
+<script nonce="<?= e(csp_nonce()) ?>">
+// Service Worker (sw.js en la raíz): requiere HTTPS o localhost; en http://IP-de-red el navegador lo ignora.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register(<?= json_encode(base_path() . 'sw.js', JSON_THROW_ON_ERROR) ?>, {
+      scope: <?= json_encode(base_path(), JSON_THROW_ON_ERROR) ?>,
+      updateViaCache: 'none'
+    }).catch(function (err) { console.warn('ADARA: no se pudo registrar el Service Worker.', err); });
+  });
+}
+</script>
 </body>
 </html>
 <?php

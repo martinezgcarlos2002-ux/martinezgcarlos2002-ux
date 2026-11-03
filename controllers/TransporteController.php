@@ -210,7 +210,7 @@ final class TransporteController
             header('Content-Disposition: inline; filename="factura_transporte_' . $id . '.html"');
             view('transporte_factura', [
                 'hoy'           => date('Y-m-d'),
-                'empresa'       => APP_EMPRESA,
+                'empresa'       => marca()['nombre_empresa'],
                 'pago'          => $d['pago'],
                 'transportista' => $d['transportista'],
                 'fletes'        => $d['fletes'],
@@ -275,7 +275,7 @@ final class TransporteController
         header('Content-Disposition: inline; filename="directorio_transportistas.html"');
         view('transporte_directorio', [
             'hoy'            => date('Y-m-d'),
-            'empresa'        => APP_EMPRESA,
+            'empresa'        => marca()['nombre_empresa'],
             'transportistas' => array_map([self::class, 'jsonTransportista'], $this->log->transportistas()),
         ]);
     }
@@ -286,7 +286,7 @@ final class TransporteController
         header('Content-Disposition: inline; filename="cxp_transporte.html"');
         view('transporte_cxp', [
             'hoy'     => date('Y-m-d'),
-            'empresa' => APP_EMPRESA,
+            'empresa' => marca()['nombre_empresa'],
             'filas'   => $rep['filas'],
             'totales' => $rep['totales'],
         ]);

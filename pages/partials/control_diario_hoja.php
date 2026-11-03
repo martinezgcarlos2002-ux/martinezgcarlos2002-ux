@@ -51,7 +51,7 @@ foreach ($seccionesHoja as $inicio => $secRol) {
       <thead class="cd-head">
         <tr>
           <td class="cd-logo" colspan="2">
-            <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="El Castillo del Queso">
+            <img src="<?= e(asset_v(marca()['ruta_logo'])) ?>" alt="<?= e(marca()['nombre_empresa']) ?>">
           </td>
           <td colspan="3" class="cd-title">CONTROL DIARIO DE LECHE</td>
           <td class="cd-date"><?= e((new DateTimeImmutable($fechaHoja))->format('d/m/Y')) ?></td>
@@ -111,7 +111,7 @@ foreach ($seccionesHoja as $inicio => $secRol) {
                 <input class="cd-inp cd-inp-block cd-total-neto" type="text" readonly tabindex="-1"
                        value="<?= e(num($totalNeto, 1)) ?>" aria-label="Total neto de leche">
               <?php elseif ($lbl === 'SELLO'): ?>
-                <div class="cd-sello" aria-label="Sello"></div>
+                <div class="cd-sello" aria-label="Sello"><?php if (marca()['ruta_sello'] !== ''): ?><img src="<?= e(asset_v(marca()['ruta_sello'])) ?>" alt="Sello"><?php endif; ?></div>
               <?php endif; ?>
             </td>
           <?php else: ?>

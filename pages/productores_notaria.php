@@ -33,7 +33,7 @@ $filas = max(count($productores) + 3, 30);
   <button type="button" class="btn-adara-print" id="btnImprimir"><i class="bi bi-printer-fill"></i> Imprimir / Guardar PDF</button>
 </div>
 
-<div class="titulo-logo"><img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt=""> EL CASTILLO DEL QUESO</div>
+<div class="titulo-logo"><img src="<?= e(marca_logo_src()) ?>" alt=""> <?= e(mb_strtoupper(marca()['nombre_empresa'])) ?></div>
 <div class="titulo">NOTARÍA — PRODUCTORES</div>
 <div class="subt">Semana del <?= e($fecha($semana, 'd/m/y')) ?> al <?= e($fecha($semanaFin, 'd/m/y')) ?> &nbsp;&nbsp;&nbsp; Impreso: <?= e($fecha($impreso)) ?></div>
 

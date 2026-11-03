@@ -50,9 +50,10 @@ $estado = Nomina::ESTADOS[$datos['estado']] ?? $datos['estado'];
 
 <section class="hoja">
   <header class="d-flex align-items-center gap-3 mb-2">
-    <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="" class="logo">
+    <img src="<?= e(marca_logo_src()) ?>" alt="" class="logo">
     <div class="flex-grow-1">
       <h1 class="h6 mb-0"><?= e($empresa) ?></h1>
+      <?php if (marca_datos() !== ''): ?><div class="small"><?= e(marca_datos()) ?></div><?php endif; ?>
       <div class="small">A · Nómina completa · Semana del <?= e($periodo) ?></div>
     </div>
     <div class="small text-end">Tasa BCV: <?= $datos['tasa'] !== null ? e(num($datos['tasa'])) : '—' ?><br>Estado: <?= e($estado) ?></div>
@@ -93,9 +94,10 @@ $estado = Nomina::ESTADOS[$datos['estado']] ?? $datos['estado'];
 
 <section class="hoja salto">
   <header class="d-flex align-items-center gap-3 mb-2">
-    <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="" class="logo">
+    <img src="<?= e(marca_logo_src()) ?>" alt="" class="logo">
     <div class="flex-grow-1">
       <h1 class="h6 mb-0"><?= e($empresa) ?></h1>
+      <?php if (marca_datos() !== ''): ?><div class="small"><?= e(marca_datos()) ?></div><?php endif; ?>
       <div class="small">B · Pago neto en caja · Semana del <?= e($periodo) ?></div>
     </div>
     <div class="small text-end">Neto menos cuotas de préstamo<br>y cobranzas a terceros de la semana</div>

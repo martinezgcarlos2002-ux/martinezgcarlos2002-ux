@@ -37,9 +37,12 @@ $fecha = (new DateTimeImmutable((string) $v['fecha']))->format('d/m/Y H:i');
     <?php if ($logo !== ''): ?>
       <img src="<?= e($logo) ?>" alt="">
     <?php endif; ?>
-    <div class="ticket-emp"><?= e($empresa) ?></div>
-    <div class="ticket-rif">RIF: <?= e($rif) ?></div>
+    <div class="ticket-emp"><?= e(marca()['nombre_empresa']) ?></div>
+    <div class="ticket-rif"><?= e(marca_datos()) ?></div>
     <div>FACTURA DE VENTA</div>
+    <?php if (marca()['ruta_sello'] !== ''): ?>
+      <img src="<?= e(asset_v(marca()['ruta_sello'])) ?>" alt="Sello" width="72" height="72">
+    <?php endif; ?>
   </div>
   <hr class="ticket-sep">
   <div>Fecha: <?= e($fecha) ?></div>

@@ -149,7 +149,7 @@ final class CobranzasController
         header('Content-Disposition: inline; filename="rrhh_cobranzas.pdf.html"');
         view('rrhh_cobranzas_pdf', [
             'hoy'     => date('Y-m-d'),
-            'empresa' => APP_EMPRESA,
+            'empresa' => marca()['nombre_empresa'],
             'filas'   => $filas,
             'totales' => $totales,
         ]);

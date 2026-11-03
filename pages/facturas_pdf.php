@@ -48,9 +48,10 @@ $td = array_sum(array_map(static fn (array $d): float => (float) $d['monto'], $d
 
 <section class="hoja">
   <header class="d-flex align-items-center gap-3 mb-2">
-    <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="" class="logo">
+    <img src="<?= e(marca_logo_src()) ?>" alt="" class="logo">
     <div class="flex-grow-1">
       <h1 class="h6 mb-0"><?= e($empresa) ?></h1>
+      <?php if (marca_datos() !== ''): ?><div class="small"><?= e(marca_datos()) ?></div><?php endif; ?>
       <div class="small">Control de Facturas de Clientes · Reporte general · <?= e($dmy($hoy)) ?></div>
     </div>
     <div class="small text-end"><?= e(APP_NAME) ?></div>
@@ -137,9 +138,10 @@ $td = array_sum(array_map(static fn (array $d): float => (float) $d['monto'], $d
 
 <section class="hoja salto">
   <header class="d-flex align-items-center gap-3 mb-2">
-    <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="" class="logo">
+    <img src="<?= e(marca_logo_src()) ?>" alt="" class="logo">
     <div class="flex-grow-1">
       <h1 class="h6 mb-0"><?= e($empresa) ?></h1>
+      <?php if (marca_datos() !== ''): ?><div class="small"><?= e(marca_datos()) ?></div><?php endif; ?>
       <div class="small">Facturas · <?= e($dmy($hoy)) ?></div>
     </div>
   </header>
@@ -190,9 +192,10 @@ $td = array_sum(array_map(static fn (array $d): float => (float) $d['monto'], $d
 
 <section class="hoja salto">
   <header class="d-flex align-items-center gap-3 mb-2">
-    <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="" class="logo">
+    <img src="<?= e(marca_logo_src()) ?>" alt="" class="logo">
     <div class="flex-grow-1">
       <h1 class="h6 mb-0"><?= e($empresa) ?></h1>
+      <?php if (marca_datos() !== ''): ?><div class="small"><?= e(marca_datos()) ?></div><?php endif; ?>
       <div class="small">Pagos y devoluciones · <?= e($dmy($hoy)) ?></div>
     </div>
   </header>

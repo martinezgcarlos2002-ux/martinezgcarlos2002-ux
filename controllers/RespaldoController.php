@@ -11,8 +11,23 @@ final class RespaldoController
 
     public function __construct()
     {
+        $this->exigirSoporte();
         $this->respaldo = new RespaldoSql(get_db());
         $this->auditoria = new Auditoria(get_db());
+    }
+
+    /** En modo SaaS el volcado .sql solo lo descarga el super admin dentro del Modo Soporte. */
+    private function exigirSoporte(): void
+    {
+        if (!Database::multiempresa() || is_int($_SESSION['impersonado_por'] ?? null)) {
+            return;
+        }
+        audit_log('seguridad', 'respaldo_denegado', ['razon' => 'fuera_de_soporte']);
+        if (wants_json()) {
+            json_response(403, ['ok' => false, 'errores' => ['general' => 'Función exclusiva de Soporte Técnico.']]);
+        }
+        flash('error', 'Función exclusiva de Soporte Técnico.');
+        redirect('dashboard');
     }
 
     public function index(): void
@@ -140,6 +155,9 @@ final class RespaldoController
     public static function marcarAutoDescarga(array $user): void
     {
         if (!is_admin($user) || self::esMovil($_SERVER['HTTP_USER_AGENT'] ?? '')) {
+            return;
+        }
+        if (Database::multiempresa() && !is_int($_SESSION['impersonado_por'] ?? null)) {
             return;
         }
         if (!(new Auditoria(get_db()))->respaldoDescargadoHoy()) {

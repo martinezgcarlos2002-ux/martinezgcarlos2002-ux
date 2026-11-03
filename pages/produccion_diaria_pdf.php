@@ -41,9 +41,10 @@ foreach ($filas as $f) {
 </div>
 <section class="hoja">
   <header class="cab">
-    <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="" class="logo" width="48" height="48">
+    <img src="<?= e(marca_logo_src()) ?>" alt="" class="logo" width="48" height="48">
     <div>
       <h1><?= e($empresa) ?></h1>
+      <?php if (marca_datos() !== ''): ?><p class="small"><?= e(marca_datos()) ?></p><?php endif; ?>
       <p>Producción diaria · <?= e($dmy($fecha)) ?> · Semana <?= e($dmy($semana['inicio'])) ?> al <?= e($dmy($semana['fin'])) ?></p>
     </div>
   </header>

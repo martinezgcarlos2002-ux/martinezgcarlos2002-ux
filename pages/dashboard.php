@@ -15,7 +15,7 @@ layout_start('Dashboard', 'dashboard');
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-4">
   <div>
     <h4 class="dash-title">Resumen operativo</h4>
-    <div class="text-muted small">Una vista rápida del movimiento de El Castillo del Queso.</div>
+    <div class="text-muted small">Una vista rápida del movimiento de <?= e(marca()['nombre_empresa']) ?>.</div>
   </div>
   <span class="badge rounded-pill text-bg-light border fw-normal px-3 py-2">
     <i class="bi bi-calendar3"></i>

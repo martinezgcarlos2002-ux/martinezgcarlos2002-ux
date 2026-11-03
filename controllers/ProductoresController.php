@@ -1074,14 +1074,14 @@ final class ProductoresController
         $hasta = $pack['hasta'];
         $tasa = $pack['tasa'];
         $emitida = $pack['emitida'];
-        $empresaRif = defined('APP_RIF') ? APP_RIF : 'V-286013356';
+        $empresaRif = marca()['rif_documento'];
         $fecha = static fn (string $f): string => (new DateTimeImmutable($f))->format('d/m/Y');
         $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
         $tiposPago = PagoProductor::ETIQUETAS;
         $conTasa = $tasa !== null && (float) $tasa > 0;
         $usd = static fn (mixed $v, int $d = 2): string => ((float) $v < 0 ? '-' : '') . '$' . num(abs((float) $v), $d);
         $bs = static fn (mixed $usdV): string => 'Bs. ' . num((float) $usdV * (float) $tasa);
-        $logoSrc = asset_v(LOGO_EMPRESA);
+        $logoSrc = marca_logo_src();
 
         $html = '';
         foreach ($documentos as $doc) {

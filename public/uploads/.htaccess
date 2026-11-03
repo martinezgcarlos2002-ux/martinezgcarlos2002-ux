@@ -1,0 +1,8 @@
+# Fotos de ficha y cédulas de empleados: nunca se sirven por URL directa.
+# Se muestran solo como data: URI generadas tras la sesión y el RBAC (EmpleadoArchivo::dataUri).
+Require all denied
+Options -ExecCGI -Includes -Indexes
+
+<IfModule php_module>
+    php_flag engine off
+</IfModule>

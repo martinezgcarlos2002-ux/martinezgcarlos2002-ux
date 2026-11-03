@@ -1,0 +1,23 @@
+# assets/ solo sirve archivos estáticos (incluye img/marca/, donde se suben logos y sellos).
+# Nada aquí se ejecuta, aunque un archivo llegue con doble extensión (x.php.jpg, x.pl.jpg):
+# httpd.conf trae "AddHandler cgi-script .cgi .pl .asp" (coincide con cualquier posición de la
+# extensión) y htdocs tiene "Options ExecCGI Includes".
+Options -ExecCGI -Includes -Indexes
+RemoveHandler .php .phtml .phar .cgi .pl .py .asp .shtml
+RemoveType .php .phtml .phar .cgi .pl .py .asp .shtml
+
+<FilesMatch "(?i)\.(php\d?|phtml|phar|pht|cgi|pl|py|asp|aspx|sh|shtml|htaccess|htpasswd)(\.|$)">
+    Require all denied
+</FilesMatch>
+
+<IfModule php_module>
+    php_flag engine off
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    # Si una imagen se abre directo en una pestaña, no puede ejecutar scripts ni cargar nada.
+    <FilesMatch "(?i)\.(jpe?g|png|webp|gif|svg|ico)$">
+        Header always set Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+    </FilesMatch>
+</IfModule>

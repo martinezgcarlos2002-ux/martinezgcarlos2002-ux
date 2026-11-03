@@ -1,0 +1,79 @@
+.gas-picker {
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--bs-border-color);
+  border-radius: .5rem;
+}
+.gas-picker .form-check {
+  padding: .45rem .75rem .45rem 2.2rem;
+  border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+.gas-picker .form-check:last-child { border-bottom: 0; }
+.gas-kpi .stat-val { font-size: 1.35rem; }
+.gas-alerta { border-left: 3px solid var(--bs-danger); }
+
+/*
+ * SweetAlert2 inyecta su CSS con un <style> que la política de la página bloquea.
+ * Sin esa hoja el aviso queda suelto encima de la tabla. Estas reglas arman
+ * el cuadro solo mientras está abierto (no fuerzan display, para no dejar el velo pegado).
+ */
+.swal2-container.swal2-backdrop-show {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  padding: 1.5rem 1rem !important;
+  overflow-y: auto !important;
+  background: rgba(15, 23, 42, .45) !important;
+}
+.swal2-container .swal2-popup {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: .75rem !important;
+  box-sizing: border-box !important;
+  width: min(28rem, calc(100vw - 2rem)) !important;
+  max-height: none !important;
+  margin: auto !important;
+  padding: 1.25rem 1.25rem 1rem !important;
+  background: #fff !important;
+  color: #1e293b !important;
+  border-radius: 12px !important;
+  box-shadow: 0 16px 48px rgba(15, 23, 42, .28) !important;
+  overflow: visible !important;
+}
+.swal2-container .swal2-title {
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 1.2rem !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  text-align: center !important;
+}
+.swal2-container .swal2-html-container {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  max-height: none !important;
+  font-size: .95rem !important;
+  line-height: 1.4 !important;
+  text-align: center !important;
+  color: #64748b !important;
+}
+.swal2-container .swal2-input {
+  width: 100% !important;
+  height: auto !important;
+  margin: .25rem 0 0 !important;
+  box-sizing: border-box !important;
+}
+.swal2-container .swal2-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  gap: .5rem !important;
+  width: 100% !important;
+  margin: 0 !important;
+  z-index: 1 !important;
+}

@@ -1,13 +1,33 @@
 <?php
 declare(strict_types=1);
 
-final class DatabaseException extends RuntimeException
+class DatabaseException extends RuntimeException
 {
 }
 
+/** Modo multiempresa sin empresa elegida: ninguna consulta de datos puede caer en una base por defecto. */
+final class SinEmpresaException extends DatabaseException
+{
+}
+
+/**
+ * Conexiones PDO.
+ *
+ * Una empresa (por defecto): ADARA_DB_NAME, igual que siempre.
+ * Multiempresa (Database-per-Tenant): se activa al definir ADARA_MASTER_DB_NAME.
+ *   - master()     → base de control (super_admins, clientes_saas).
+ *   - connection() → base física de la empresa elegida con usarEmpresa(). Sin empresa, lanza
+ *                    SinEmpresaException en lugar de usar una base cualquiera (fuga entre empresas).
+ * get_db() sigue devolviendo connection(), así que modelos y servicios no cambian.
+ */
 final class Database
 {
+    /** Nombres de base que pueden entrar al DSN. */
+    private const PATRON_BASE = '/^[a-z0-9_]{1,64}$/';
+
     private static ?PDO $pdo = null;
+    private static ?PDO $master = null;
+    private static ?string $baseEmpresa = null;
 
     private function __construct()
     {
@@ -24,7 +44,63 @@ final class Database
 
     public static function connection(): PDO
     {
-        return self::$pdo ??= self::connect();
+        if (self::$pdo !== null) {
+            return self::$pdo;
+        }
+        if (self::multiempresa()) {
+            if (self::$baseEmpresa === null) {
+                throw new SinEmpresaException('No hay una empresa seleccionada para esta sesión.');
+            }
+            return self::$pdo = self::connect(self::$baseEmpresa);
+        }
+        return self::$pdo = self::connect(self::config()['name']);
+    }
+
+    public static function master(): PDO
+    {
+        $nombre = self::nombreMaster() ?? throw new LogicException('ADARA_MASTER_DB_NAME no está configurada.');
+        return self::$master ??= self::connect($nombre);
+    }
+
+    public static function multiempresa(): bool
+    {
+        return self::nombreMaster() !== null;
+    }
+
+    /**
+     * Apunta connection() a la base física de una empresa. La conexión anterior se descarta, así que
+     * no puede quedar abierta una transacción ni un objeto PDO de otra empresa en uso.
+     */
+    public static function usarEmpresa(string $base): void
+    {
+        if (!preg_match(self::PATRON_BASE, $base) || $base === self::nombreMaster()) {
+            throw new DatabaseException('Nombre de base de empresa inválido.');
+        }
+        if (self::$baseEmpresa === $base) {
+            return;
+        }
+        if (self::$pdo !== null && self::$pdo->inTransaction()) {
+            throw new LogicException('No se puede cambiar de empresa con una transacción abierta.');
+        }
+        self::$pdo = null;
+        self::$baseEmpresa = $base;
+    }
+
+    public static function empresaActiva(): ?string
+    {
+        return self::$baseEmpresa;
+    }
+
+    /**
+     * Conexión independiente a una base de empresa (aprovisionamiento). No reemplaza connection()
+     * ni comparte transacción con la sesión. El llamador valida que la base sea suya.
+     */
+    public static function conectarA(string $base): PDO
+    {
+        if (!preg_match(self::PATRON_BASE, $base) || $base === self::nombreMaster()) {
+            throw new DatabaseException('Nombre de base de empresa inválido.');
+        }
+        return self::connect($base);
     }
 
     /**
@@ -52,10 +128,19 @@ final class Database
         }
     }
 
-    private static function connect(): PDO
+    private static function nombreMaster(): ?string
+    {
+        $nombre = getenv('ADARA_MASTER_DB_NAME');
+        return is_string($nombre) && $nombre !== '' ? $nombre : null;
+    }
+
+    private static function connect(string $base): PDO
     {
         if (!extension_loaded('pdo_mysql')) {
             throw new DatabaseException('La extensión pdo_mysql no está habilitada en PHP.');
+        }
+        if (!preg_match(self::PATRON_BASE, $base)) {
+            throw new DatabaseException('Nombre de base inválido.');
         }
 
         $cfg = self::config();
@@ -63,7 +148,7 @@ final class Database
             'mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
             $cfg['host'],
             $cfg['port'],
-            $cfg['name']
+            $base
         );
 
         $options = [
@@ -87,7 +172,7 @@ final class Database
                 '[ADARA][DB] Conexión fallida a %s:%d/%s (%s): %s',
                 $cfg['host'],
                 $cfg['port'],
-                $cfg['name'],
+                $base,
                 (string) $e->getCode(),
                 $e->getMessage()
             ));

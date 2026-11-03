@@ -17,6 +17,8 @@ final class Caja
         'anulacion_venta' => 'Anulación de venta',
         'pago_productor'  => 'Pago a productor',
         'nomina'          => 'Nómina',
+        'pago_gas'        => 'Pago de gas',
+        'reparacion_gas'  => 'Reparación de gas',
         'contra_asiento'  => 'Contra-asiento',
     ];
 
@@ -121,6 +123,60 @@ final class Caja
             'usuario'    => $usuarioId,
         ]);
         return true;
+    }
+
+    /** @param array{fecha:string, cuenta:string, moneda:string, monto:string, tasa_bs_por_usd:string, monto_usd:string, concepto:string, gas_pago_id:int, registrado_por:int} $data */
+    public function egresoPagoGas(array $data): int
+    {
+        $stmt = $this->db->prepare(
+            "INSERT INTO caja_movimientos
+                 (fecha, tipo, cuenta, moneda, monto, tasa_bs_por_usd, monto_usd, concepto, origen, gas_pago_id, registrado_por)
+             VALUES
+                 (:fecha, 'egreso', :cuenta, :moneda, :monto, :tasa_bs_por_usd, :monto_usd, :concepto, 'pago_gas', :gas_pago_id, :registrado_por)"
+        );
+        $stmt->execute([
+            'fecha'           => $data['fecha'],
+            'cuenta'          => $data['cuenta'],
+            'moneda'          => $data['moneda'],
+            'monto'           => $data['monto'],
+            'tasa_bs_por_usd' => $data['tasa_bs_por_usd'],
+            'monto_usd'       => $data['monto_usd'],
+            'concepto'        => mb_substr($data['concepto'], 0, 160),
+            'gas_pago_id'     => $data['gas_pago_id'],
+            'registrado_por'  => $data['registrado_por'],
+        ]);
+        return (int) $this->db->lastInsertId();
+    }
+
+    /** @param array{fecha:string, monto:string, tasa_bs_por_usd:string, monto_usd:string, concepto:string, gas_reparacion_id:int, registrado_por:int} $data */
+    public function egresoReparacionGas(array $data): int
+    {
+        $stmt = $this->db->prepare(
+            "INSERT INTO caja_movimientos
+                 (fecha, tipo, cuenta, moneda, monto, tasa_bs_por_usd, monto_usd, concepto, origen, gas_reparacion_id, registrado_por)
+             VALUES
+                 (:fecha, 'egreso', 'caja', 'USD', :monto, :tasa_bs_por_usd, :monto_usd, :concepto, 'reparacion_gas', :gas_reparacion_id, :registrado_por)"
+        );
+        $stmt->execute([
+            'fecha'              => $data['fecha'],
+            'monto'              => $data['monto'],
+            'tasa_bs_por_usd'    => $data['tasa_bs_por_usd'],
+            'monto_usd'          => $data['monto_usd'],
+            'concepto'           => mb_substr($data['concepto'], 0, 160),
+            'gas_reparacion_id'  => $data['gas_reparacion_id'],
+            'registrado_por'     => $data['registrado_por'],
+        ]);
+        return (int) $this->db->lastInsertId();
+    }
+
+    public function movimientoDePagoGas(int $pagoId): ?array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT * FROM caja_movimientos WHERE gas_pago_id = :id AND origen = 'pago_gas' LIMIT 1"
+        );
+        $stmt->execute(['id' => $pagoId]);
+        $row = $stmt->fetch();
+        return $row === false ? null : $row;
     }
 
     public function movimientoDeAbono(int $abonoId): ?array

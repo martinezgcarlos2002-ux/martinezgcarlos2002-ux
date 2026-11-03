@@ -97,7 +97,7 @@ final class CatalogoController
         header('Content-Disposition: inline; filename="lista_precios_catalogo.html"');
         view('catalogo_lista_precios', [
             'hoy'     => date('Y-m-d'),
-            'empresa' => APP_EMPRESA,
+            'empresa' => marca()['nombre_empresa'],
             'tasa'    => $tasa,
             'items'   => $items,
         ]);
@@ -107,7 +107,7 @@ final class CatalogoController
     {
         $tasa = $this->cat->tasa();
         view('catalogo_pantalla', [
-            'empresa'    => APP_EMPRESA,
+            'empresa'    => marca()['nombre_empresa'],
             'tasa'       => $tasa,
             'revision'   => $this->cat->actualizadoEn(),
             'items'      => array_map(fn (array $p): array => self::jsonPantalla($p, $tasa), $this->cat->listarPantalla()),

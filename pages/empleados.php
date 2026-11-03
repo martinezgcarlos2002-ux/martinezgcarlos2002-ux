@@ -106,6 +106,9 @@ layout_start('Recursos Humanos', 'empleados');
       <div class="small">
         <div><span class="rh-lbl">EMPRESA:</span> <?= e($empresa) ?></div>
         <div><span class="rh-lbl">RIF:</span> <?= e($rif) ?></div>
+        <?php if (marca()['telefono'] !== '' || marca()['direccion'] !== ''): ?>
+        <div><span class="rh-lbl">CONTACTO:</span> <?= e(trim(marca()['telefono'] . ' ' . marca()['direccion'])) ?></div>
+        <?php endif; ?>
         <div><span class="rh-lbl">TIPO DE NÓMINA:</span> <?= e($tipoNomina) ?></div>
         <div>
           <span class="rh-lbl">PERÍODO:</span> <?= e($fmtFecha($nomina['inicio'])) ?> al <?= e($fmtFecha($nomina['fin'])) ?>

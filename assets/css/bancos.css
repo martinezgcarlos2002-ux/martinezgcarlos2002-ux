@@ -1,0 +1,146 @@
+.bancos-descuadre {
+  margin: .75rem 0 0;
+  padding-left: 1.1rem;
+  text-align: left;
+  color: #1e293b;
+}
+.bancos-descuadre li { margin-bottom: .65rem; }
+
+.swal2-container.swal2-backdrop-show {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  padding: 1.5rem 1rem !important;
+  overflow-y: auto !important;
+  background: rgba(15, 23, 42, .45) !important;
+}
+.swal2-container .swal2-popup {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: .75rem !important;
+  box-sizing: border-box !important;
+  width: min(36rem, calc(100vw - 2rem)) !important;
+  max-height: none !important;
+  margin: auto !important;
+  padding: 1.25rem 1.25rem 1rem !important;
+  background: #fff !important;
+  color: #1e293b !important;
+  border-radius: 12px !important;
+  box-shadow: 0 16px 48px rgba(15, 23, 42, .28) !important;
+  overflow: visible !important;
+}
+.swal2-container .swal2-title {
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 1.2rem !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  text-align: center !important;
+}
+.swal2-container .swal2-html-container {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  max-height: none !important;
+  font-size: .95rem !important;
+  line-height: 1.4 !important;
+  text-align: left !important;
+  color: #64748b !important;
+}
+.swal2-container .swal2-actions {
+  display: flex !important;
+  justify-content: center !important;
+  gap: .5rem !important;
+  width: 100% !important;
+  margin: 0 !important;
+}
+.swal2-container .swal2-input,
+.bancos-swal-input {
+  width: 100% !important;
+  height: auto !important;
+  margin: .25rem 0 0 !important;
+  padding: .55rem .75rem !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: .5rem !important;
+  box-shadow: none !important;
+  font-size: 1rem !important;
+  color: #0f172a !important;
+}
+.swal2-container .swal2-styled,
+.bancos-swal-guardar,
+.bancos-swal-cancelar,
+.bancos-swal-quitar {
+  margin: 0 !important;
+  min-width: 6.5rem !important;
+  padding: .5rem 1rem !important;
+  border-radius: .5rem !important;
+  font-weight: 600 !important;
+  font-size: .95rem !important;
+  line-height: 1.2 !important;
+  box-shadow: none !important;
+}
+.swal2-container .swal2-confirm,
+.bancos-swal-guardar {
+  background: var(--orange, #f97316) !important;
+  border: 1px solid var(--orange, #f97316) !important;
+  color: #fff !important;
+}
+.swal2-container .swal2-confirm:hover,
+.bancos-swal-guardar:hover {
+  background: var(--orange-hover, #ea6c0c) !important;
+  border-color: var(--orange-hover, #ea6c0c) !important;
+}
+.swal2-container .bancos-swal-quitar {
+  background: #dc2626 !important;
+  border: 1px solid #dc2626 !important;
+  color: #fff !important;
+}
+.swal2-container .bancos-swal-quitar:hover {
+  background: #b91c1c !important;
+  border-color: #b91c1c !important;
+}
+.swal2-container .swal2-cancel,
+.bancos-swal-cancelar {
+  background: #fff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
+}
+.swal2-container .swal2-cancel:hover,
+.bancos-swal-cancelar:hover {
+  background: #f8fafc !important;
+}
+
+.bancos-agregar {
+  display: flex;
+  gap: .5rem;
+  max-width: 32rem;
+}
+.bancos-agregar .form-control { flex: 1; }
+.bancos-agregar .btn { white-space: nowrap; padding-inline: 1.1rem; }
+.bancos-acciones {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: .4rem;
+}
+.bancos-acciones .btn {
+  min-width: 4.8rem;
+  border-radius: .4rem;
+  font-weight: 600;
+  padding: .2rem .75rem;
+}
+.bancos-cuenta-form {
+  display: grid;
+  grid-template-columns: 1.3fr 1.2fr 1.1fr .9fr .9fr .6fr auto;
+  gap: .5rem;
+  align-items: end;
+}
+.bancos-campo { display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+.bancos-campo span { font-size: .75rem; color: #64748b; font-weight: 600; }
+.bancos-cuenta-acciones { display: flex; gap: .4rem; }
+@media (max-width: 1100px) {
+  .bancos-cuenta-form { grid-template-columns: 1fr 1fr 1fr; }
+}

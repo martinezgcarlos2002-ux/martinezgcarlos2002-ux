@@ -20,6 +20,16 @@ function audit_log(
     if ($detalle !== null) {
         $detalle = array_diff_key($detalle, array_flip(AUDIT_CAMPOS_OCULTOS));
     }
+    // Modo soporte: la bitácora del cliente no puede quedar a nombre del empleado suplantado.
+    // usuario_id es FK a usuarios, así que se anula. La identidad queda en detalle.usuario.
+    // accion no se prefija: es VARCHAR(40) y varias consultas comparan el código exacto.
+    $soporteId = $_SESSION['impersonado_por'] ?? null;
+    if (is_int($soporteId)) {
+        $usuarioId = null;
+        $detalle ??= [];
+        $detalle['soporte_super_admin_id'] = $soporteId;
+        $detalle['usuario'] = 'SOPORTE TÉCNICO (ID Maestro: ' . $soporteId . ')';
+    }
 
     $stmt = get_db()->prepare(
         'INSERT INTO auditoria (usuario_id, modulo, accion, entidad, entidad_id, detalle, ip, metodo, ruta)

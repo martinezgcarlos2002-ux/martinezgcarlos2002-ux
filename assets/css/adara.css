@@ -814,8 +814,26 @@ tr.collapse.show { display: table-row; }
 .tabla-libres td.dia-alerta,
 .tabla-libres th.dia-alerta { background: #f8d7da; color: #842029; }
 .tabla-libres thead th.dia-alerta { background: #842029; color: #fff; }
+.tabla-libres thead th.bg-warning-subtle:not(.dia-alerta) { color: #1e293b; }
 .tabla-libres td.dia-hoy,
 .tabla-libres th.dia-hoy { box-shadow: inset 0 0 0 2px var(--orange); }
+
+.marca-color { width: 4.5rem; height: 2.6rem; padding: .2rem; }
+.marca-preview {
+  display: block;
+  margin-top: .75rem;
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  background: #fff;
+  border: 2px solid var(--color-primario, var(--orange));
+  border-radius: 10px;
+  padding: 4px;
+}
+.marca-form .btn-primary {
+  background: var(--color-primario, var(--orange));
+  border-color: var(--color-primario, var(--orange));
+}
 
 /* ── Inventario: impresión limpia (solo producto, stock y cavas) ───── */
 @media print {
@@ -895,3 +913,86 @@ tr.collapse.show { display: table-row; }
         background: #f0eee8;
     }
 }
+
+/* ---------- Ojito de contraseña (assets/js/ver_clave.js) ---------- */
+.adara-clave { position: relative; }
+.adara-clave .form-control { padding-right: 2.6rem; }
+.adara-clave-ojo {
+    position: absolute;
+    top: 50%;
+    right: .35rem;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: .4rem;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+}
+.adara-clave-ojo:hover { color: #1e293b; background: rgba(15, 23, 42, .06); }
+
+/* ---------- Panel Maestro: cascarón propio, distinto del naranja de las empresas (layout_master.php) ---------- */
+body.master-app {
+    --navy: #0f172a;
+    --navy-dark: #020617;
+    --orange: #38bdf8;
+    --orange-hover: #0ea5e9;
+    --bg: #e8eef5;
+}
+body.master-app .sidebar-user-role { color: #94a3b8; }
+
+/* ---------- Modo soporte: el super admin está dentro del ERP de una empresa (layout.php) ---------- */
+body.modo-soporte { padding-top: 48px; }
+.soporte-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 48px;
+    padding: .4rem 1rem;
+    background: #b91c1c;
+    color: #fff;
+    font-weight: 600;
+}
+@media print { .soporte-banner { display: none !important; } body.modo-soporte { padding-top: 0; } }
+
+/* ---------- Modo offline: banner de la cola de sincronización (assets/js/offlineSync.js) ---------- */
+.adara-sync-banner {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 1090;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    max-width: min(440px, calc(100vw - 2rem));
+    padding: .7rem .9rem;
+    border-radius: .6rem;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .25);
+    color: #fff;
+    background: var(--navy);
+    font-size: .875rem;
+    line-height: 1.35;
+}
+.adara-sync-banner[hidden] { display: none; }
+.adara-sync-banner .adara-sync-icono { font-size: 1.15rem; flex-shrink: 0; }
+.adara-sync-banner .adara-sync-texto { flex: 1; }
+.adara-sync-banner .adara-sync-accion { flex-shrink: 0; white-space: nowrap; }
+.adara-sync-offline { background: #b45309; }
+.adara-sync-sincronizando { background: var(--navy); }
+.adara-sync-sincronizando .adara-sync-icono { animation: adara-sync-giro 1s linear infinite; }
+.adara-sync-ok { background: var(--teal); }
+.adara-sync-error { background: #b91c1c; }
+.adara-sync-sesion { background: #7c2d12; }
+@keyframes adara-sync-giro { to { transform: rotate(360deg); } }
+@media print { .adara-sync-banner { display: none !important; } }

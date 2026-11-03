@@ -290,7 +290,7 @@ final class NominaController
         $pago[] = [['', XlsxWriter::S_TOTAL_TEXTO], ['TOTAL', XlsxWriter::S_TOTAL_TEXTO], ['', XlsxWriter::S_TOTAL_TEXTO], [$datos['totales']['resto_usd'], XlsxWriter::S_TOTAL_USD]];
 
         (new XlsxWriter())
-            ->hoja('Nómina completa', APP_EMPRESA . ' — Nómina semanal del ' . $periodo . $tasa,
+            ->hoja('Nómina completa', marca()['nombre_empresa'] . ' — Nómina semanal del ' . $periodo . $tasa,
                 array_merge(['N'], array_column($columnas, 0)), $filas)
             ->hoja('Pago neto', 'Pago neto en caja — Semana del ' . $periodo,
                 ['N', 'Nombres', 'Cédula', 'Total a Pagar Neto'], $pago)
@@ -304,7 +304,7 @@ final class NominaController
         header('Content-Disposition: inline; filename="nomina_' . $datos['inicio'] . '.html"');
         view('nomina_pdf', [
             'datos'    => $datos,
-            'empresa'  => APP_EMPRESA,
+            'empresa'  => marca()['nombre_empresa'],
             'columnas' => self::columnas(),
             'pago'     => self::pagoNeto($datos),
         ]);

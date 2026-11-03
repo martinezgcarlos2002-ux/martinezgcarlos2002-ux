@@ -38,9 +38,10 @@ $cli = $cliente ?? ['nombre' => $factura['cliente'], 'documento' => '', 'telefon
 
 <section class="hoja">
   <header class="d-flex align-items-center gap-3 mb-3">
-    <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="" class="logo">
+    <img src="<?= e(marca_logo_src()) ?>" alt="" class="logo">
     <div class="flex-grow-1">
       <h1 class="h6 mb-0"><?= e($empresa) ?></h1>
+      <?php if (marca_datos() !== ''): ?><div class="small"><?= e(marca_datos()) ?></div><?php endif; ?>
       <div class="small">Factura <?= e((string) $factura['numero']) ?> · <?= e($estados[$factura['estado']] ?? (string) $factura['estado']) ?></div>
     </div>
     <div class="small text-end">
@@ -115,11 +116,7 @@ $cli = $cliente ?? ['nombre' => $factura['cliente'], 'documento' => '', 'telefon
         <div class="firma-sub"><?= e((string) $cli['nombre']) ?><?= ($cli['documento'] ?? '') !== '' ? ' · ' . e((string) $cli['documento']) : '' ?></div>
       </td>
       <td align="center">
-        <div class="sello">
-          <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="" class="sello-img">
-          <div class="sello-txt">Sello</div>
-          <div class="sello-txt"><?= e(APP_NAME) ?></div>
-        </div>
+        <?= marca_sello_html() ?>
       </td>
       <td align="center">
         <div class="firma-linea"></div>

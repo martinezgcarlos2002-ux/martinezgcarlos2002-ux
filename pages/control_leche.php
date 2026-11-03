@@ -827,7 +827,7 @@ $litraje = $litraje ?? ['litros' => [], 'cierres' => []];
       var w = window.open('', '_blank', 'width=440,height=660');
       if (!w) return;
       var fecha = document.getElementById('prodFecha').value || '';
-      w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Precios de venta</title></head><body><h1>El Castillo del Queso — Precios de venta x kg</h1><p>Margen ' + escapar(document.getElementById('cc_margen_big').textContent) + '% · ' + escapar(fecha) + '</p><table>' + document.getElementById('cc_factura').innerHTML + '</table></body></html>');
+      w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Precios de venta</title></head><body><h1>' + <?= json_encode(marca()['nombre_empresa'], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_THROW_ON_ERROR) ?> + ' — Precios de venta x kg</h1><p>Margen ' + escapar(document.getElementById('cc_margen_big').textContent) + '% · ' + escapar(fecha) + '</p><table>' + document.getElementById('cc_factura').innerHTML + '</table></body></html>');
       w.document.close();
       w.focus();
       setTimeout(function () { w.print(); }, 300);

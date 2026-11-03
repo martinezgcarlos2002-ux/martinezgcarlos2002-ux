@@ -74,11 +74,22 @@ layout_start('Auditoría del Sistema', 'auditoria');
         <tr class="<?= $alerta ? 'table-warning' : '' ?>">
           <td class="small text-nowrap"><?= e(substr((string) $r['creado_en'], 0, 19)) ?></td>
           <td><span class="badge text-bg-primary"><?= e($r['modulo']) ?></span></td>
-          <td class="small"><?= e($r['accion']) ?></td>
+          <td class="small">
+            <?php if (str_starts_with((string) ($r['usuario'] ?? ''), 'SOPORTE TÉCNICO')): ?>
+              <span class="badge text-bg-danger me-1">[SOPORTE TÉCNICO]</span>
+            <?php endif; ?>
+            <?= e($r['accion']) ?>
+          </td>
           <td><span class="badge <?= $metodoCls ?>"><?= e($r['metodo']) ?></span></td>
           <td class="small text-muted"><?= e($r['ruta'] !== '' ? '?p=' . $r['ruta'] : '—') ?></td>
           <td class="small"><?= e($r['ip']) ?></td>
-          <td class="small"><?= e($r['usuario'] ?? '—') ?></td>
+          <td class="small">
+            <?php if (str_starts_with((string) ($r['usuario'] ?? ''), 'SOPORTE TÉCNICO')): ?>
+              <span class="badge text-bg-danger"><?= e($r['usuario']) ?></span>
+            <?php else: ?>
+              <?= e($r['usuario'] ?? '—') ?>
+            <?php endif; ?>
+          </td>
           <td>
             <button type="button" class="btn btn-sm btn-outline-warning"
                     data-bs-toggle="modal" data-bs-target="#modalDetalle"

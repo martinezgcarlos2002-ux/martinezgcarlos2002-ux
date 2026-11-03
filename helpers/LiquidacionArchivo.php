@@ -196,11 +196,17 @@ final class LiquidacionArchivo
     /** @return \GdImage|resource|null */
     private static function logoGd()
     {
-        $path = ADARA_ROOT . '/assets/' . LOGO_EMPRESA;
-        if (!is_file($path) || !function_exists('imagecreatefromjpeg')) {
+        $path = marca_archivo(marca()['ruta_logo']);
+        if (!is_file($path)) {
             return null;
         }
-        $img = @imagecreatefromjpeg($path);
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
+        $img = match ($mime) {
+            'image/jpeg' => function_exists('imagecreatefromjpeg') ? @imagecreatefromjpeg($path) : false,
+            'image/png' => function_exists('imagecreatefrompng') ? @imagecreatefrompng($path) : false,
+            'image/webp' => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : false,
+            default => false,
+        };
         return $img === false ? null : $img;
     }
 
@@ -229,7 +235,7 @@ final class LiquidacionArchivo
     public static function htmlConsolidado(array $documentos, string $desde, string $hasta, ?string $tasa, string $emitida): string
     {
         $css = self::cssPdfMotor();
-        $empresaRif = defined('APP_RIF') ? APP_RIF : 'V-286013356';
+        $empresaRif = marca()['rif_documento'];
         $logoSrc = self::logoLocalUri();
         $fecha = static fn (string $f): string => (new DateTimeImmutable($f))->format('d/m/Y');
         $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
@@ -297,17 +303,17 @@ final class LiquidacionArchivo
 
     private static function logoDataUri(): string
     {
-        $path = ADARA_ROOT . '/assets/' . LOGO_EMPRESA;
+        $path = marca_archivo(marca()['ruta_logo']);
         if (!is_file($path)) {
             return '';
         }
-        return 'data:image/jpeg;base64,' . base64_encode((string) file_get_contents($path));
+        return marca_data_uri(marca()['ruta_logo']);
     }
 
     /** Ruta local para DomPDF (una sola vez; evita incrustar el JPEG en base64 por cada productor). */
     private static function logoLocalUri(): string
     {
-        $path = ADARA_ROOT . '/assets/' . LOGO_EMPRESA;
+        $path = marca_archivo(marca()['ruta_logo']);
         if (!is_file($path)) {
             return '';
         }
@@ -325,8 +331,8 @@ final class LiquidacionArchivo
 
         $ops = '';
         $ops .= "0.118 0.227 0.541 rg 0 742 595 100 re f\n";
-        $ops .= "1 1 1 rg BT /F2 18 Tf 120 800 Td (" . self::pdfEsc('El Castillo del Queso') . ") Tj ET\n";
-        $ops .= "BT /F1 9 Tf 120 784 Td (" . self::pdfEsc('Productora Artesanal de Quesos Venezolanos  RIF: V-286013356') . ") Tj ET\n";
+        $ops .= "1 1 1 rg BT /F2 18 Tf 120 800 Td (" . self::pdfEsc(marca()['nombre_empresa']) . ") Tj ET\n";
+        $ops .= "BT /F1 9 Tf 120 784 Td (" . self::pdfEsc(marca_datos()) . ") Tj ET\n";
         $ops .= "BT /F2 20 Tf 400 800 Td (" . self::pdfEsc('LIQUIDACION') . ") Tj ET\n";
         $ops .= "BT /F1 9 Tf 400 782 Td (" . self::pdfEsc('Productor #' . $doc['numero']) . ") Tj ET\n";
         $ops .= "BT /F1 9 Tf 400 768 Td (" . self::pdfEsc('Emitida: ' . $fmt(substr($emitida, 0, 10))) . ") Tj ET\n";
@@ -398,7 +404,7 @@ final class LiquidacionArchivo
         $ops .= ($saldo > 0 ? "0.863 0.149 0.149" : ($saldo == 0.0 ? "0.086 0.639 0.294" : "0.102 0.180 0.353")) . " rg 300 " . ($y - 66) . " 259 28 re f\n";
         $ops .= "1 1 1 rg BT /F2 11 Tf 312 " . ($y - 50) . " Td (" . self::pdfEsc('Saldo (USD)  ' . $usd($saldo)) . ") Tj ET\n";
 
-        $ops .= "0.580 0.639 0.722 rg BT /F1 8 Tf 36 40 Td (" . self::pdfEsc('El Castillo del Queso · Generado por ' . APP_NAME . ' el ' . (new DateTimeImmutable($emitida))->format('d/m/Y H:i')) . ") Tj ET\n";
+        $ops .= "0.580 0.639 0.722 rg BT /F1 8 Tf 36 40 Td (" . self::pdfEsc(marca()['nombre_empresa'] . ' · Generado por ' . APP_NAME . ' el ' . (new DateTimeImmutable($emitida))->format('d/m/Y H:i')) . ") Tj ET\n";
 
         $objects = [
             1 => "<< /Type /Catalog /Pages 2 0 R >>",

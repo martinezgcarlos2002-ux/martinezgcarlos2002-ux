@@ -35,7 +35,7 @@ for ($i = 0; $i < 7; $i++) {
 </div>
 <section class="hoja">
   <header class="cabecera">
-    <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="El Castillo del Queso" class="logo">
+    <img src="<?= e(asset_v(marca()['ruta_logo'])) ?>" alt="<?= e(marca()['nombre_empresa']) ?>" class="logo">
     <h1>CONTROL DE ASISTENCIA SEMANAL</h1>
     <div class="semana">Semana del <?= e($inicioDia->format('d/m/Y')) ?> (domingo) al <?= e((new DateTimeImmutable($fin))->format('d/m/Y')) ?> (sábado)</div>
   </header>

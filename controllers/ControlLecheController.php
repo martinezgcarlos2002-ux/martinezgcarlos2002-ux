@@ -218,7 +218,7 @@ final class ControlLecheController
         header('Content-Disposition: inline; filename="planilla_recoleccion_' . $fecha . '.html"');
         view('control_leche_planilla', $this->datosHoja($fecha) + [
             'fecha'   => $fecha,
-            'empresa' => APP_EMPRESA,
+            'empresa' => marca()['nombre_empresa'],
         ]);
     }
 

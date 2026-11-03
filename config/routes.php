@@ -4,6 +4,7 @@ declare(strict_types=1);
 /**
  * Lista blanca de rutas para index.php?p=...
  * 'publica' => no exige sesión. 'modulo' + 'accion' => permiso RBAC requerido.
+ * 'super_admin' => solo el dueño del SaaS (adara_master); nunca un usuario de empresa.
  * Cualquier valor de p que no esté aquí responde 404: nunca se incluye un archivo a partir de la URL.
  */
 return [
@@ -14,6 +15,77 @@ return [
     ],
     'logout' => [
         'POST'    => [AuthController::class, 'logout'],
+    ],
+    'olvide_clave' => [
+        'publica' => true,
+        'GET'     => [PasswordController::class, 'solicitarForm'],
+        'POST'    => [PasswordController::class, 'solicitar'],
+    ],
+    // El token llega por GET desde el correo; el formulario lo reenvía oculto por POST.
+    'nueva_clave' => [
+        'publica' => true,
+        'GET'     => [PasswordController::class, 'nuevaClaveForm'],
+        'POST'    => [PasswordController::class, 'nuevaClave'],
+    ],
+    // ----- Panel Maestro SaaS (multiempresa) ------------------------------
+    'master' => [
+        'super_admin' => true,
+        'GET'         => [MasterController::class, 'index'],
+    ],
+    'master_registrar' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'registrar'],
+    ],
+    'master_licencia' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'licencia'],
+    ],
+    'master_respaldo' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'respaldoEmpresa'],
+    ],
+    'master_salir' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'salir'],
+    ],
+    'master_contrato' => [
+        'super_admin' => true,
+        'GET'         => [MasterController::class, 'contrato'],
+    ],
+    'master_clave' => [
+        'super_admin' => true,
+        'GET'         => [MasterController::class, 'clave'],
+        'POST'        => [MasterController::class, 'cambiarClave'],
+    ],
+    'master_accesos' => [
+        'super_admin' => true,
+        'GET'         => [MasterController::class, 'accesos'],
+    ],
+    'master_acceso_crear' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'crearAcceso'],
+    ],
+    'master_acceso_estado' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'estadoAcceso'],
+    ],
+    'master_acceso_revocar' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'revocarAcceso'],
+    ],
+    'master_acceso_reactivar' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'reactivarAcceso'],
+    ],
+    // Modo soporte: POST (no un enlace) para que no se dispare solo y exija el token CSRF.
+    'master_soporte' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'soporte'],
+    ],
+    // Sin 'super_admin': durante el soporte la sesión es la del admin de la empresa.
+    // El controlador comprueba $_SESSION['impersonado_por'].
+    'master_salir_soporte' => [
+        'POST' => [MasterController::class, 'salirSoporte'],
     ],
     'dashboard' => [
         'modulo'  => 'dashboard',
@@ -288,6 +360,15 @@ return [
         'modulo'  => 'respaldo',
         'POST'    => [RespaldoController::class, 'descargarMapaCodigo'],
     ],
+    'configuracion' => [
+        'modulo'  => 'configuracion',
+        'GET'     => [ConfiguracionController::class, 'index'],
+    ],
+    'configuracion_guardar' => [
+        'modulo'  => 'configuracion',
+        'accion'  => 'editar',
+        'POST'    => [ConfiguracionController::class, 'guardar'],
+    ],
 
     // ----- Finanzas / Caja -------------------------------------------------
     'finanzas' => [
@@ -327,31 +408,37 @@ return [
         'modulo'  => 'facturas',
         'accion'  => 'crear',
         'POST'    => [FacturaController::class, 'storeCliente'],
+        'idempotente' => true,
     ],
     'facturas_cliente_eliminar' => [
         'modulo'  => 'facturas',
         'accion'  => 'anular',
         'POST'    => [FacturaController::class, 'destroyCliente'],
+        'idempotente' => true,
     ],
     'facturas_guardar' => [
         'modulo'  => 'facturas',
         'accion'  => 'crear',
         'POST'    => [FacturaController::class, 'storeFactura'],
+        'idempotente' => true,
     ],
     'facturas_pago' => [
         'modulo'  => 'facturas',
         'accion'  => 'crear',
         'POST'    => [FacturaController::class, 'storePago'],
+        'idempotente' => true,
     ],
     'facturas_abono' => [
         'modulo'  => 'facturas',
         'accion'  => 'crear',
         'POST'    => [FacturaController::class, 'storeAbono'],
+        'idempotente' => true,
     ],
     'facturas_devolucion' => [
         'modulo'  => 'facturas',
         'accion'  => 'crear',
         'POST'    => [FacturaController::class, 'storeDevolucion'],
+        'idempotente' => true,
     ],
     'facturas_excel' => [
         'modulo'  => 'facturas',
@@ -385,16 +472,19 @@ return [
         'modulo'  => 'facturas',
         'accion'  => 'anular',
         'POST'    => [FacturaController::class, 'anularPago'],
+        'idempotente' => true,
     ],
     'facturas_anular_devolucion' => [
         'modulo'  => 'facturas',
         'accion'  => 'anular',
         'POST'    => [FacturaController::class, 'anularDevolucion'],
+        'idempotente' => true,
     ],
     'facturas_anular_factura' => [
         'modulo'  => 'facturas',
         'accion'  => 'anular',
         'POST'    => [FacturaController::class, 'anularFactura'],
+        'idempotente' => true,
     ],
 
     'ventas_nueva' => [
@@ -658,5 +748,147 @@ return [
     'transporte_notaria' => [
         'modulo'  => 'transportistas',
         'GET'     => [TransporteController::class, 'notariaPdf'],
+    ],
+
+    // ----- Gas --------------------------------------------------------------
+    'gas' => [
+        'modulo'  => 'gas',
+        'GET'     => [GasController::class, 'index'],
+    ],
+    'gas_resumen' => [
+        'modulo'  => 'gas',
+        'GET'     => [GasController::class, 'resumen'],
+    ],
+    'gas_catalogo' => [
+        'modulo'  => 'gas',
+        'GET'     => [GasController::class, 'catalogo'],
+    ],
+    'gas_proveedores' => [
+        'modulo'  => 'gas',
+        'GET'     => [GasController::class, 'proveedores'],
+    ],
+    'gas_proveedor_crear' => [
+        'modulo'  => 'gas',
+        'accion'  => 'crear',
+        'POST'    => [GasController::class, 'crearProveedor'],
+    ],
+    'gas_proveedor_editar' => [
+        'modulo'  => 'gas',
+        'accion'  => 'editar',
+        'POST'    => [GasController::class, 'editarProveedor'],
+    ],
+    'gas_cilindros' => [
+        'modulo'  => 'gas',
+        'GET'     => [GasController::class, 'cilindros'],
+    ],
+    'gas_cilindros_disponibles' => [
+        'modulo'  => 'gas',
+        'GET'     => [GasController::class, 'cilindrosDisponibles'],
+    ],
+    'gas_cilindro_crear' => [
+        'modulo'  => 'gas',
+        'accion'  => 'crear',
+        'POST'    => [GasController::class, 'crearCilindro'],
+    ],
+    'gas_cilindro_editar' => [
+        'modulo'  => 'gas',
+        'accion'  => 'editar',
+        'POST'    => [GasController::class, 'editarCilindro'],
+    ],
+    'gas_despachos' => [
+        'modulo'  => 'gas',
+        'GET'     => [GasController::class, 'despachos'],
+    ],
+    'gas_despacho' => [
+        'modulo'  => 'gas',
+        'GET'     => [GasController::class, 'despacho'],
+    ],
+    'gas_despacho_crear' => [
+        'modulo'  => 'gas',
+        'accion'  => 'crear',
+        'POST'    => [GasController::class, 'crearDespacho'],
+    ],
+    'gas_despacho_editar' => [
+        'modulo'  => 'gas',
+        'accion'  => 'editar',
+        'POST'    => [GasController::class, 'editarDespacho'],
+    ],
+    'gas_despacho_cilindros' => [
+        'modulo'  => 'gas',
+        'accion'  => 'editar',
+        'POST'    => [GasController::class, 'agregarCilindros'],
+    ],
+    'gas_despacho_quitar' => [
+        'modulo'  => 'gas',
+        'accion'  => 'editar',
+        'POST'    => [GasController::class, 'quitarCilindro'],
+    ],
+    'gas_despacho_eliminar' => [
+        'modulo'  => 'gas',
+        'accion'  => 'editar',
+        'POST'    => [GasController::class, 'eliminarDespacho'],
+    ],
+    'gas_pago' => [
+        'modulo'  => 'gas',
+        'accion'  => 'crear',
+        'POST'    => [GasController::class, 'registrarPago'],
+    ],
+    'gas_pago_anular' => [
+        'modulo'  => 'gas',
+        'accion'  => 'anular',
+        'POST'    => [GasController::class, 'anularPago'],
+    ],
+    'gas_reparaciones' => [
+        'modulo'  => 'gas',
+        'GET'     => [GasController::class, 'reparaciones'],
+    ],
+    'gas_reparacion_enviar' => [
+        'modulo'  => 'gas',
+        'accion'  => 'crear',
+        'POST'    => [GasController::class, 'enviarReparacion'],
+    ],
+    'gas_reparacion_cerrar' => [
+        'modulo'  => 'gas',
+        'accion'  => 'editar',
+        'POST'    => [GasController::class, 'cerrarReparacion'],
+    ],
+
+    // ----- Conciliación bancaria -------------------------------------------
+    'bancos' => [
+        'modulo'  => 'bancos',
+        'GET'     => [BancosController::class, 'index'],
+    ],
+    'bancos_plantilla' => [
+        'modulo'  => 'bancos',
+        'GET'     => [BancosController::class, 'descargarPlantilla'],
+    ],
+    'bancos_subir' => [
+        'modulo'  => 'bancos',
+        'accion'  => 'crear',
+        'POST'    => [BancosController::class, 'subir'],
+    ],
+    'bancos_auditoria' => [
+        'modulo'  => 'bancos',
+        'GET'     => [BancosController::class, 'auditoria'],
+    ],
+    'bancos_cuenta_crear' => [
+        'modulo'  => 'bancos',
+        'accion'  => 'crear',
+        'POST'    => [BancosController::class, 'crearCuenta'],
+    ],
+    'bancos_cuenta_editar' => [
+        'modulo'  => 'bancos',
+        'accion'  => 'editar',
+        'POST'    => [BancosController::class, 'editarCuenta'],
+    ],
+    'bancos_cuenta_desactivar' => [
+        'modulo'  => 'bancos',
+        'accion'  => 'anular',
+        'POST'    => [BancosController::class, 'desactivarCuenta'],
+    ],
+    'bancos_cuenta_activar' => [
+        'modulo'  => 'bancos',
+        'accion'  => 'editar',
+        'POST'    => [BancosController::class, 'activarCuenta'],
     ],
 ];

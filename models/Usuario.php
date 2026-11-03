@@ -63,11 +63,19 @@ final class Usuario
         return $id === false ? null : (int) $id;
     }
 
-    /** @return list<array> usuarios no eliminados, sin password_hash */
-    public function listar(string $q = ''): array
+    /**
+     * Usuarios no eliminados, sin password_hash.
+     * $ocultarMaestros: el admin de la empresa no ve las cuentas técnicas (rol maestro).
+     *
+     * @return list<array>
+     */
+    public function listar(string $q = '', bool $ocultarMaestros = false): array
     {
         $sql = 'SELECT id, nombre, email, rol, activo, acceso_movil, permisos, ultimo_acceso, creado_en, eliminado_en
                 FROM usuarios WHERE eliminado_en IS NULL';
+        if ($ocultarMaestros) {
+            $sql .= " AND rol <> 'maestro'";
+        }
         $params = [];
         if ($q !== '') {
             $like = '%' . addcslashes($q, '%_\\') . '%';
@@ -167,6 +175,64 @@ final class Usuario
         );
         $stmt->execute(['excluir' => $excluirId ?? 0]);
         return count($stmt->fetchAll());
+    }
+
+    /** @return array{id:int, nombre:string, email:string}|null */
+    public function findActivoPorEmail(string $email): ?array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT id, nombre, email FROM usuarios
+             WHERE email = :email AND activo = 1 AND eliminado_en IS NULL LIMIT 1'
+        );
+        $stmt->execute(['email' => $email]);
+        $row = $stmt->fetch();
+        return $row === false ? null : ['id' => (int) $row['id'], 'nombre' => (string) $row['nombre'], 'email' => (string) $row['email']];
+    }
+
+    /**
+     * Guarda el SHA-256 del token con 15 minutos de vigencia (reloj de la base).
+     * Devuelve false si ya se emitió uno hace menos de $esperaSegundos: evita usar el formulario para inundar el buzón.
+     */
+    public function guardarResetToken(int $id, string $tokenHash, int $minutos, int $esperaSegundos): bool
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE usuarios
+             SET reset_token = :hash, reset_expiracion = NOW() + INTERVAL :minutos MINUTE
+             WHERE id = :id AND activo = 1 AND eliminado_en IS NULL
+               AND (reset_expiracion IS NULL
+                    OR reset_expiracion <= NOW() + INTERVAL :minutos2 MINUTE - INTERVAL :espera SECOND)'
+        );
+        $stmt->execute(['hash' => $tokenHash, 'minutos' => $minutos, 'minutos2' => $minutos, 'espera' => $esperaSegundos, 'id' => $id]);
+        return $stmt->rowCount() === 1;
+    }
+
+    /** @return array{id:int, nombre:string, email:string}|null usuario activo con ese token vigente */
+    public function findPorResetToken(string $tokenHash): ?array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT id, nombre, email FROM usuarios
+             WHERE reset_token = :hash AND reset_expiracion > NOW() AND activo = 1 AND eliminado_en IS NULL
+             LIMIT 1'
+        );
+        $stmt->execute(['hash' => $tokenHash]);
+        $row = $stmt->fetch();
+        return $row === false ? null : ['id' => (int) $row['id'], 'nombre' => (string) $row['nombre'], 'email' => (string) $row['email']];
+    }
+
+    /**
+     * Cambia la clave y anula el token en la misma sentencia. La condición repite token y vigencia:
+     * dos envíos simultáneos del mismo enlace no pueden aplicar dos claves.
+     */
+    public function restablecerClave(int $id, string $tokenHash, string $passwordHash): bool
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE usuarios
+             SET password_hash = :pwd, reset_token = NULL, reset_expiracion = NULL
+             WHERE id = :id AND reset_token = :hash AND reset_expiracion > NOW()
+               AND activo = 1 AND eliminado_en IS NULL'
+        );
+        $stmt->execute(['pwd' => $passwordHash, 'id' => $id, 'hash' => $tokenHash]);
+        return $stmt->rowCount() === 1;
     }
 
     public function touchLastLogin(int $id): void

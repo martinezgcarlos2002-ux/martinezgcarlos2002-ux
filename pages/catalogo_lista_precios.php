@@ -28,9 +28,10 @@ $dmy = date('d/m/Y', strtotime($hoy));
 </div>
 <section class="hoja">
   <header class="cab">
-    <img src="<?= e(asset_v(LOGO_EMPRESA)) ?>" alt="" class="logo">
+    <img src="<?= e(marca_logo_src()) ?>" alt="" class="logo">
     <div>
       <h1><?= e($empresa) ?></h1>
+      <?php if (marca_datos() !== ''): ?><p class="small"><?= e(marca_datos()) ?></p><?php endif; ?>
       <p>Lista de precios · <?= e($dmy) ?><?= $tasa !== null ? ' · 1 USD = Bs. ' . e(num($tasa)) : '' ?></p>
     </div>
   </header>

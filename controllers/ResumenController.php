@@ -53,7 +53,7 @@ final class ResumenController
             view('resumen_pdf', [
                 'inicio'  => $inicio,
                 'fin'     => $fin,
-                'empresa' => APP_EMPRESA,
+                'empresa' => marca()['nombre_empresa'],
                 'datos'   => $datos,
             ]);
         } catch (ValidationException $e) {
