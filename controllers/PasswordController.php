@@ -189,6 +189,8 @@ final class PasswordController
     private function correoHtml(string $nombre, string $empresa, string $enlace): string
     {
         $minutos = self::MINUTOS_VIGENCIA;
+        $url_logo_adara = EmailService::urlAsset(LOGO_SISTEMA);
+        $url_logo_empresa = EmailService::logoEmpresaSubido();
         ob_start();
         require ADARA_ROOT . '/pages/emails/recuperar_clave.php';
         return (string) ob_get_clean();

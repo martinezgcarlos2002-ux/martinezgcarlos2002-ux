@@ -52,6 +52,18 @@ return [
         'super_admin' => true,
         'GET'         => [MasterController::class, 'contrato'],
     ],
+    'master_arquitectura' => [
+        'super_admin' => true,
+        'GET'         => [MasterController::class, 'arquitectura'],
+    ],
+    'master_arquitectura_pdf' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'arquitecturaPdf'],
+    ],
+    'master_usuario_pdf' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'usuarioPdf'],
+    ],
     'master_clave' => [
         'super_admin' => true,
         'GET'         => [MasterController::class, 'clave'],
@@ -794,6 +806,11 @@ return [
         'modulo'  => 'gas',
         'accion'  => 'editar',
         'POST'    => [GasController::class, 'editarCilindro'],
+    ],
+    'gas_cilindro_eliminar' => [
+        'modulo'  => 'gas',
+        'accion'  => 'anular',
+        'POST'    => [GasController::class, 'eliminarCilindro'],
     ],
     'gas_despachos' => [
         'modulo'  => 'gas',

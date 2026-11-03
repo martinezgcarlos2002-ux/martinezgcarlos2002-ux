@@ -214,12 +214,12 @@ layout_master_start('Panel de Empresas', 'master');
         <thead class="table-light">
           <tr>
             <th>Empresa</th><th>Slug / dominio</th><th>Administrador</th><th>Base física</th>
-            <th>Licencia</th><th>Registrada</th><th class="text-end">Acción</th>
+            <th>Licencia</th><th>Contrato</th><th>Registrada</th><th class="text-end">Acción</th>
           </tr>
         </thead>
         <tbody>
         <?php if ($clientes === []): ?>
-          <tr><td colspan="7" class="text-center text-body-secondary py-4">Todavía no hay empresas registradas.</td></tr>
+          <tr><td colspan="8" class="text-center text-body-secondary py-4">Todavía no hay empresas registradas.</td></tr>
         <?php endif; ?>
         <?php foreach ($clientes as $c): $activa = $c['estado_licencia'] === 'activa'; ?>
           <tr>
@@ -235,6 +235,13 @@ layout_master_start('Panel de Empresas', 'master');
               <?php endif; ?>
             </td>
             <td><span class="badge <?= $activa ? 'text-bg-success' : 'text-bg-danger' ?>"><?= $activa ? 'Activa' : 'Inactiva' ?></span></td>
+            <td class="text-center">
+              <?php if (!empty($c['fecha_aceptacion_contrato'])): ?>
+                <i class="bi bi-check-circle-fill text-success" title="Contrato aceptado"></i>
+              <?php else: ?>
+                <i class="bi bi-x-circle-fill text-danger" title="Falta el contrato"></i>
+              <?php endif; ?>
+            </td>
             <td class="small text-body-secondary"><?= e(date('d/m/Y', strtotime((string) $c['creado_en']))) ?></td>
             <td class="text-end">
               <form method="post" action="<?= e(url('master_licencia')) ?>" class="d-inline js-confirmar"

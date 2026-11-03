@@ -300,6 +300,9 @@ final class CxCService
                 => [$a['fecha_vencimiento'], (int) $a['id']] <=> [$b['fecha_vencimiento'], (int) $b['id']]);
 
             $lote = bin2hex(random_bytes(8));
+            $loteHash = uniqid('AB-');
+            $montoGlobal = Caja::desdeCentavos($restoC);
+            $tasaDia = $tasaCambio !== null ? number_format((float) $tasaCambio, 2, '.', '') : null;
             $totalC = $restoC;
             $pagos = [];
             foreach ($facturas as $f) {
@@ -310,7 +313,7 @@ final class CxCService
                 $parteBs = $tasaCambio !== null
                     ? number_format(round($aplicaC * (float) $tasaCambio / 100, 2), 2, '.', '')
                     : null;
-                $pagoId = $this->aplicarPago($f, $aplicaC, $fecha, $metodo, $ref, $notas, $lote, $userId, $tasaCambio, $parteBs);
+                $pagoId = $this->aplicarPago($f, $aplicaC, $fecha, $metodo, $ref, $notas, $lote, $userId, $tasaCambio, $parteBs, $loteHash, $montoGlobal, $tasaDia);
                 if ($metodo === 'saldo_favor') {
                     $this->moverSaldoFavor($clienteId, -$aplicaC, 'aplicado_factura', $fecha, $userId, factura: (int) $f['id'], pago: $pagoId, lote: $lote);
                     $this->consumirDevolucionesPendientesFifo($clienteId, $aplicaC);
@@ -332,6 +335,9 @@ final class CxCService
                 'monto'      => Caja::desdeCentavos($totalC),
                 'metodo'     => $metodo,
                 'lote'       => $lote,
+                'lote_hash'  => $loteHash,
+                'monto_global' => $montoGlobal,
+                'tasa_dia'   => $tasaDia,
                 'facturas'   => array_column($pagos, 'monto', 'factura_id'),
                 'excedente'  => Caja::desdeCentavos($restoC),
             ], 'cxc_pagos');
@@ -923,7 +929,11 @@ final class CxCService
     public function pagos(?array $ids = null): array
     {
         $where = $ids === null ? '' : ($ids === [] ? 'WHERE 1 = 0' : 'WHERE id IN (' . implode(',', array_map('intval', $ids)) . ')');
-        return $this->db->query("SELECT id, factura_id, cliente_id, monto, fecha, metodo, referencia, notas, tasa_cambio, monto_bs, estado FROM cxc_pagos $where ORDER BY fecha DESC, id DESC")->fetchAll();
+        return $this->db->query(
+            "SELECT id, factura_id, cliente_id, monto, fecha, metodo, referencia, notas, tasa_cambio, monto_bs, estado,
+                    lote_hash, monto_global_origen, tasa_cambio_dia
+             FROM cxc_pagos $where ORDER BY fecha DESC, id DESC"
+        )->fetchAll();
     }
 
     /**
@@ -1104,24 +1114,29 @@ final class CxCService
     }
 
     /** Inserta el pago y ajusta totales de una factura ya bloqueada. El llamador valida que no supere el saldo. */
-    private function aplicarPago(array $factura, int $montoC, string $fecha, string $metodo, ?string $ref, ?string $notas, ?string $lote, int $userId, ?string $tasaCambio = null, ?string $montoBs = null): int
+    private function aplicarPago(array $factura, int $montoC, string $fecha, string $metodo, ?string $ref, ?string $notas, ?string $lote, int $userId, ?string $tasaCambio = null, ?string $montoBs = null, ?string $loteHash = null, ?string $montoGlobal = null, ?string $tasaDia = null): int
     {
         $m = Caja::desdeCentavos($montoC);
         $this->db->prepare(
-            'INSERT INTO cxc_pagos (factura_id, cliente_id, monto, fecha, metodo, referencia, notas, tasa_cambio, monto_bs, lote, registrado_por)
-             VALUES (:factura, :cliente, :monto, :fecha, :metodo, :ref, :notas, :tasa, :bs, :lote, :usuario)'
+            'INSERT INTO cxc_pagos (factura_id, cliente_id, monto, fecha, metodo, referencia, notas, tasa_cambio, monto_bs, lote,
+                                    lote_hash, monto_global_origen, tasa_cambio_dia, registrado_por)
+             VALUES (:factura, :cliente, :monto, :fecha, :metodo, :ref, :notas, :tasa, :bs, :lote,
+                     :lote_hash, :monto_global, :tasa_dia, :usuario)'
         )->execute([
-            'factura' => $factura['id'],
-            'cliente' => $factura['cliente_id'],
-            'monto'   => $m,
-            'fecha'   => $fecha,
-            'metodo'  => $metodo,
-            'ref'     => self::nulo($ref),
-            'notas'   => self::nulo($notas),
-            'tasa'    => $tasaCambio,
-            'bs'      => $montoBs,
-            'lote'    => $lote,
-            'usuario' => $userId,
+            'factura'      => $factura['id'],
+            'cliente'      => $factura['cliente_id'],
+            'monto'        => $m,
+            'fecha'        => $fecha,
+            'metodo'       => $metodo,
+            'ref'          => self::nulo($ref),
+            'notas'        => self::nulo($notas),
+            'tasa'         => $tasaCambio,
+            'bs'           => $montoBs,
+            'lote'         => $lote,
+            'lote_hash'    => $loteHash,
+            'monto_global' => $montoGlobal,
+            'tasa_dia'     => $tasaDia,
+            'usuario'      => $userId,
         ]);
         $pagoId = (int) $this->db->lastInsertId();
         $this->db->prepare(

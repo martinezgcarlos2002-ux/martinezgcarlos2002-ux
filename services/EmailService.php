@@ -42,6 +42,37 @@ final class EmailService
         return rtrim(self::config()['app_url'], '/') . '/?' . http_build_query(['p' => $page] + $query);
     }
 
+    /**
+     * URL absoluta de un archivo de assets/ para un correo.
+     * Rechaza rutas con .. o absolutas: el correo solo puede citar archivos públicos de la marca.
+     */
+    public static function urlAsset(string $relativo): string
+    {
+        $relativo = str_replace('\\', '/', $relativo);
+        if ($relativo === '' || str_contains($relativo, '..') || str_starts_with($relativo, '/')) {
+            return '';
+        }
+        $partes = array_map('rawurlencode', explode('/', $relativo));
+        return rtrim(self::config()['app_url'], '/') . '/assets/' . implode('/', $partes);
+    }
+
+    /**
+     * Logo que la empresa subió en Configuración (assets/img/marca/).
+     * El logo por defecto no cuenta: sin carga, el correo no reserva ese espacio.
+     */
+    public static function logoEmpresaSubido(): string
+    {
+        try {
+            $ruta = str_replace('\\', '/', (string) (marca()['ruta_logo'] ?? ''));
+        } catch (Throwable) {
+            return '';
+        }
+        if (!str_starts_with($ruta, 'img/marca/') || !is_file(ADARA_ROOT . '/assets/' . $ruta)) {
+            return '';
+        }
+        return self::urlAsset($ruta);
+    }
+
     public function enviar(string $destinatario, string $asunto, string $cuerpoHtml): bool
     {
         if ($this->config['password'] === '' || $this->config['password'] === self::CLAVE_PENDIENTE) {
@@ -71,7 +102,7 @@ final class EmailService
             $mail->addAddress($destinatario);
             $mail->Subject = str_replace(["\r", "\n"], ' ', $asunto);
             $mail->isHTML(true);
-            $mail->Body = $cuerpoHtml;
+            $mail->Body = $this->incrustarImagenesLocales($mail, $cuerpoHtml);
             $mail->AltBody = trim(html_entity_decode(strip_tags(preg_replace('/<br\s*\/?>|<\/p>/i', "\n", $cuerpoHtml) ?? ''), ENT_QUOTES, 'UTF-8'));
 
             $mail->send();
@@ -80,5 +111,32 @@ final class EmailService
             error_log('[ADARA][mail] Envío fallido: ' . $mail->ErrorInfo);
             return false;
         }
+    }
+
+    /**
+     * Las imágenes que apuntan a esta instalación se adjuntan al mensaje (cid:).
+     * Así el logo se ve aunque el destinatario no pueda abrir localhost.
+     */
+    private function incrustarImagenesLocales(PHPMailer $mail, string $html): string
+    {
+        $base = rtrim($this->config['app_url'], '/');
+        $resultado = preg_replace_callback(
+            '#src="' . preg_quote($base, '#') . '/assets/([^"?]+)#',
+            static function (array $m) use ($mail): string {
+                $rel = rawurldecode($m[1]);
+                if ($rel === '' || str_contains($rel, '..') || str_contains($rel, '\\')) {
+                    return $m[0];
+                }
+                $path = ADARA_ROOT . '/assets/' . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+                if (!is_file($path)) {
+                    return $m[0];
+                }
+                $cid = 'logo' . substr(hash('sha256', $path), 0, 12);
+                $mail->addEmbeddedImage($path, $cid);
+                return 'src="cid:' . $cid;
+            },
+            $html
+        );
+        return is_string($resultado) ? $resultado : $html;
     }
 }

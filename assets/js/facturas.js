@@ -564,9 +564,17 @@
       ps.forEach(function (p) {
         var f = self.factura(p.factura_id);
         var anulado = p.estado === 'anulado';
+        var origen = null;
+        if (p.lote_hash) {
+          origen = self.h('div', {}, [
+            self.h('span', { class: 'badge rounded-pill text-bg-primary', text: 'Pago Distribuido de ' + self.money(p.monto_global) }),
+            p.tasa_dia ? self.h('div', { class: 'small text-muted mt-1', text: 'Tasa ' + Number(p.tasa_dia).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }) : null
+          ]);
+        }
         tp.appendChild(self.h('tr', { class: anulado ? 'text-muted' : '' }, [
           self.h('td', { text: self.dmy(p.fecha) }), self.h('td', { class: 'fw-semibold', text: f ? f.numero : '' }),
           self.h('td', { text: p.metodo || '—' }), self.h('td', { text: p.referencia || '—' }), self.h('td', { class: 'small', text: p.notas || '' }),
+          self.h('td', {}, [origen || '—']),
           self.h('td', { class: 'text-end text-success fw-semibold', text: self.money(p.monto) }),
           self.h('td', { class: 'text-end' }, [
             anulado ? self.h('span', { class: 'badge rounded-pill text-bg-secondary', text: 'Anulado' })
@@ -574,7 +582,7 @@
           ])
         ]));
       });
-      if (!ps.length) tp.appendChild(this.h('tr', {}, [this.h('td', { colspan: '7', class: 'text-center text-muted py-4', text: 'Sin pagos registrados.' })]));
+      if (!ps.length) tp.appendChild(this.h('tr', {}, [this.h('td', { colspan: '8', class: 'text-center text-muted py-4', text: 'Sin pagos registrados.' })]));
       $('#nPagos').textContent = ps.length;
 
       var ds = this.S.devoluciones.filter(function (d) { return String(d.cliente_id) === String(c.id); }).sort(function (a, b) { return a.fecha < b.fecha ? 1 : -1; });

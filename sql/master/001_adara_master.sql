@@ -33,6 +33,8 @@ CREATE TABLE clientes_saas (
     correo_admin_cliente VARCHAR(100) NOT NULL,
     nombre_db_fisica     VARCHAR(64)  NOT NULL,
     estado_licencia      ENUM('activa','inactiva') NOT NULL DEFAULT 'activa',
+    contrato_ruta              VARCHAR(255) NULL,
+    fecha_aceptacion_contrato  DATETIME     NULL,
     registrado_por       INT UNSIGNED NOT NULL,
     creado_en            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     actualizado_en       DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,

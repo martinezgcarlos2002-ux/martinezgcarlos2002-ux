@@ -38,6 +38,7 @@ final class Gas
         'El proveedor de gas no esta activo' => 'El proveedor no está activo.',
         'El proveedor no se elimina: paselo a estado eliminado' => 'El proveedor no se borra: archívalo para conservar los viajes.',
         'La bombona no se elimina: archivela para conservar los viajes' => 'La bombona no se borra: archívala para conservar los viajes.',
+        'La bombona ya tiene historial: archivela, no se elimina' => 'Esta bombona ya estuvo en un viaje o una reparación. Archívala en Editar para que deje de usarse.',
         'El serial de la bombona no se modifica' => 'El serial de la bombona no se modifica.',
         'No se archiva una bombona que esta en un viaje abierto' => 'No se archiva una bombona que está en un viaje abierto.',
         'Solo se borra un despacho vacio y sin entrega' => 'Solo se puede quitar un viaje vacío, sin bombonas y sin abonos.',
@@ -221,15 +222,29 @@ final class Gas
     /** @return list<array<string, mixed>> */
     public function cilindros(): array
     {
-        return $this->db->query(
+        $rows = $this->db->query(
             'SELECT c.id, c.serial, c.capacidad_kg, c.estado_fisico, c.observacion_fisica, c.pertenencia, c.tipo_tercero,
                     c.empleado_id, c.transportista_id, c.productor_id, c.propietario_nombre,
-                    c.despacho_abierto_id, c.estado_registro, ' . self::DUENO . '
+                    c.despacho_abierto_id, c.estado_registro, c.foto_url, ' . self::DUENO . '
              FROM gas_cilindros c
              ' . self::JOIN_DUENO . '
              ORDER BY c.estado_registro, c.serial
              LIMIT 1000'
         )->fetchAll();
+        foreach ($rows as &$row) {
+            $rel = str_replace('\\', '/', (string) ($row['foto_url'] ?? ''));
+            $row['foto_url'] = ($rel !== '' && !str_contains($rel, '..')) ? asset_v($rel) : '';
+        }
+        unset($row);
+        return $rows;
+    }
+
+    public function fotoCilindro(int $id): ?string
+    {
+        $stmt = $this->db->prepare('SELECT foto_url FROM gas_cilindros WHERE id = :id');
+        $stmt->execute(['id' => $id]);
+        $foto = $stmt->fetchColumn();
+        return is_string($foto) && $foto !== '' ? $foto : null;
     }
 
     /** @return list<array<string, mixed>> */
@@ -280,34 +295,41 @@ final class Gas
             throw new ValidationException(['estado_registro' => 'Estado de archivo no válido.']);
         }
         $obs = self::opcional($in['observacion_fisica'] ?? '', 255);
+        $foto = array_key_exists('foto_url', $in) ? self::opcional((string) $in['foto_url'], 255) : null;
         $params = $dueno + [
             'capacidad_kg'       => $capacidad,
             'estado_fisico'      => $fisico,
             'observacion_fisica' => $obs,
             'estado_registro'    => $registro,
         ];
+        if ($foto !== null) {
+            $params['foto_url'] = $foto;
+        }
 
+        $fotoSql = isset($params['foto_url']) ? ', foto_url' : '';
+        $fotoVal = isset($params['foto_url']) ? ', :foto_url' : '';
         if ($id === null) {
             $stmt = $this->db->prepare(
                 'INSERT INTO gas_cilindros
                     (capacidad_kg, estado_fisico, observacion_fisica, pertenencia, tipo_tercero,
-                     empleado_id, transportista_id, productor_id, propietario_nombre, estado_registro, registrado_por)
+                     empleado_id, transportista_id, productor_id, propietario_nombre, estado_registro, registrado_por' . $fotoSql . ')
                  VALUES
                     (:capacidad_kg, :estado_fisico, :observacion_fisica, :pertenencia, :tipo_tercero,
-                     :empleado_id, :transportista_id, :productor_id, :propietario_nombre, :estado_registro, :registrado_por)'
+                     :empleado_id, :transportista_id, :productor_id, :propietario_nombre, :estado_registro, :registrado_por' . $fotoVal . ')'
             );
             $stmt->execute($params + ['registrado_por' => $userId]);
             return (int) $this->db->lastInsertId();
         }
 
         $params['id'] = $id;
+        $fotoSet = isset($params['foto_url']) ? ', foto_url = :foto_url' : '';
         $stmt = $this->db->prepare(
             'UPDATE gas_cilindros
              SET capacidad_kg = :capacidad_kg, estado_fisico = :estado_fisico, observacion_fisica = :observacion_fisica,
                  pertenencia = :pertenencia, tipo_tercero = :tipo_tercero,
                  empleado_id = :empleado_id, transportista_id = :transportista_id,
                  productor_id = :productor_id, propietario_nombre = :propietario_nombre,
-                 estado_registro = :estado_registro
+                 estado_registro = :estado_registro' . $fotoSet . '
              WHERE id = :id'
         );
         $stmt->execute($params);
@@ -315,6 +337,37 @@ final class Gas
             throw new ValidationException(['general' => 'Esa bombona no existe.']);
         }
         return $id;
+    }
+
+    /**
+     * Borra una bombona que nunca salió en un viaje ni fue a reparación.
+     * Devuelve la ruta de su foto para que el controlador la quite del disco.
+     */
+    public function eliminarCilindro(int $id): ?string
+    {
+        return Database::transaction(function () use ($id): ?string {
+            $stmt = $this->db->prepare(
+                'SELECT foto_url, despacho_abierto_id FROM gas_cilindros WHERE id = :id FOR UPDATE'
+            );
+            $stmt->execute(['id' => $id]);
+            $row = $stmt->fetch();
+            if ($row === false) {
+                throw new ValidationException(['general' => 'Esa bombona no existe.']);
+            }
+            if ($row['despacho_abierto_id'] !== null) {
+                throw new ValidationException(['general' => 'Está en un despacho abierto. Quítala del viaje antes de eliminarla.']);
+            }
+            $viajes = $this->db->prepare('SELECT COUNT(*) FROM gas_despacho_cilindros WHERE cilindro_id = :id');
+            $viajes->execute(['id' => $id]);
+            $reparaciones = $this->db->prepare('SELECT COUNT(*) FROM gas_reparaciones WHERE cilindro_id = :id');
+            $reparaciones->execute(['id' => $id]);
+            if ((int) $viajes->fetchColumn() > 0 || (int) $reparaciones->fetchColumn() > 0) {
+                throw new ValidationException(['general' => 'Esta bombona ya estuvo en un viaje o una reparación. Archívala en Editar para que deje de usarse, sin borrar ese historial.']);
+            }
+            $this->db->prepare('DELETE FROM gas_cilindros WHERE id = :id')->execute(['id' => $id]);
+            $foto = $row['foto_url'];
+            return is_string($foto) && $foto !== '' ? $foto : null;
+        });
     }
 
     /** @return list<array<string, mixed>> */

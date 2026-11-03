@@ -89,7 +89,7 @@ layout_start('Control Semanal de Productores', 'productores');
     <button type="button" class="btn btn-sm btn-outline-danger js-export-pdf"><i class="bi bi-file-earmark-pdf"></i> Exportar PDF</button>
   </div>
 </div>
-<p class="text-muted small">Escribe o corrige los litros y pulsa <strong>Guardar Semana</strong>. Si un día ya tenía entrega, sus litros se sobrescriben (el precio queda el congelado al registrarla). Los días futuros y las semanas cerradas <i class="bi bi-lock-fill"></i> no se editan.</p>
+<p class="text-muted small">Escribe o corrige los litros y pulsa <strong>Guardar Semana</strong>. Si un día ya tenía entrega, sus litros se sobrescriben (el precio queda el congelado al registrarla). Solo se bloquean los días anteriores o iguales al último corte de cuenta; los posteriores siguen abiertos.</p>
 
 <form method="post" action="<?= e(url('productores_semana_guardar')) ?>" id="formSemana" autocomplete="off">
 <?= csrf_field() ?>
@@ -131,7 +131,7 @@ layout_start('Control Semanal de Productores', 'productores');
       <tr data-nombre="<?= e(mb_strtolower($fila['nombre'])) ?>">
         <td class="text-center text-muted"><?= $i + 1 ?></td>
         <td class="nombre-prod text-truncate" title="<?= e($fila['nombre']) ?>">
-          <?php if ($fila['cerrada']): ?><i class="bi bi-lock-fill text-muted" title="Semana cerrada: un administrador puede reabrirla"></i><?php endif; ?>
+          <?php if ($fila['corte'] !== null && $fila['corte'] >= $semana && $fila['corte'] < $semanaFin): ?><i class="bi bi-scissors text-muted" title="Corte de cuenta el <?= e($fecha($fila['corte'])) ?>: los días posteriores siguen abiertos"></i><?php elseif ($fila['corte'] !== null && $fila['corte'] >= $semanaFin): ?><i class="bi bi-lock-fill text-muted" title="Semana cortada: un administrador puede reabrirla"></i><?php endif; ?>
           <a class="link-productor" href="<?= e(url('productor_control', ['id' => $pid, 'semana' => $semana])) ?>"><?= e($fila['nombre']) ?></a>
         </td>
         <td class="text-muted"><?= e($fila['documento'] ?: '—') ?></td>
@@ -140,9 +140,10 @@ layout_start('Control Semanal de Productores', 'productores');
             $litros = $fila['litros_dia'][$d];
         ?>
           <td class="text-end bg-col-dia">
-            <?php if ($fila['cerrada'] || $d > $hoy || !$puedeCrear): ?>
+            <?php $diaCortado = $fila['corte'] !== null && $d <= $fila['corte']; ?>
+            <?php if ($diaCortado || $d > $hoy || !$puedeCrear): ?>
               <input type="number" class="form-control form-control-sm text-end inp-celda ms-auto bg-light" value="<?= $litros !== null ? e((float) $litros) : '' ?>" placeholder="—" disabled
-                     aria-label="<?= e($nombresDia[$j]) ?> <?= e($fila['nombre']) ?><?= $fila['cerrada'] ? ' (semana cerrada)' : '' ?>">
+                     aria-label="<?= e($nombresDia[$j]) ?> <?= e($fila['nombre']) ?><?= $diaCortado ? ' (cortado)' : '' ?>">
             <?php else: ?>
               <input type="number" name="litros[<?= $pid ?>][<?= e($d) ?>]" class="form-control form-control-sm text-end inp-celda ms-auto <?= $litros !== null ? 'fw-semibold' : '' ?>"
                      min="0" max="100000" step="0.001" placeholder="0" value="<?= $litros !== null ? e((float) $litros) : '' ?>"
@@ -286,21 +287,21 @@ layout_start('Control Semanal de Productores', 'productores');
             <div class="list-group-item d-flex align-items-center gap-2 py-2" data-nombre="<?= e(mb_strtolower($fila['nombre'])) ?>">
               <span class="text-muted small text-nowrap">#<?= $i + 1 ?></span>
               <span class="flex-grow-1 text-truncate fw-semibold">
-                <?php if ($fila['cerrada']): ?><i class="bi bi-lock-fill text-muted" title="Semana cerrada"></i><?php endif; ?>
+                <i class="bi bi-lock-fill text-muted js-candado d-none" title="Día ya cortado"></i>
                 <?= e($fila['nombre']) ?>
               </span>
               <span class="small text-nowrap js-estado" aria-live="polite"></span>
               <input type="number" form="formLitraje" class="form-control form-control-sm text-end inp-litros" min="0" max="100000" step="0.001" placeholder="0"
                      data-pid="<?= $pid ?>"
+                     data-corte="<?= e((string) ($fila['corte'] ?? '')) ?>"
                      data-litros="<?= e(json_encode((object) $registrados, JSON_THROW_ON_ERROR)) ?>"
                      value="<?= $valor !== null ? e($valor) : '' ?>"
-                     <?= $fila['cerrada'] ? 'disabled' : 'name="litros[' . $pid . '][' . e($diaModal) . ']"' ?>
                      aria-label="Litros <?= e($fila['nombre']) ?>">
-              <button type="button" class="btn btn-sm btn-cian js-guardar-fila" <?= $fila['cerrada'] ? 'disabled' : '' ?> aria-label="Guardar litros de <?= e($fila['nombre']) ?> y continuar"><i class="bi bi-arrow-right"></i></button>
+              <button type="button" class="btn btn-sm btn-cian js-guardar-fila" aria-label="Guardar litros de <?= e($fila['nombre']) ?> y continuar"><i class="bi bi-arrow-right"></i></button>
             </div>
             <?php endforeach; ?>
           </div>
-          <p class="text-muted small mt-3 mb-0">Los productores con la semana cerrada <i class="bi bi-lock-fill"></i> no se pueden editar.</p>
+          <p class="text-muted small mt-3 mb-0">El candado marca un día anterior o igual al último corte. Los días posteriores se pueden cargar.</p>
         </div>
         <div class="modal-footer">
           <form method="post" action="<?= e(url('productores_semana_guardar')) ?>" id="formLitraje" autocomplete="off" class="d-flex gap-2 m-0">
@@ -382,13 +383,23 @@ layout_start('Control Semanal de Productores', 'productores');
 
   function aplicarDia() {
     inputs.forEach(function (inp) {
+      var corte = inp.getAttribute('data-corte') || '';
+      var bloqueado = corte !== '' && dia.value <= corte;
+      var fila = inp.closest('.list-group-item');
+      var btn = fila.querySelector('.js-guardar-fila');
+      var candado = fila.querySelector('.js-candado');
+      inp.disabled = bloqueado;
+      if (btn) btn.disabled = bloqueado;
+      if (candado) candado.classList.toggle('d-none', !bloqueado);
       var litros = JSON.parse(inp.getAttribute('data-litros') || '{}');
       inp.value = Object.prototype.hasOwnProperty.call(litros, dia.value) ? litros[dia.value] : '';
-      if (!inp.disabled) inp.name = 'litros[' + inp.getAttribute('data-pid') + '][' + dia.value + ']';
+      if (!bloqueado) inp.name = 'litros[' + inp.getAttribute('data-pid') + '][' + dia.value + ']';
+      else inp.removeAttribute('name');
       estado(inp, '', '');
     });
   }
   dia.addEventListener('change', aplicarDia);
+  aplicarDia();
 
   function siguiente(actual) {
     var i = inputs.indexOf(actual);

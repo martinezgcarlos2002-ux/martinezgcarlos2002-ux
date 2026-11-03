@@ -996,3 +996,11 @@ body.modo-soporte { padding-top: 48px; }
 .adara-sync-sesion { background: #7c2d12; }
 @keyframes adara-sync-giro { to { transform: rotate(360deg); } }
 @media print { .adara-sync-banner { display: none !important; } }
+
+/* ---------- Panel Maestro: mapa de arquitectura ---------- */
+.arbol-mvc { font-size: .9rem; }
+.arbol-mvc ul { list-style: none; margin: 0; padding-left: 1.15rem; border-left: 1px solid #e2e8f0; }
+.arbol-mvc > ul { padding-left: .25rem; border-left: 0; }
+.arbol-mvc li { margin: .15rem 0; }
+.arbol-mvc .arbol-dir { color: #1A2E5A; font-weight: 600; }
+.arbol-mvc .arbol-archivo { color: #374151; }

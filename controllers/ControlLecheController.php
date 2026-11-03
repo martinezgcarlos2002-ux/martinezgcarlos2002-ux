@@ -164,6 +164,13 @@ final class ControlLecheController
             if ($productor === null) {
                 throw new ValidationException(['litros' => 'Hay un productor de la planilla que ya no está activo.']);
             }
+            $corte = (new CierreSemanal(get_db()))->ultimoCorte($id);
+            if ($corte !== null && $fecha <= $corte) {
+                throw new ValidationException(['litros' => sprintf(
+                    'La recolección hasta el %s ya fue cortada. Los días posteriores siguen abiertos.',
+                    (new DateTimeImmutable($corte))->format('d/m/Y')
+                )]);
+            }
             $actual = $this->entregas->findPorFecha($id, $fecha, true);
             if ($actual === null) {
                 $this->entregas->create([
@@ -200,15 +207,16 @@ final class ControlLecheController
         ) as $row) {
             $litros[(int) $row['productor_id']][(string) $row['fecha']] = (float) $row['litros'];
         }
-        $cierres = [];
+        $cortes = [];
         foreach ($db->query(
-            "SELECT productor_id, semana_inicio, semana_fin
+            "SELECT productor_id, MAX(semana_fin) AS corte
              FROM productores_cierres
-             WHERE estado <> 'anulada'"
+             WHERE estado <> 'anulada'
+             GROUP BY productor_id"
         ) as $row) {
-            $cierres[(int) $row['productor_id']][] = [(string) $row['semana_inicio'], (string) $row['semana_fin']];
+            $cortes[(int) $row['productor_id']] = (string) $row['corte'];
         }
-        return ['litros' => $litros, 'cierres' => $cierres];
+        return ['litros' => $litros, 'cortes' => $cortes];
     }
 
     /** Planilla física de recolección: productores activos en orden alfabético, lista para imprimir o guardar como PDF. */

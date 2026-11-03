@@ -28,6 +28,7 @@ $config = [
         'disponibles'  => url('gas_cilindros_disponibles'),
         'cilCrear'     => url('gas_cilindro_crear'),
         'cilEditar'    => url('gas_cilindro_editar'),
+        'cilEliminar'  => url('gas_cilindro_eliminar'),
         'despachos'    => url('gas_despachos'),
         'despacho'     => url('gas_despacho'),
         'desCrear'     => url('gas_despacho_crear'),
@@ -104,7 +105,7 @@ layout_start('Gestión de Gas', 'gas');
       <?php if ($puedeCrear): ?><button class="btn btn-sm btn-primary" type="button" id="btnCilNuevo"><i class="bi bi-plus-lg"></i> Bombona</button><?php endif; ?>
     </div>
     <div class="table-responsive card"><table class="table table-sm table-hover align-middle mb-0" id="tablaCilindros"><thead><tr>
-      <th>Serial</th><th>Capacidad</th><th>Estado físico</th><th>Propietario</th><th>Registro</th><th></th>
+      <th>Foto</th><th>Serial</th><th>Capacidad</th><th>Estado físico</th><th>Propietario</th><th>Registro</th><th></th>
     </tr></thead><tbody></tbody></table></div>
   </div>
 
@@ -193,7 +194,7 @@ layout_start('Gestión de Gas', 'gas');
   <div class="modal-footer"><button class="btn btn-primary btn-sm" type="submit">Guardar</button></div>
 </form></div></div>
 
-<div class="modal fade" id="modalCilindro" tabindex="-1"><div class="modal-dialog"><form class="modal-content" id="formCilindro">
+<div class="modal fade" id="modalCilindro" tabindex="-1"><div class="modal-dialog"><form class="modal-content" id="formCilindro" enctype="multipart/form-data">
   <div class="modal-header"><h5 class="modal-title" id="tituloCilindro">Bombona</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
   <div class="modal-body row g-2">
     <input type="hidden" name="id" id="cilId">
@@ -215,6 +216,11 @@ layout_start('Gestión de Gas', 'gas');
       </select>
     </div>
     <div class="col-12"><label class="form-label" for="cilObs">Observación</label><input class="form-control form-control-sm" id="cilObs" name="observacion_fisica" maxlength="255"></div>
+    <div class="col-12">
+      <label class="form-label" for="cilFoto">Foto de la bombona</label>
+      <input class="form-control form-control-sm" type="file" id="cilFoto" name="foto" accept="image/jpeg,image/png,image/webp">
+      <img id="cilFotoPrev" alt="Foto actual de la bombona" class="mt-2 rounded border d-none" width="72" height="72" style="object-fit:cover">
+    </div>
     <div class="col-12"><label class="form-label" for="cilDueno">Propiedad</label>
       <select class="form-select form-select-sm" id="cilDueno" name="tipo_dueno">
         <option value="propio">Propio de la empresa</option>

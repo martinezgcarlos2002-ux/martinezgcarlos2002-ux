@@ -87,18 +87,42 @@ final class CierreSemanal
     }
 
     /**
-     * ¿Algún cierre vigente cubre la fecha? Tras cambiar el día de cierre, el primer ciclo nuevo
-     * se solapa con el último cierre viejo: se decide por rango, no por semana_inicio.
+     * El cierre es un corte de cuenta: solo están cerradas las fechas menores o iguales
+     * al último semana_fin vigente. Lo posterior queda libre para el siguiente período,
+     * aunque caiga dentro del mismo ciclo semanal en que se hizo el corte.
      */
     public function cubreFecha(int $productorId, string $fecha): bool
     {
+        $corte = $this->ultimoCorte($productorId);
+        return $corte !== null && $fecha <= $corte;
+    }
+
+    /** Fecha del último corte vigente del productor, o null si nunca se le ha cerrado una cuenta. */
+    public function ultimoCorte(int $productorId): ?string
+    {
         $stmt = $this->db->prepare(
-            "SELECT 1 FROM productores_cierres
-             WHERE productor_id = :productor_id AND :fecha1 >= semana_inicio AND :fecha2 <= semana_fin AND estado <> 'anulada'
-             LIMIT 1"
+            "SELECT MAX(semana_fin) FROM productores_cierres
+             WHERE productor_id = :productor_id AND estado <> 'anulada'"
         );
-        $stmt->execute(['productor_id' => $productorId, 'fecha1' => $fecha, 'fecha2' => $fecha]);
-        return $stmt->fetchColumn() !== false;
+        $stmt->execute(['productor_id' => $productorId]);
+        $corte = $stmt->fetchColumn();
+        return is_string($corte) && $corte !== '' ? $corte : null;
+    }
+
+    /** @return array<int, string> productor_id => fecha del último corte */
+    public function cortesVigentes(): array
+    {
+        $rows = $this->db->query(
+            "SELECT productor_id, MAX(semana_fin) AS corte
+             FROM productores_cierres
+             WHERE estado <> 'anulada'
+             GROUP BY productor_id"
+        )->fetchAll();
+        $out = [];
+        foreach ($rows as $row) {
+            $out[(int) $row['productor_id']] = (string) $row['corte'];
+        }
+        return $out;
     }
 
     /**

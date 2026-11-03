@@ -5,7 +5,7 @@ declare(strict_types=1);
  * Cascarón exclusivo del Panel Maestro SaaS. No carga módulos, tasas ni datos de ninguna empresa.
  * Lo usan las pantallas del panel y, como red de seguridad, layout_start() cuando la sesión es de super admin.
  *
- * @param 'master'|'accesos'|'clave' $active
+ * @param 'master'|'accesos'|'clave'|'contrato'|'arquitectura' $active
  */
 function layout_master_start(string $title, string $active = 'master'): void
 {
@@ -46,6 +46,10 @@ function layout_master_start(string $title, string $active = 'master'): void
     <a class="nav-link<?= $active === 'contrato' ? ' active' : '' ?>" href="<?= e(url('master_contrato')) ?>" title="Contrato">
       <span class="nav-icon"><i class="bi bi-file-earmark-text"></i></span>
       <span class="nav-label">Contrato</span>
+    </a>
+    <a class="nav-link<?= $active === 'arquitectura' ? ' active' : '' ?>" href="<?= e(url('master_arquitectura')) ?>" title="Arquitectura del Sistema">
+      <span class="nav-icon"><i class="bi bi-diagram-3"></i></span>
+      <span class="nav-label">Arquitectura</span>
     </a>
     <?php if ($esPropietario): ?>
     <a class="nav-link<?= $active === 'accesos' ? ' active' : '' ?>" href="<?= e(url('master')) ?>#accesos" title="Gestión de Accesos">

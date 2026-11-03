@@ -192,7 +192,7 @@ layout_start('Control de Facturas', 'facturas');
       </div>
       <div class="tab-pane fade" id="tabPagos" role="tabpanel">
         <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
-          <thead><tr class="small text-uppercase text-muted"><th>Fecha</th><th>Factura</th><th>Método</th><th>Referencia</th><th>Notas</th><th class="text-end">Monto</th><th class="text-end">Acciones</th></tr></thead>
+          <thead><tr class="small text-uppercase text-muted"><th>Fecha</th><th>Factura</th><th>Método</th><th>Referencia</th><th>Notas</th><th>Origen</th><th class="text-end">Monto</th><th class="text-end">Acciones</th></tr></thead>
           <tbody id="tbDetPagos"></tbody>
         </table></div>
       </div>

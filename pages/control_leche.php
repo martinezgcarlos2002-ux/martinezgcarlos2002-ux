@@ -559,7 +559,7 @@ $puedeEditarHoja = $puedeCrear ?? false;
 
 <?php
 $fechaLitraje = ($fechaHoja ?? date('Y-m-d')) > date('Y-m-d') ? date('Y-m-d') : ($fechaHoja ?? date('Y-m-d'));
-$litraje = $litraje ?? ['litros' => [], 'cierres' => []];
+$litraje = $litraje ?? ['litros' => [], 'cortes' => []];
 ?>
 <?php if ($puedeCrear): ?>
 <div class="modal fade" id="modalLitraje" tabindex="-1" aria-labelledby="tituloLitraje" aria-hidden="true">
@@ -594,7 +594,7 @@ $litraje = $litraje ?? ['litros' => [], 'cierres' => []];
           </div>
           <?php endforeach; ?>
         </div>
-        <p class="text-muted small mt-3 mb-0">Los productores con la semana cerrada <i class="bi bi-lock-fill"></i> no se pueden editar.</p>
+        <p class="text-muted small mt-3 mb-0">El candado marca un día anterior o igual al último corte de cuenta. Los días posteriores siguen abiertos.</p>
       </div>
       <div class="modal-footer">
         <form method="post" action="<?= e(url('productores_semana_guardar')) ?>" id="formLitraje" autocomplete="off" class="d-flex gap-2 m-0">
@@ -869,7 +869,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var buscar = document.getElementById('buscarLitraje');
   var inputs = Array.prototype.slice.call(document.querySelectorAll('#listaLitraje .inp-litros'));
   var litros = <?= json_encode($litraje['litros'] ?? new stdClass(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_FORCE_OBJECT | JSON_THROW_ON_ERROR) ?>;
-  var cierres = <?= json_encode($litraje['cierres'] ?? new stdClass(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_THROW_ON_ERROR) ?>;
+  var cortes = <?= json_encode($litraje['cortes'] ?? new stdClass(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_THROW_ON_ERROR) ?>;
   var huboCambios = false;
   var focoPid = '';
 
@@ -883,11 +883,8 @@ document.addEventListener('DOMContentLoaded', function () {
     return d.toISOString().slice(0, 10);
   }
   function cerrado(pid, diaIso) {
-    var rangos = cierres[pid] || cierres[String(pid)] || [];
-    for (var i = 0; i < rangos.length; i++) {
-      if (diaIso >= rangos[i][0] && diaIso <= rangos[i][1]) return true;
-    }
-    return false;
+    var corte = cortes[pid] || cortes[String(pid)] || '';
+    return corte !== '' && diaIso <= corte;
   }
   function estado(inp, texto, clase) {
     var el = inp.closest('.list-group-item').querySelector('.js-estado');

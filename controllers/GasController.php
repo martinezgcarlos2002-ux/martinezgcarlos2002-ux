@@ -76,6 +76,29 @@ final class GasController
         $this->guardarCilindro($id);
     }
 
+    public function eliminarCilindro(): void
+    {
+        $id = $this->id('id');
+        if ($id < 1) {
+            json_response(422, ['ok' => false, 'errores' => ['general' => 'Falta la bombona.']]);
+        }
+        try {
+            $foto = $this->gas->eliminarCilindro($id);
+            if ($foto !== null) {
+                $this->borrarFotoCilindro($foto);
+            }
+            audit_log('gas', 'cilindro_eliminar', ['id' => $id], 'gas_cilindros', $id);
+            $this->ok([
+                'mensaje'   => 'Bombona eliminada.',
+                'cilindros' => $this->gas->cilindros(),
+            ]);
+        } catch (ValidationException $e) {
+            json_response(422, ['ok' => false, 'errores' => $e->errors]);
+        } catch (PDOException $e) {
+            $this->falloSql($e);
+        }
+    }
+
     public function despachos(): void
     {
         $this->ok(['despachos' => $this->gas->despachos()]);
@@ -271,6 +294,14 @@ final class GasController
             unset($_POST['serial']);
         }
         try {
+            $foto = $this->recibirFotoCilindro();
+            if ($foto !== null) {
+                $anterior = $id === null ? null : $this->gas->fotoCilindro($id);
+                if ($anterior !== null) {
+                    $this->borrarFotoCilindro($anterior);
+                }
+                $_POST['foto_url'] = $foto;
+            }
             $guardado = $this->gas->guardarCilindro($id, $_POST, $this->userId());
             audit_log('gas', $id === null ? 'cilindro_crear' : 'cilindro_editar', null, 'gas_cilindros', $guardado);
             $cilindros = $this->gas->cilindros();
@@ -318,5 +349,56 @@ final class GasController
     private function userId(): int
     {
         return (int) current_user()['id'];
+    }
+
+    /**
+     * Valida JPG, PNG o WEBP y deja el archivo nuevo en assets/img/gas/.
+     * Devuelve null si el formulario no trae foto.
+     */
+    private function recibirFotoCilindro(): ?string
+    {
+        $archivo = $_FILES['foto'] ?? null;
+        if (!is_array($archivo) || ($archivo['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return null;
+        }
+        if (($archivo['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+            throw new ValidationException(['foto' => 'No se pudo recibir la foto. Inténtalo de nuevo.']);
+        }
+        if ((int) ($archivo['size'] ?? 0) > 2_000_000) {
+            throw new ValidationException(['foto' => 'La foto debe pesar hasta 2 MB.']);
+        }
+        $tmp = (string) ($archivo['tmp_name'] ?? '');
+        if (!is_uploaded_file($tmp)) {
+            throw new ValidationException(['foto' => 'La carga de la foto no es válida.']);
+        }
+        try {
+            $tipo = ImagenSegura::inspeccionar($tmp, ['image/jpeg', 'image/png', 'image/webp']);
+        } catch (InvalidArgumentException $e) {
+            throw new ValidationException(['foto' => $e->getMessage()]);
+        }
+        $dir = ADARA_ROOT . '/assets/img/gas';
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            throw new ValidationException(['foto' => 'No se pudo crear la carpeta de fotos.']);
+        }
+        $rel = 'img/gas/cil-' . bin2hex(random_bytes(16)) . '.' . $tipo['ext'];
+        try {
+            ImagenSegura::guardar($tmp, $tipo['mime'], ADARA_ROOT . '/assets/' . $rel);
+        } catch (RuntimeException $e) {
+            throw new ValidationException(['foto' => $e->getMessage()]);
+        }
+        return $rel;
+    }
+
+    /** Borra solo una foto previa que viva en assets/img/gas/. */
+    private function borrarFotoCilindro(string $rel): void
+    {
+        $rel = str_replace('\\', '/', $rel);
+        if (!str_starts_with($rel, 'img/gas/') || str_contains($rel, '..')) {
+            return;
+        }
+        $abs = ADARA_ROOT . '/assets/' . $rel;
+        if (is_file($abs)) {
+            unlink($abs);
+        }
     }
 }

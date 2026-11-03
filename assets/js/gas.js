@@ -44,6 +44,26 @@
     return Object.keys(map).map(function (k) { return map[k]; }).filter(Boolean).join(' ') || 'No se pudo completar la operación.';
   }
 
+  async function apiForm(url, fd) {
+    var res = await fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json',
+        'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''
+      },
+      body: fd
+    });
+    var json;
+    try { json = await res.json(); } catch (e) { json = { ok: false, errores: { general: 'Respuesta inválida del servidor.' } }; }
+    if (!res.ok || !json.ok) {
+      var err = new Error(erroresDe(json));
+      err.errores = json.errores || { general: err.message };
+      throw err;
+    }
+    return json;
+  }
+
   async function api(url, body) {
     var headers = { Accept: 'application/json' };
     var opts = { method: body ? 'POST' : 'GET', credentials: 'same-origin', headers: headers };
@@ -117,7 +137,11 @@
     filas(document.querySelector('#tablaCilindros tbody'), rows.map(function (c) {
       var cls = c.estado_fisico === 'mal_estado' ? ' class="table-danger"' : '';
       var btn = cfg.editar ? '<button type="button" class="btn btn-sm btn-outline-secondary" data-cil="' + c.id + '">Editar</button>' : '';
-      return '<tr' + cls + '><td>' + esc(c.serial) + '</td><td>' + esc(c.capacidad_kg) + ' kg</td><td>' + esc(FISICO[c.estado_fisico] || c.estado_fisico)
+      if (cfg.anular) btn += ' <button type="button" class="btn btn-sm btn-outline-danger" data-eliminar="' + c.id + '">Eliminar</button>';
+      var foto = c.foto_url
+        ? '<img src="' + esc(c.foto_url) + '" alt="Foto de ' + esc(c.serial) + '" width="40" height="40" style="object-fit:cover;border-radius:6px">'
+        : '—';
+      return '<tr' + cls + '><td>' + foto + '</td><td>' + esc(c.serial) + '</td><td>' + esc(c.capacidad_kg) + ' kg</td><td>' + esc(FISICO[c.estado_fisico] || c.estado_fisico)
         + '</td><td>' + esc(c.dueno || '—') + '</td><td>' + (c.estado_registro === 'archivado' ? 'Archivado' : 'Activo')
         + '</td><td class="text-end">' + btn + '</td></tr>';
     }).join(''));
@@ -297,6 +321,9 @@
     document.getElementById('cilId').value = '';
     document.getElementById('tituloCilindro').textContent = 'Nueva bombona';
     document.getElementById('cilArchivoWrap').hidden = true;
+    var previaNueva = document.getElementById('cilFotoPrev');
+    previaNueva.removeAttribute('src');
+    previaNueva.classList.add('d-none');
     campoDueno('propio');
     modal('modalCilindro').show();
   });
@@ -304,6 +331,27 @@
   document.getElementById('cilDueno').addEventListener('change', function () { campoDueno(this.value); });
 
   document.querySelector('#tablaCilindros tbody').addEventListener('click', async function (ev) {
+    var borrar = ev.target.closest('[data-eliminar]');
+    if (borrar) {
+      var idBorrar = borrar.getAttribute('data-eliminar');
+      var bombona = cilindros.find(function (row) { return String(row.id) === idBorrar; });
+      var ok = await swal({
+        icon: 'warning',
+        title: 'Eliminar ' + (bombona ? bombona.serial : 'esta bombona'),
+        text: 'Solo se borra si nunca salió en un viaje ni fue a reparación. Si ya tiene historial, hay que archivarla.',
+        showCancelButton: true,
+        confirmButtonText: 'Eliminar',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!ok.isConfirmed) return;
+      try {
+        var res = await api(cfg.url.cilEliminar, { id: idBorrar });
+        cilindros = res.cilindros || [];
+        pintarCilindros();
+        aviso('success', 'Listo', res.mensaje);
+      } catch (err) { aviso('error', 'No se eliminó', err.message); }
+      return;
+    }
     var btn = ev.target.closest('[data-cil]');
     if (!btn) return;
     var c = cilindros.find(function (row) { return String(row.id) === btn.getAttribute('data-cil'); });
@@ -319,17 +367,25 @@
     document.getElementById('cilArchivo').value = c.estado_registro;
     document.getElementById('cilArchivoWrap').hidden = false;
     document.getElementById('tituloCilindro').textContent = 'Editar bombona';
+    var previa = document.getElementById('cilFotoPrev');
+    if (c.foto_url) {
+      previa.src = c.foto_url;
+      previa.classList.remove('d-none');
+    } else {
+      previa.removeAttribute('src');
+      previa.classList.add('d-none');
+    }
     campoDueno(tipo, c);
     modal('modalCilindro').show();
   });
 
   document.getElementById('formCilindro').addEventListener('submit', async function (ev) {
     ev.preventDefault();
-    var data = formData(ev.target);
-    delete data.serial;
-    var url = data.id ? cfg.url.cilEditar : cfg.url.cilCrear;
+    var fd = new FormData(ev.target);
+    fd.delete('serial');
+    var url = fd.get('id') ? cfg.url.cilEditar : cfg.url.cilCrear;
     try {
-      var res = await api(url, data);
+      var res = await apiForm(url, fd);
       cilindros = res.cilindros || cilindros;
       pintarCilindros();
       modal('modalCilindro').hide();

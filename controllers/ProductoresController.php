@@ -122,7 +122,7 @@ final class ProductoresController
         $matriz = $this->entregas->matrizSemana($semana, $semanaFin);
         $saldosPrevios = $this->cierres->pendientesAntesTodos($semana);
         $pagosSemana = $this->pagos->totalesSemanaTodos($semana);
-        $cerrados = $this->cierres->productoresCerrados($semana);
+        $cortes = $this->cierres->cortesVigentes();
         $vacio = array_fill_keys(PagoProductor::RESUMEN, '0.00');
 
         $filas = [];
@@ -148,7 +148,7 @@ final class ProductoresController
                 'precio'        => (string) $p['precio_litro_usd'],
                 'dia_cierre'    => (int) $p['dia_cierre'],
                 'ciclo_inicio'  => CierreSemanal::semanaDe($semana, (int) $p['dia_cierre']),
-                'cerrada'       => isset($cerrados[$pid]),
+                'corte'         => $cortes[$pid] ?? null,
                 'litros_dia'    => $litrosDia,
                 'total_litros'  => number_format($litros / 1000, 3, '.', ''),
                 'total_pagar'   => Caja::desdeCentavos($bruto),
@@ -686,12 +686,11 @@ final class ProductoresController
             throw new ValidationException(['productor_id' => 'El productor no existe o está inactivo.']);
         }
         $precio = $productor['precio_litro_usd'];
-        if ($this->cierres->cubreFecha($productorId, $fecha)) {
-            $inicio = CierreSemanal::semanaDe($fecha, $productor['dia_cierre']);
+        $corte = $this->cierres->ultimoCorte($productorId);
+        if ($corte !== null && $fecha <= $corte) {
             throw new ValidationException(['fecha' => sprintf(
-                'El ciclo del %s al %s de este productor está cerrado. Un administrador debe reabrirlo para modificarlo.',
-                (new DateTimeImmutable($inicio))->format('d/m'),
-                (new DateTimeImmutable(CierreSemanal::finDe($inicio)))->format('d/m/Y')
+                'La recolección hasta el %s ya fue cortada. Los días posteriores a esa fecha siguen abiertos para el siguiente período.',
+                (new DateTimeImmutable($corte))->format('d/m/Y')
             )]);
         }
 

@@ -527,12 +527,16 @@ CREATE TABLE `cxc_pagos` (
   `monto_bs` decimal(12,2) DEFAULT NULL,
   `estado` enum('aplicado','anulado') NOT NULL DEFAULT 'aplicado',
   `lote` char(16) DEFAULT NULL COMMENT 'Agrupa los pagos creados por un mismo abono a varias facturas',
+  `lote_hash` varchar(20) DEFAULT NULL COMMENT 'Mismo identificador AB- en cada fila de un abono distribuido',
+  `monto_global_origen` decimal(10,2) DEFAULT NULL COMMENT 'Total original del abono, repetido en cada fila del lote',
+  `tasa_cambio_dia` decimal(10,2) DEFAULT NULL COMMENT 'Tasa Bs/USD del día en que se registró el abono',
   `registrado_por` int(10) unsigned NOT NULL,
   `creado_en` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `ix_cxc_pagos_factura` (`factura_id`),
   KEY `ix_cxc_pagos_cliente_fecha` (`cliente_id`,`fecha`),
   KEY `ix_cxc_pagos_lote` (`lote`),
+  KEY `ix_cxc_pagos_lote_hash` (`lote_hash`),
   KEY `fk_cxc_pagos_usuario` (`registrado_por`),
   CONSTRAINT `fk_cxc_pagos_cliente` FOREIGN KEY (`cliente_id`) REFERENCES `cxc_clientes` (`id`),
   CONSTRAINT `fk_cxc_pagos_factura` FOREIGN KEY (`factura_id`) REFERENCES `cxc_facturas` (`id`),
@@ -765,6 +769,7 @@ CREATE TABLE `gas_cilindros` (
   `propietario_nombre` varchar(120) DEFAULT NULL,
   `despacho_abierto_id` int(10) unsigned DEFAULT NULL,
   `estado_registro` enum('activo','archivado') NOT NULL DEFAULT 'activo',
+  `foto_url` varchar(255) DEFAULT NULL,
   `registrado_por` int(10) unsigned NOT NULL,
   `creado_en` datetime NOT NULL DEFAULT current_timestamp(),
   `actualizado_en` datetime DEFAULT NULL ON UPDATE current_timestamp(),
@@ -847,8 +852,12 @@ DELIMITER ;
 DELIMITER ;;
 /*!50003 CREATE*/ /*!50017*/ /*!50003 TRIGGER trg_gas_cil_no_delete BEFORE DELETE ON gas_cilindros FOR EACH ROW
 BEGIN
-    SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'La bombona no se elimina: archivela para conservar los viajes';
+    IF OLD.despacho_abierto_id IS NOT NULL
+       OR EXISTS (SELECT 1 FROM gas_despacho_cilindros WHERE cilindro_id = OLD.id)
+       OR EXISTS (SELECT 1 FROM gas_reparaciones WHERE cilindro_id = OLD.id) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'La bombona ya tiene historial: archivela, no se elimina';
+    END IF;
 END */;;
 DELIMITER ;
 /*!50003 SET sql_mode              = @saved_sql_mode */ ;
@@ -2496,7 +2505,7 @@ BEGIN
     IF EXISTS (
         SELECT 1 FROM productores_cierres c
         WHERE c.productor_id = NEW.productor_id
-          AND NEW.fecha BETWEEN c.semana_inicio AND c.semana_fin
+          AND NEW.fecha <= c.semana_fin
           AND c.estado <> 'anulada'
     ) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La semana de esta entrega ya esta cerrada';

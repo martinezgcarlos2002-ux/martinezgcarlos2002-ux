@@ -754,6 +754,9 @@ final class FacturaController
             'notas'      => (string) ($p['notas'] ?? ''),
             'tasa'       => $p['tasa_cambio'] !== null && $p['tasa_cambio'] !== '' ? (float) $p['tasa_cambio'] : null,
             'monto_bs'   => $p['monto_bs'] !== null && $p['monto_bs'] !== '' ? (float) $p['monto_bs'] : null,
+            'lote_hash'  => ($p['lote_hash'] ?? null) !== null && $p['lote_hash'] !== '' ? (string) $p['lote_hash'] : null,
+            'monto_global' => ($p['monto_global_origen'] ?? null) !== null && $p['monto_global_origen'] !== '' ? (float) $p['monto_global_origen'] : null,
+            'tasa_dia'   => ($p['tasa_cambio_dia'] ?? null) !== null && $p['tasa_cambio_dia'] !== '' ? (float) $p['tasa_cambio_dia'] : null,
             'estado'     => (string) ($p['estado'] ?? 'aplicado'),
         ];
     }

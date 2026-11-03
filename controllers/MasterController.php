@@ -250,6 +250,254 @@ final class MasterController
         ]);
     }
 
+    /** Mapa de las carpetas del MVC. Solo nombres: no lee ni muestra el contenido de ningún archivo. */
+    public function arquitectura(): void
+    {
+        view('master_arquitectura', [
+            'admin'   => $this->admin,
+            'arbol'   => self::arbolArquitectura(),
+            'version' => ADARA_VERSION,
+        ]);
+    }
+
+    /** Manual técnico: logo, título y el árbol del MVC, descargado con DomPDF::stream(). */
+    public function arquitecturaPdf(): void
+    {
+        $this->saas->auditar($this->admin['id'], 'manual_tecnico', null, ['version' => ADARA_VERSION]);
+        $this->emitirPdf(
+            $this->htmlManualTecnico(self::arbolArquitectura()),
+            'ADARA_manual_tecnico_v' . ADARA_VERSION . '.pdf'
+        );
+    }
+
+    /** Manual de usuario: la plantilla principal incluye cada capítulo. */
+    public function usuarioPdf(): void
+    {
+        $version = ADARA_VERSION;
+        $fecha = date('d/m/Y H:i');
+        $logo = self::logoPdf();
+        $capitulos = [
+            '01_accesos.php',
+            '02_productores.php',
+            '03_produccion.php',
+            '04_ventas.php',
+            '05_gas_transporte.php',
+        ];
+        ob_start();
+        require ADARA_ROOT . '/pages/manuales/layout_pdf.php';
+        $html = (string) ob_get_clean();
+        $this->saas->auditar($this->admin['id'], 'manual_usuario', null, ['version' => ADARA_VERSION]);
+        $this->emitirPdf($html, 'ADARA_manual_usuario_v' . ADARA_VERSION . '.pdf');
+    }
+
+    private function emitirPdf(string $html, string $archivo): never
+    {
+        $autoload = ADARA_ROOT . '/vendor/autoload.php';
+        if (is_file($autoload)) {
+            require_once $autoload;
+        }
+        if (!class_exists(\Dompdf\Dompdf::class)) {
+            flash('error', 'DomPDF no está instalado. En la raíz del proyecto ejecuta: composer require dompdf/dompdf');
+            redirect('master_arquitectura');
+        }
+        $dompdf = new \Dompdf\Dompdf([
+            'isRemoteEnabled'      => false,
+            'isHtml5ParserEnabled' => true,
+            'chroot'               => ADARA_ROOT,
+        ]);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('letter', 'portrait');
+        $dompdf->render();
+        $font = $dompdf->getFontMetrics()->getFont('DejaVu Sans');
+        $dompdf->getCanvas()->page_text(430, 760, 'Página {PAGE_NUM} de {PAGE_COUNT}', $font, 9, [0.39, 0.45, 0.55]);
+        session_write_close();
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        $dompdf->stream($archivo, ['Attachment' => true]);
+        exit;
+    }
+
+    private static function logoPdf(): string
+    {
+        $path = ADARA_ROOT . '/assets/' . LOGO_SISTEMA;
+        if (!is_file($path)) {
+            return '';
+        }
+        $bin = file_get_contents($path);
+        if ($bin === false) {
+            return '';
+        }
+        return '<img src="data:image/jpeg;base64,' . base64_encode($bin) . '" width="92" alt="ADARA">';
+    }
+
+    private const ARQUITECTURA_RAICES = ['controllers', 'models', 'pages', 'services', 'config'];
+    private const ARQUITECTURA_IGNORAR = ['vendor', 'lib', '.git', 'node_modules'];
+
+    /**
+     * Escanea solo las raíces del MVC. RecursiveCallbackFilterIterator no entra
+     * en vendor, lib, .git ni node_modules. Un enlace que salga de la carpeta se descarta.
+     *
+     * @return list<array{nombre:string, tipo:string, hijos:array}>
+     */
+    private static function arbolArquitectura(): array
+    {
+        $raices = [];
+        foreach (self::ARQUITECTURA_RAICES as $nombre) {
+            $abs = ADARA_ROOT . DIRECTORY_SEPARATOR . $nombre;
+            $real = realpath($abs);
+            if ($real === false || !is_dir($real)) {
+                continue;
+            }
+            $filtro = new RecursiveCallbackFilterIterator(
+                new RecursiveDirectoryIterator($real, FilesystemIterator::SKIP_DOTS),
+                static function (SplFileInfo $info): bool {
+                    return !in_array($info->getFilename(), self::ARQUITECTURA_IGNORAR, true);
+                }
+            );
+            $it = new RecursiveIteratorIterator($filtro, RecursiveIteratorIterator::SELF_FIRST);
+            $rutas = [];
+            $base = str_replace('\\', '/', $real);
+            foreach ($it as $info) {
+                if ($info->isLink()) {
+                    continue;
+                }
+                $camino = $info->getRealPath();
+                if ($camino === false || !str_starts_with(str_replace('\\', '/', $camino), $base . '/')) {
+                    continue;
+                }
+                $rel = str_replace('\\', '/', $it->getSubPathname());
+                if ($rel === '' || self::segmentoIgnorado(explode('/', $rel))) {
+                    continue;
+                }
+                $baseNombre = basename($rel);
+                if (str_starts_with($baseNombre, '.') || str_ends_with($baseNombre, '.local.php')) {
+                    continue;
+                }
+                $rutas[] = [$rel, $info->isDir()];
+            }
+            $raices[] = self::arbolDesdeRutas($nombre, $rutas);
+        }
+        return $raices;
+    }
+
+    /** @param list<string> $partes */
+    private static function segmentoIgnorado(array $partes): bool
+    {
+        foreach ($partes as $parte) {
+            if ($parte === '' || $parte === '.' || $parte === '..' || in_array($parte, self::ARQUITECTURA_IGNORAR, true)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @param list<array{0:string, 1:bool}> $rutas
+     * @return array{nombre:string, tipo:string, hijos:array}
+     */
+    private static function arbolDesdeRutas(string $raiz, array $rutas): array
+    {
+        $nodo = ['nombre' => $raiz, 'tipo' => 'dir', 'hijos' => []];
+        foreach ($rutas as [$rel, $esDir]) {
+            $cursor = &$nodo;
+            $partes = explode('/', $rel);
+            $ultimo = count($partes) - 1;
+            foreach ($partes as $i => $parte) {
+                $pos = null;
+                foreach ($cursor['hijos'] as $k => $hijo) {
+                    if ($hijo['nombre'] === $parte) {
+                        $pos = $k;
+                        break;
+                    }
+                }
+                if ($pos === null) {
+                    $cursor['hijos'][] = [
+                        'nombre' => $parte,
+                        'tipo'   => ($i === $ultimo && !$esDir) ? 'archivo' : 'dir',
+                        'hijos'  => [],
+                    ];
+                    $pos = array_key_last($cursor['hijos']);
+                }
+                $cursor = &$cursor['hijos'][$pos];
+            }
+            unset($cursor);
+        }
+        self::ordenarNodo($nodo);
+        return $nodo;
+    }
+
+    /** @param array{nombre:string, tipo:string, hijos:array} $nodo */
+    private static function ordenarNodo(array &$nodo): void
+    {
+        usort($nodo['hijos'], static function (array $a, array $b): int {
+            if ($a['tipo'] !== $b['tipo']) {
+                return $a['tipo'] === 'dir' ? -1 : 1;
+            }
+            return strnatcasecmp($a['nombre'], $b['nombre']);
+        });
+        foreach ($nodo['hijos'] as &$hijo) {
+            if ($hijo['tipo'] === 'dir') {
+                self::ordenarNodo($hijo);
+            }
+        }
+        unset($hijo);
+    }
+
+    /** @param list<array{nombre:string, tipo:string, hijos:array}> $arbol */
+    private function htmlManualTecnico(array $arbol): string
+    {
+        $version = e(ADARA_VERSION);
+        $fecha = e(date('d/m/Y H:i'));
+        $lista = self::htmlArbolPdf($arbol);
+        $logo = self::logoPdf();
+        return <<<HTML
+        <!DOCTYPE html>
+        <html lang="es"><head><meta charset="UTF-8">
+        <style>
+          body { font-family: DejaVu Sans, sans-serif; color: #1e293b; font-size: 11px; }
+          h1 { color: #1A2E5A; font-size: 28px; margin: 8px 0 0; }
+          h2 { color: #1A2E5A; font-size: 16px; border-bottom: 2px solid #F97316; padding-bottom: 4px; }
+          .portada { text-align: center; padding-top: 160px; }
+          .franja { height: 6px; background: #F97316; margin: 18px auto; width: 120px; }
+          .meta { color: #64748b; }
+          ul { list-style: none; padding-left: 14px; margin: 2px 0; }
+          li { margin: 1px 0; }
+          .dir { font-weight: bold; color: #1A2E5A; }
+        </style></head><body>
+        <div class="portada">
+          {$logo}
+          <h1>Manual Técnico v{$version}</h1>
+          <div class="franja"></div>
+          <p style="font-size:16px;">Arquitectura del sistema</p>
+          <p class="meta">Generado el {$fecha} desde el Panel Maestro</p>
+        </div>
+        <div style="page-break-after: always;"></div>
+        <h2>Mapa de directorios</h2>
+        <p class="meta">controllers, models, pages, services y config. No incluye vendor, lib, .git ni node_modules.</p>
+        {$lista}
+        </body></html>
+        HTML;
+    }
+
+    /** @param list<array{nombre:string, tipo:string, hijos:array}> $nodos */
+    private static function htmlArbolPdf(array $nodos): string
+    {
+        if ($nodos === []) {
+            return '';
+        }
+        $html = '<ul>';
+        foreach ($nodos as $nodo) {
+            $nombre = e($nodo['nombre']);
+            if ($nodo['tipo'] === 'dir') {
+                $html .= '<li><span class="dir">' . $nombre . '/</span>' . self::htmlArbolPdf($nodo['hijos']) . '</li>';
+            } else {
+                $html .= '<li>' . $nombre . '</li>';
+            }
+        }
+        return $html . '</ul>';
+    }
+
     public function clave(): void
     {
         view('master_clave', ['admin' => $this->admin, 'errores' => []]);
