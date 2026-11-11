@@ -21,7 +21,7 @@ $enApp = str_contains((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 'ADARA-App')
 <div class="login-overlay">
 <div class="card login-card">
   <div class="text-center mb-3">
-    <img src="<?= e(marca_logo_src()) ?>" alt="<?= e(marca()['nombre_empresa']) ?>" class="brand-logo">
+    <img src="<?= e(asset_v(LOGO_SISTEMA)) ?>" alt="ADARA" class="brand-logo">
     <h4 class="brand-title"><?= e(marca()['nombre_empresa']) ?></h4>
     <div class="brand-sub">Artesanal · Sistema ERP</div>
     <div class="brand-mark">ADARA ERP</div>

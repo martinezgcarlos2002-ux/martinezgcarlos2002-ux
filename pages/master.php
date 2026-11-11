@@ -190,7 +190,7 @@ layout_master_start('Panel de Empresas', 'master');
         </div>
         <div class="col-md-6">
           <label class="form-label" for="nombre_db_fisica">Base de datos física</label>
-          <input class="form-control font-monospace" id="nombre_db_fisica" name="nombre_db_fisica" value="<?= $val('nombre_db_fisica') ?>" maxlength="64" placeholder="adara_panaderia" pattern="adara_[a-z0-9_]+" required>
+          <input class="form-control font-monospace" id="nombre_db_fisica" name="nombre_db_fisica" value="<?= $val('nombre_db_fisica') ?>" maxlength="64" placeholder="adara_panaderia" pattern="(adara(_[a-z0-9_]+)?|u[0-9]{6,12}_[a-z0-9_]+)" required>
           <?= $err('nombre_db_fisica') ?>
         </div>
         <div class="col-12">

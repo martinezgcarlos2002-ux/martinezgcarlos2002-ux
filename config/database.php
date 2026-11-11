@@ -144,6 +144,13 @@ final class Database
         }
 
         $cfg = self::config();
+        $usuario = $cfg['user'];
+        $clave = $cfg['pass'];
+        // En Hostinger cada base tiene su propio usuario. La maestra no entra con el de la empresa.
+        if ($base === self::nombreMaster()) {
+            $usuario = $cfg['master_user'];
+            $clave = $cfg['master_pass'];
+        }
         $dsn = sprintf(
             'mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
             $cfg['host'],
@@ -163,7 +170,7 @@ final class Database
         ];
 
         try {
-            $pdo = new PDO($dsn, $cfg['user'], $cfg['pass'], $options);
+            $pdo = new PDO($dsn, $usuario, $clave, $options);
             $pdo->exec('SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci');
             return $pdo;
         } catch (PDOException $e) {
@@ -180,11 +187,14 @@ final class Database
         }
     }
 
-    /** @return array{host:string, port:int, name:string, user:string, pass:string} */
+    /** @return array{host:string, port:int, name:string, user:string, pass:string, master_user:string, master_pass:string} */
     private static function config(): array
     {
         $env = static fn (string $key, string $default): string =>
             ($value = getenv($key)) !== false && $value !== '' ? $value : $default;
+
+        $user = $env('ADARA_DB_USER', 'root');
+        $pass = getenv('ADARA_DB_PASS') ?: '';
 
         return [
             // En Linux, "localhost" usa el socket y se salta el TCP de 127.0.0.1.
@@ -192,8 +202,10 @@ final class Database
             'host' => $env('ADARA_DB_HOST', PHP_OS_FAMILY === 'Windows' ? '127.0.0.1' : 'localhost'),
             'port' => (int) $env('ADARA_DB_PORT', '3306'),
             'name' => $env('ADARA_DB_NAME', 'adara'),
-            'user' => $env('ADARA_DB_USER', 'root'),
-            'pass' => getenv('ADARA_DB_PASS') ?: '',
+            'user' => $user,
+            'pass' => $pass,
+            'master_user' => $env('ADARA_MASTER_DB_USER', $user),
+            'master_pass' => $env('ADARA_MASTER_DB_PASS', $pass),
         ];
     }
 }

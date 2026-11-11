@@ -19,7 +19,7 @@ $alertClass = ['error' => 'danger', 'success' => 'success', 'info' => 'info', 'w
 <div class="login-overlay">
 <div class="card login-card">
   <div class="text-center mb-3">
-    <img src="<?= e(marca_logo_src()) ?>" alt="<?= e(marca()['nombre_empresa']) ?>" class="brand-logo">
+    <img src="<?= e(asset_v(LOGO_SISTEMA)) ?>" alt="ADARA" class="brand-logo">
     <h4 class="brand-title">Recuperar contraseña</h4>
     <div class="brand-sub">Te enviaremos un enlace válido por 15 minutos.</div>
   </div>

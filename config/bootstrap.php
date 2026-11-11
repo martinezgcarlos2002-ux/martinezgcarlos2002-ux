@@ -1,6 +1,13 @@
 <?php
 declare(strict_types=1);
 
+// XAMPP: local-config.php (git lo ignora) fija las bases locales. En Hostinger no existe
+// y las claves siguen saliendo del SetEnv del .htaccess. Nunca pisa una variable ya definida.
+$localConfig = dirname(__DIR__) . '/local-config.php';
+if (is_file($localConfig)) {
+    require_once $localConfig;
+}
+
 require_once __DIR__ . '/app.php';
 require_once __DIR__ . '/database.php';
 

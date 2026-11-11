@@ -4,14 +4,28 @@ declare(strict_types=1);
 /** Acceso a la base maestra (adara_master): super admins, empresas suscritas y su bitácora. */
 final class Saas
 {
-    /** `adara` es la base del primer cliente. Las demás empiezan por adara_. Nunca adara_master. */
-    public const PATRON_DB = '/^(adara|adara_[a-z0-9_]{1,58})$/';
+    /**
+     * `adara` es la base del primer cliente local. Las demás empiezan por adara_.
+     * En Hostinger el nombre lo asigna el panel: u980302731_adarabd.
+     * Nunca la base maestra (adara_master o la de ADARA_MASTER_DB_NAME).
+     */
+    public const PATRON_DB = '/^(adara|adara_[a-z0-9_]{1,58}|u[0-9]{6,12}_[a-z0-9_]{1,40})$/';
     public const PATRON_SLUG = '/^[a-z0-9]([a-z0-9.-]{1,98}[a-z0-9])?$/';
     /** Dueño del software: intocable (además protegido por triggers en adara_master). */
     public const PROPIETARIO_ID = 1;
     public const CLAVE_MIN_SUPER_ADMIN = 12;
     /** Venezolano, extranjero, jurídico, gubernamental. */
     public const PREFIJOS_CEDULA = ['V-', 'E-', 'J-', 'G-'];
+
+    /** La base de control no puede registrarse como empresa. */
+    public static function baseReservada(string $base): bool
+    {
+        if ($base === 'adara_master') {
+            return true;
+        }
+        $master = getenv('ADARA_MASTER_DB_NAME');
+        return is_string($master) && $master !== '' && hash_equals($master, $base);
+    }
 
     /** Clave temporal legible (sin 0/O, 1/l/I) con 16 caracteres de random_int: ~93 bits. */
     public static function claveTemporal(): string
@@ -334,6 +348,23 @@ final class Saas
              JOIN super_admins s ON s.id = c.registrado_por
              ORDER BY c.nombre_empresa'
         )->fetchAll();
+        foreach ($rows as &$row) {
+            if ((int) $row['base_existe'] === 1) {
+                continue;
+            }
+            // En Hostinger el usuario de la base maestra no lista las demás bases, aunque existan.
+            $base = (string) $row['nombre_db_fisica'];
+            if (!preg_match(self::PATRON_DB, $base) || self::baseReservada($base)) {
+                continue;
+            }
+            try {
+                Database::conectarA($base)->query('SELECT 1');
+                $row['base_existe'] = 1;
+            } catch (Throwable) {
+                $row['base_existe'] = 0;
+            }
+        }
+        unset($row);
         return $rows;
     }
 
@@ -361,8 +392,8 @@ final class Saas
         } elseif ($this->superAdminPorCorreo($correo) !== null) {
             $errores['correo_admin_cliente'] = 'Ese correo pertenece a un super admin; usa otro para la empresa.';
         }
-        if (!preg_match(self::PATRON_DB, $base) || $base === 'adara_master') {
-            $errores['nombre_db_fisica'] = 'La base debe empezar con adara_ y usar solo minúsculas, números y guion bajo. Ej.: adara_castillo';
+        if (!preg_match(self::PATRON_DB, $base) || self::baseReservada($base)) {
+            $errores['nombre_db_fisica'] = 'La base debe llamarse adara, empezar por adara_ o por el prefijo de Hostinger (u y números). Ej.: adara_castillo o u980302731_adarabd';
         }
         if ($errores !== []) {
             throw new ValidationException($errores);

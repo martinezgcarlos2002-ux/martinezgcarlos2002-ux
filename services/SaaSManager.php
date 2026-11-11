@@ -203,15 +203,27 @@ final class SaaSManager
 
     private function baseExiste(string $base): bool
     {
-        $stmt = $this->master->prepare('SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = :b');
-        $stmt->execute(['b' => $base]);
-        return (int) $stmt->fetchColumn() > 0;
+        try {
+            $stmt = $this->master->prepare('SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = :b');
+            $stmt->execute(['b' => $base]);
+            if ((int) $stmt->fetchColumn() > 0) {
+                return true;
+            }
+        } catch (Throwable) {
+            // El usuario de la base maestra en un hosting compartido no siempre lista los demás esquemas.
+        }
+        try {
+            Database::conectarA($base)->query('SELECT 1');
+            return true;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /** Identificador entre backticks; el nombre ya cumple Saas::PATRON_DB (y el CHECK de clientes_saas). */
     private function ident(string $base): string
     {
-        if (!preg_match(Saas::PATRON_DB, $base) || $base === 'adara_master') {
+        if (!preg_match(Saas::PATRON_DB, $base) || Saas::baseReservada($base)) {
             throw new LogicException('Nombre de base inválido.');
         }
         return '`' . $base . '`';

@@ -24,7 +24,7 @@ $err = static fn (string $campo): string => isset($errores[$campo])
 <div class="login-overlay">
 <div class="card login-card">
   <div class="text-center mb-3">
-    <img src="<?= e(marca_logo_src()) ?>" alt="<?= e(marca()['nombre_empresa']) ?>" class="brand-logo">
+    <img src="<?= e(asset_v(LOGO_SISTEMA)) ?>" alt="ADARA" class="brand-logo">
     <h4 class="brand-title">Nueva contraseña</h4>
     <div class="brand-sub">Mínimo <?= PASSWORD_MIN_LEN ?> caracteres.</div>
   </div>
