@@ -115,8 +115,15 @@ if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.class
       <img src="<?= e(asset_v(LOGO_SISTEMA)) ?>" alt="ADARA Enterprise Software" class="sidebar-footer-logo">
     </div>
     <div class="sidebar-footer-text">
+      <?php if (Auth::enSoporte()): ?>
+      <div class="sidebar-user-name"><?= e((string) ($_SESSION['impersonado_por_nombre'] ?? 'Soporte técnico')) ?></div>
+      <div class="sidebar-user-maestro"><i class="bi bi-life-preserver"></i> SOPORTE TÉCNICO — ID Maestro <?= (int) Auth::getAuditUserId() ?></div>
+      <div class="sidebar-user-role"><span>Viendo como: <?= e($user['nombre']) ?></span></div>
+      <?php else: ?>
       <div class="sidebar-user-name"><?= e($user['nombre']) ?></div>
-      <?php if ($user['rol'] === 'maestro'): ?>
+      <?php endif; ?>
+      <?php if (Auth::enSoporte()): ?>
+      <?php elseif ($user['rol'] === 'maestro'): ?>
         <div class="sidebar-user-maestro"><i class="bi bi-cpu-fill"></i> USUARIO MAESTRO — Servicio Técnico</div>
       <?php elseif ($user['rol'] === 'admin'): ?>
         <div class="sidebar-user-admin"><i class="bi bi-shield-lock-fill"></i> ADMIN — acceso total</div>

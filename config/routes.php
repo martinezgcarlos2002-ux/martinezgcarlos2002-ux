@@ -126,10 +126,12 @@ return [
         'modulo'  => 'productores',
         'GET'     => [ProductoresController::class, 'controlSemanal'],
     ],
+    // Idempotente: la carga por día (Control Semanal y Control Leche) se encola sin señal y se reenvía.
     'productores_semana_guardar' => [
         'modulo'  => 'productores',
         'accion'  => 'crear',
         'POST'    => [ProductoresController::class, 'semanaStore'],
+        'idempotente' => true,
     ],
     'productores_facturas_masivas' => [
         'modulo'  => 'productores',

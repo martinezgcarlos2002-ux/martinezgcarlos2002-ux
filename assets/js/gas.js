@@ -44,8 +44,21 @@
     return Object.keys(map).map(function (k) { return map[k]; }).filter(Boolean).join(' ') || 'No se pudo completar la operación.';
   }
 
+  /** Gas necesita respuesta del servidor (ids y saldos): sin señal se avisa y no se guarda. */
+  async function pedir(url, opts) {
+    try {
+      return await fetch(url, opts);
+    } catch (e) {
+      var err = new Error(navigator.onLine === false
+        ? 'Sin conexión: este registro de gas no se guardó. Inténtalo cuando vuelva la señal.'
+        : 'No se pudo contactar al servidor. Revisa la conexión e inténtalo de nuevo.');
+      err.errores = { general: err.message };
+      throw err;
+    }
+  }
+
   async function apiForm(url, fd) {
-    var res = await fetch(url, {
+    var res = await pedir(url, {
       method: 'POST',
       credentials: 'same-origin',
       headers: {
@@ -72,7 +85,7 @@
       headers['X-CSRF-TOKEN'] = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
       opts.body = JSON.stringify(body);
     }
-    var res = await fetch(url, opts);
+    var res = await pedir(url, opts);
     var json;
     try { json = await res.json(); } catch (e) { json = { ok: false, errores: { general: 'Respuesta inválida del servidor.' } }; }
     if (!res.ok || !json.ok) {

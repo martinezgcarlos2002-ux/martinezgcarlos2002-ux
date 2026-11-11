@@ -427,21 +427,28 @@ layout_start('Control Semanal de Productores', 'productores');
     datos.append(inp.name, valor);
     estado(inp, 'Guardando…', 'text-muted');
 
-    fetch(form.action, {
+    var enviar = window.fetchConRespaldo || fetch;
+    enviar(form.action, {
       method: 'POST',
       body: datos,
       credentials: 'same-origin',
+      etiqueta: 'Litros ' + (inp.getAttribute('aria-label') || '') + ' ' + dia.value,
       headers: { 'X-Requested-With': 'fetch', 'Accept': 'application/json' }
     }).then(function (r) {
       var tipo = r.headers.get('Content-Type') || '';
       if (tipo.indexOf('application/json') === -1) throw new Error('La sesión expiró. Recarga la página.');
       return r.json();
     }).then(function (res) {
-      if (!res.ok) throw new Error(res.mensajes.join(' '));
+      if (!res.ok) throw new Error((res.mensajes || ['No se pudo guardar.']).join(' '));
       var litros = JSON.parse(inp.getAttribute('data-litros') || '{}');
       litros[dia.value] = parseFloat(valor);
       inp.setAttribute('data-litros', JSON.stringify(litros));
-      var accion = res.guardadas.length ? res.guardadas[0].accion : 'sin_cambios';
+      if (res.offline) {
+        estado(inp, '⏳ Sin señal: se enviará', 'text-warning');
+        siguiente(inp);
+        return;
+      }
+      var accion = res.guardadas && res.guardadas.length ? res.guardadas[0].accion : 'sin_cambios';
       estado(inp, accion === 'actualizada' ? '✓ Sobrescrito' : (accion === 'creada' ? '✓ Guardado' : '✓ Sin cambios'), 'text-success');
       if (accion !== 'sin_cambios') huboCambios = true;
       siguiente(inp);

@@ -4,7 +4,8 @@ declare(strict_types=1);
 /** @var list<array{label:string, icon:string, url:string}> $acciones */
 
 $user = current_user();
-$nombre = explode(' ', trim((string) $user['nombre']))[0] ?? '';
+$visible = Auth::enSoporte() ? (string) ($_SESSION['impersonado_por_nombre'] ?? 'Soporte técnico') : (string) $user['nombre'];
+$nombre = explode(' ', trim($visible))[0] ?? '';
 
 layout_start('Inicio', 'dashboard');
 ?>
@@ -32,5 +33,15 @@ layout_start('Inicio', 'dashboard');
     <i class="bi bi-globe2"></i> Ver versión web completa
   </button>
 </form>
+<script nonce="<?= e(csp_nonce()) ?>">
+// Con señal, el Service Worker guarda los módulos de las tarjetas para abrirlos después sin conexión.
+(function () {
+  if (!('serviceWorker' in navigator) || navigator.onLine === false) return;
+  var urls = <?= json_encode(array_column($acciones, 'url'), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) ?>;
+  navigator.serviceWorker.ready.then(function (reg) {
+    if (reg.active) reg.active.postMessage({ tipo: 'PRECARGAR_PAGINAS', urls: urls });
+  });
+})();
+</script>
 <?php
 layout_end();

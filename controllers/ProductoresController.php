@@ -326,10 +326,12 @@ final class ProductoresController
     private function responderSemana(bool $ajax, bool $ok, array $mensajes, array $query, array $guardadas = []): never
     {
         if ($ajax) {
-            http_response_code($ok ? 200 : 422);
-            header('Content-Type: application/json; charset=UTF-8');
-            echo json_encode(['ok' => $ok, 'mensajes' => array_values($mensajes), 'guardadas' => $guardadas], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-            exit;
+            // json_response confirma o revierte la reserva de idempotencia de la cola offline.
+            $payload = ['ok' => $ok, 'mensajes' => array_values($mensajes), 'guardadas' => $guardadas];
+            if (!$ok) {
+                $payload['errores'] = ['general' => implode(' ', $mensajes)];
+            }
+            json_response($ok ? 200 : 422, $payload);
         }
         $pagina = ($_POST['volver'] ?? '') === 'control_leche' ? 'control_leche' : 'productores_control_semanal';
         if ($pagina === 'control_leche') {

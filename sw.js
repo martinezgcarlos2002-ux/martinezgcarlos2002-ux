@@ -19,7 +19,7 @@
  */
 'use strict';
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_PREFIX = 'adara-';
 const CACHE_ESTATICO = `${CACHE_PREFIX}estatico-${CACHE_VERSION}`;
 const CACHE_PAGINAS = `${CACHE_PREFIX}paginas-${CACHE_VERSION}`;
@@ -45,6 +45,7 @@ const PRECACHE_LOCAL = [
   'assets/css/adara.css',
   'assets/js/contacto.js',
   'assets/js/offlineSync.js',
+  'assets/js/descargas_app.js',
   'assets/img/favicon.png',
   'assets/img/logo.jpg',
   'assets/img/ADARA%20LOGO.jpg',
@@ -90,8 +91,26 @@ self.addEventListener('message', (event) => {
     event.waitUntil(caches.delete(CACHE_PAGINAS));
   } else if (tipo === 'SKIP_WAITING') {
     self.skipWaiting();
+  } else if (tipo === 'PRECARGAR_PAGINAS' && Array.isArray(event.data.urls)) {
+    event.waitUntil(precargarPaginas(event.data.urls));
   }
 });
+
+/** Guarda las vistas de los módulos mientras hay señal, para abrirlas después sin conexión. */
+async function precargarPaginas(urls) {
+  const limpias = urls
+    .map((u) => { try { return new URL(u, BASE); } catch (_) { return null; } })
+    .filter((u) => u && u.origin === BASE.origin && u.pathname.startsWith(BASE.pathname) && esVistaCacheable(u))
+    .slice(0, 12);
+  for (const url of limpias) {
+    try {
+      const res = await fetch(url.href, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'text/html' } });
+      await guardarPagina(new Request(url.href), res);
+    } catch (_) {
+      // Sin señal o error del servidor: se intenta en la próxima visita al inicio.
+    }
+  }
+}
 
 /* =====================================================================
  * Enrutamiento de peticiones
@@ -115,6 +134,8 @@ self.addEventListener('fetch', (event) => {
   if (req.mode === 'navigate') {
     if (mismoOrigen && esVistaCacheable(url)) {
       event.respondWith(navegacionNetworkFirst(event));
+    } else if (mismoOrigen && (url.searchParams.get('p') || '') === 'login') {
+      event.respondWith(navegacionLogin(event));
     }
     return;
   }
@@ -164,6 +185,24 @@ async function navegacionNetworkFirst(event) {
         headers: { 'Content-Type': 'text/plain; charset=UTF-8' },
       });
     }
+  }
+}
+
+/**
+ * La app Android abre en ?p=login. El login nunca se guarda, pero sin señal no puede quedar en blanco:
+ * se muestra el inicio guardado (la caché de páginas se borra en cada login/logout, así que es del
+ * mismo usuario) o, si no hay, offline.html.
+ */
+async function navegacionLogin(event) {
+  try {
+    const preload = await event.preloadResponse;
+    return preload || await fetch(event.request);
+  } catch (_) {
+    const inicio = new URL(BASE.pathname + 'index.php', BASE.origin);
+    inicio.searchParams.set('p', 'dashboard');
+    return (await buscarPagina(inicio.href))
+      || (await caches.match(OFFLINE_URL))
+      || new Response('Sin conexión', { status: 503, headers: { 'Content-Type': 'text/plain; charset=UTF-8' } });
   }
 }
 

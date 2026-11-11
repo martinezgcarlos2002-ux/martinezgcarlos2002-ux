@@ -930,10 +930,12 @@ document.addEventListener('DOMContentLoaded', function () {
     datos.append('semana', semana.value);
     datos.append(inp.name, valor);
     estado(inp, 'Guardando…', 'text-muted');
-    fetch(form.action, {
+    var enviar = window.fetchConRespaldo || fetch;
+    enviar(form.action, {
       method: 'POST',
       body: datos,
       credentials: 'same-origin',
+      etiqueta: 'Litros ' + (inp.getAttribute('aria-label') || '') + ' ' + dia.value,
       headers: { 'X-Requested-With': 'fetch', 'Accept': 'application/json' }
     }).then(function (r) {
       var tipo = r.headers.get('Content-Type') || '';
@@ -944,6 +946,11 @@ document.addEventListener('DOMContentLoaded', function () {
       var pid = inp.getAttribute('data-pid');
       litros[pid] = litros[pid] || {};
       litros[pid][dia.value] = parseFloat(valor);
+      if (res.offline) {
+        estado(inp, '⏳ Sin señal: se enviará', 'text-warning');
+        siguiente(inp);
+        return;
+      }
       var accion = res.guardadas && res.guardadas.length ? res.guardadas[0].accion : 'sin_cambios';
       estado(inp, accion === 'actualizada' ? '✓ Sobrescrito' : (accion === 'creada' ? '✓ Guardado' : '✓ Sin cambios'), 'text-success');
       if (accion !== 'sin_cambios') huboCambios = true;
