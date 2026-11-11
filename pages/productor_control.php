@@ -272,10 +272,17 @@ layout_start('Control Productor: ' . $productor['nombre'], 'productores');
               <span>Total de Litros</span><strong><?= e(num($resumenSemana['litros'], 1)) ?> L</strong>
             </div>
             <div class="d-flex justify-content-between border-bottom py-1 text-navy fw-bold">
-              <span>Total Semanal $</span><strong><?= e($usd($resumenSemana['bruto_usd'])) ?></strong>
+              <span>Semana nueva</span><strong><?= e($usd($resumenSemana['bruto_usd'])) ?></strong>
             </div>
             <div class="d-flex justify-content-between border-bottom py-1">
-              <span>Saldo Pendiente <span class="text-muted small">(semanas previas)</span></span><strong><?= e($usd($resumenSemana['arrastre_usd'])) ?></strong>
+              <span>Saldo viejo
+                <?php if (!empty($resumenSemana['arrastre_desde'])): ?>
+                  <span class="nota-arrastre d-block"><?= e((new DateTimeImmutable($resumenSemana['arrastre_desde']))->format('d/m/Y')) ?> – <?= e((new DateTimeImmutable($resumenSemana['arrastre_hasta']))->format('d/m/Y')) ?></span>
+                <?php else: ?>
+                  <span class="text-muted small">(ciclo anterior)</span>
+                <?php endif; ?>
+              </span>
+              <strong class="<?= (float) $resumenSemana['arrastre_usd'] > 0 ? 'text-danger' : '' ?>"><?= e($usd($resumenSemana['arrastre_usd'])) ?></strong>
             </div>
             <div class="d-flex justify-content-between border-bottom py-1 text-danger">
               <span>(-) Mercancía</span><strong>-<?= e($usd($resumenSemana['mercancia_usd'])) ?></strong>

@@ -266,6 +266,50 @@ final class CxCService
     }
 
     /**
+     * Dinero recibido sin factura abierta. Queda como saldo a favor y entra a caja en el mismo paso.
+     * No acepta el método saldo_favor: eso no es dinero nuevo, es cruzar un anticipo ya cobrado.
+     *
+     * @return array{pago_id:int, cliente_id:int, saldo_favor:string}
+     */
+    public function registrarAnticipo(int $clienteId, string|float $monto, string $fecha, string $metodo, ?string $ref, ?string $notas, int $userId, ?string $tasaCambio = null, ?string $montoBs = null): array
+    {
+        if ($metodo === 'saldo_favor') {
+            throw new ValidationException(['metodo' => 'Un anticipo es dinero nuevo. El saldo a favor se cruza al crear o pagar una factura.']);
+        }
+        $montoC = self::centavos($monto, 'monto');
+        self::validarMetodo($metodo);
+        [$tasaCambio, $montoBs] = self::normalizarTasa($tasaCambio, $montoBs, $montoC);
+
+        return Database::transaction(function () use ($clienteId, $montoC, $fecha, $metodo, $ref, $notas, $userId, $tasaCambio, $montoBs): array {
+            $this->bloquearCliente($clienteId);
+            $m = Caja::desdeCentavos($montoC);
+            $this->db->prepare(
+                'INSERT INTO cxc_pagos (factura_id, cliente_id, monto, fecha, metodo, referencia, notas, tasa_cambio, monto_bs, registrado_por)
+                 VALUES (NULL, :cliente, :monto, :fecha, :metodo, :ref, :notas, :tasa, :bs, :usuario)'
+            )->execute([
+                'cliente' => $clienteId,
+                'monto'   => $m,
+                'fecha'   => $fecha,
+                'metodo'  => $metodo,
+                'ref'     => self::nulo($ref),
+                'notas'   => self::nulo($notas),
+                'tasa'    => $tasaCambio,
+                'bs'      => $montoBs,
+                'usuario' => $userId,
+            ]);
+            $pagoId = (int) $this->db->lastInsertId();
+            $saldo = $this->moverSaldoFavor($clienteId, $montoC, 'anticipo', $fecha, $userId, pago: $pagoId);
+            (new Caja($this->db))->ingresoCobroFactura($pagoId, $userId);
+            audit_log('facturas', 'anticipo', [
+                'cliente_id' => $clienteId,
+                'monto'      => $m,
+                'metodo'     => $metodo,
+            ], 'cxc_pagos', $pagoId);
+            return ['pago_id' => $pagoId, 'cliente_id' => $clienteId, 'saldo_favor' => $saldo];
+        });
+    }
+
+    /**
      * Abono FIFO: cancela desde la factura con vencimiento más antiguo (fecha_vencimiento ASC, id ASC).
      * Crea un pago por factura afectada (mismo lote). El remanente sobre la deuda total pasa a saldo_favor.
      *
@@ -456,7 +500,7 @@ final class CxCService
 
     /**
      * Anula un pago (no lo borra). Restaura saldo de la factura; si fue saldo a favor, lo devuelve al cliente.
-     * @return array{pago_id:int, factura_id:int, cliente_id:int}
+     * @return array{pago_id:int, factura_id:?int, cliente_id:int}
      */
     public function anularPago(int $pagoId, int $userId): array
     {
@@ -468,6 +512,9 @@ final class CxCService
                 throw new ValidationException(['id' => 'El pago no existe.']);
             }
             $this->bloquearCliente((int) $ref['cliente_id']);
+            if ($ref['factura_id'] === null) {
+                return $this->anularAnticipo($pagoId, (int) $ref['cliente_id'], $userId);
+            }
             $factura = $this->bloquearFactura((int) $ref['factura_id']);
             if ($factura['estado'] === 'anulada') {
                 throw new ValidationException(['id' => 'No se puede anular un pago de una factura anulada.']);
@@ -477,6 +524,11 @@ final class CxCService
                 throw new ValidationException(['id' => 'Ese pago ya está anulado.']);
             }
             $this->db->prepare("UPDATE cxc_pagos SET estado = 'anulado' WHERE id = :id")->execute(['id' => $pagoId]);
+            $caja = new Caja($this->db);
+            $asiento = $caja->movimientoDeCobro($pagoId);
+            if ($asiento !== null) {
+                $caja->contraAsiento((int) $asiento['id'], 'Anulación de cobro factura Nro ' . $factura['numero_factura'], $userId);
+            }
             $m = $pago['monto'];
             $this->db->prepare(
                 'UPDATE cxc_facturas SET total_pagado = total_pagado - :m1, saldo_pendiente = saldo_pendiente + :m2 WHERE id = :id'
@@ -500,6 +552,27 @@ final class CxCService
             ], 'cxc_pagos', $pagoId);
             return ['pago_id' => $pagoId, 'factura_id' => (int) $factura['id'], 'cliente_id' => (int) $pago['cliente_id']];
         });
+    }
+
+    /** @return array{pago_id:int, factura_id:null, cliente_id:int} */
+    private function anularAnticipo(int $pagoId, int $clienteId, int $userId): array
+    {
+        $pago = $this->bloquearPago($pagoId);
+        if ($pago['estado'] === 'anulado') {
+            throw new ValidationException(['id' => 'Ese anticipo ya está anulado.']);
+        }
+        $this->db->prepare("UPDATE cxc_pagos SET estado = 'anulado' WHERE id = :id")->execute(['id' => $pagoId]);
+        $caja = new Caja($this->db);
+        $asiento = $caja->movimientoDeCobro($pagoId);
+        if ($asiento !== null) {
+            $caja->contraAsiento((int) $asiento['id'], 'Anulación de anticipo', $userId);
+        }
+        $this->moverSaldoFavor($clienteId, -Caja::aCentavos($pago['monto']), 'reverso', date('Y-m-d'), $userId, pago: $pagoId);
+        audit_log('facturas', 'anular_anticipo', [
+            'monto'  => $pago['monto'],
+            'metodo' => $pago['metodo'],
+        ], 'cxc_pagos', $pagoId);
+        return ['pago_id' => $pagoId, 'factura_id' => null, 'cliente_id' => $clienteId];
     }
 
     /**
@@ -1113,7 +1186,11 @@ final class CxCService
         return [$tasa, $bs];
     }
 
-    /** Inserta el pago y ajusta totales de una factura ya bloqueada. El llamador valida que no supere el saldo. */
+    /**
+     * Inserta el pago, ajusta totales de una factura ya bloqueada y asienta el ingreso en caja (salvo saldo a favor).
+     * Las tres escrituras van en la transacción del llamador: si el asiento falla, el pago tampoco queda.
+     * El llamador valida que no supere el saldo.
+     */
     private function aplicarPago(array $factura, int $montoC, string $fecha, string $metodo, ?string $ref, ?string $notas, ?string $lote, int $userId, ?string $tasaCambio = null, ?string $montoBs = null, ?string $loteHash = null, ?string $montoGlobal = null, ?string $tasaDia = null): int
     {
         $m = Caja::desdeCentavos($montoC);
@@ -1142,6 +1219,7 @@ final class CxCService
         $this->db->prepare(
             'UPDATE cxc_facturas SET total_pagado = total_pagado + :m1, saldo_pendiente = saldo_pendiente - :m2 WHERE id = :id'
         )->execute(['m1' => $m, 'm2' => $m, 'id' => $factura['id']]);
+        (new Caja($this->db))->ingresoCobroFactura($pagoId, $userId);
         return $pagoId;
     }
 

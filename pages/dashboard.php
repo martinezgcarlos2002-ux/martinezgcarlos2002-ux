@@ -6,6 +6,13 @@ declare(strict_types=1);
 /** @var list<array{label:string, icon:string, p:string, valor:int}> $operacion */
 /** @var array{ingresos:array, egresos:array, balance:array}|null $finanzas */
 /** @var array<string, array> $indicadores */
+/** @var array{categorias:list<string>, semanas:list<array>, totales:array<string, array{cuentas:int, usd:float}>, total:array{cuentas:int, usd:float}}|null $deudasArrastre */
+
+$enlacesDeuda = [
+    'Productores' => modulos()['productores']['p'],
+    'Nómina'      => modulos()['empleados']['p'],
+    'Transporte'  => modulos()['transportistas']['p'],
+];
 
 $usd = static fn (array $m): string => '$' . num($m['usd']);
 $bs = static fn (array $m): string => 'Bs. ' . ($m['bs'] === null ? '—' : num($m['bs']));
@@ -22,6 +29,83 @@ layout_start('Dashboard', 'dashboard');
     Semana activa: <?= e($semanaInicio->format('d/m')) ?> - <?= e($semanaFin->format('d/m/Y')) ?>
   </span>
 </div>
+
+<?php if ($deudasArrastre !== null):
+    $alerta = $deudasArrastre['total']['usd'] > 0;
+    $maxSemana = 0.0;
+    foreach ($deudasArrastre['semanas'] as $s) {
+        $maxSemana = max($maxSemana, $s['usd']);
+    }
+?>
+<section class="card deudas-arrastre <?= $alerta ? 'deudas-arrastre-alerta' : 'deudas-arrastre-ok' ?> mb-4">
+  <div class="card-body">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+      <div>
+        <h6 class="section-title mb-1"><i class="bi bi-exclamation-octagon-fill"></i> Deudas arrastradas de semanas cerradas</h6>
+        <div class="text-muted small">
+          Semanas anteriores al <?= e($semanaInicio->format('d/m/Y')) ?>.
+          En productores el monto es el saldo vivo del último ciclo: lo arrastrado no se suma otra vez.
+        </div>
+      </div>
+      <div class="text-end">
+        <div class="deudas-total <?= $alerta ? 'deudas-rojo' : 'text-success' ?>"><?= e($usd(['usd' => $deudasArrastre['total']['usd'], 'bs' => null])) ?></div>
+        <div class="small text-muted"><?= e((string) $deudasArrastre['total']['cuentas']) ?> cuenta<?= $deudasArrastre['total']['cuentas'] === 1 ? '' : 's' ?> con saldo</div>
+      </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+      <?php foreach ($deudasArrastre['categorias'] as $cat): $t = $deudasArrastre['totales'][$cat]; ?>
+      <div class="col-md-4">
+        <a class="deudas-chip <?= $t['usd'] > 0 ? 'deudas-chip-alerta' : '' ?>" href="<?= e(url($enlacesDeuda[$cat])) ?>">
+          <span><?= e($cat) ?></span>
+          <strong class="<?= $t['usd'] > 0 ? 'deudas-rojo' : '' ?>"><?= e($usd(['usd' => $t['usd'], 'bs' => null])) ?></strong>
+          <small><?= e((string) $t['cuentas']) ?> cuenta<?= $t['cuentas'] === 1 ? '' : 's' ?></small>
+        </a>
+      </div>
+      <?php endforeach; ?>
+    </div>
+
+    <?php if ($deudasArrastre['semanas'] === []): ?>
+      <div class="deudas-vacio"><i class="bi bi-check-circle"></i> No hay saldos pendientes de semanas ya cerradas.</div>
+    <?php else: ?>
+    <div class="table-responsive">
+      <table class="table table-sm deudas-tabla mb-0">
+        <thead>
+          <tr>
+            <th>Semana cerrada</th>
+            <?php foreach ($deudasArrastre['categorias'] as $cat): ?><th class="text-end"><?= e($cat) ?></th><?php endforeach; ?>
+            <th class="text-end">Total</th>
+            <th class="deudas-barra-col">Peso</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($deudasArrastre['semanas'] as $s): ?>
+          <tr>
+            <td>
+              <?= e($s['etiqueta']) ?>
+              <div class="small text-muted"><?= e((string) $s['cuentas']) ?> cuenta<?= $s['cuentas'] === 1 ? '' : 's' ?></div>
+            </td>
+            <?php foreach ($deudasArrastre['categorias'] as $cat): $c = $s['celdas'][$cat]; ?>
+            <td class="text-end <?= $c['usd'] > 0 ? 'deudas-rojo' : 'text-muted' ?>">
+              <?= e($usd(['usd' => $c['usd'], 'bs' => null])) ?>
+              <?php if ($c['cuentas'] > 0): ?><div class="small"><?= e((string) $c['cuentas']) ?></div><?php endif; ?>
+            </td>
+            <?php endforeach; ?>
+            <td class="text-end fw-semibold <?= $s['usd'] > 0 ? 'deudas-rojo' : '' ?>"><?= e($usd(['usd' => $s['usd'], 'bs' => null])) ?></td>
+            <td class="deudas-barra-col">
+              <div class="deuda-barra" role="img" aria-label="<?= e($s['usd'] . ' de ' . $maxSemana) ?>">
+                <span style="width: <?= e((string) ($maxSemana > 0 ? round($s['usd'] / $maxSemana * 100, 1) : 0)) ?>%"></span>
+              </div>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+    <?php endif; ?>
+  </div>
+</section>
+<?php endif; ?>
 
 <?php if ($operacion): ?>
 <h6 class="section-title"><i class="bi bi-grid-3x3-gap-fill"></i> Inventario y operación</h6>

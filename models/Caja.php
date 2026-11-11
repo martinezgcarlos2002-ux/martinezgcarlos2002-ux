@@ -19,6 +19,7 @@ final class Caja
         'nomina'          => 'Nómina',
         'pago_gas'        => 'Pago de gas',
         'reparacion_gas'  => 'Reparación de gas',
+        'cobro_factura'   => 'Cobro de factura',
         'contra_asiento'  => 'Contra-asiento',
     ];
 
@@ -179,6 +180,88 @@ final class Caja
         return $row === false ? null : $row;
     }
 
+    /** Pago Móvil y Transferencia entran al banco; efectivo, punto y otros, a la gaveta (mismo criterio que Venta). */
+    public static function cuentaParaCobro(string $metodo): string
+    {
+        return in_array($metodo, ['pago_movil', 'transferencia'], true) ? 'banco' : 'caja';
+    }
+
+    /**
+     * Ingreso por un pago de factura de CxC. Debe llamarse dentro de la misma transacción que el pago.
+     *
+     * Fecha: la del pago con la hora en que se registró. Moneda: VES si el pago trae monto_bs, si no USD.
+     * Tasa: la del pago o, si no la trae, la vigente en esa fecha (queda congelada en el asiento).
+     * El saldo a favor no es dinero nuevo y un pago anulado no es ingreso: en ambos casos devuelve null.
+     * uq_caja_cxc_pago impide asentar dos veces el mismo pago.
+     */
+    public function ingresoCobroFactura(int $pagoId, int $usuarioId): ?int
+    {
+        $stmt = $this->db->prepare(
+            "SELECT p.id, p.factura_id, p.monto, p.metodo, p.referencia, p.tasa_cambio, p.monto_bs, p.estado,
+                    CONCAT(p.fecha, ' ', TIME(p.creado_en)) AS momento,
+                    f.numero_factura, c.nombre AS cliente
+             FROM cxc_pagos p
+             LEFT JOIN cxc_facturas f ON f.id = p.factura_id
+             JOIN cxc_clientes c ON c.id = p.cliente_id
+             WHERE p.id = :id"
+        );
+        $stmt->execute(['id' => $pagoId]);
+        $pago = $stmt->fetch();
+        if ($pago === false) {
+            throw new RuntimeException(sprintf('El pago de CxC #%d no existe.', $pagoId));
+        }
+        if ($pago['estado'] !== 'aplicado' || $pago['metodo'] === 'saldo_favor') {
+            return null;
+        }
+
+        $tasa = $pago['tasa_cambio'] !== null
+            ? (string) $pago['tasa_cambio']
+            : (TasaCambio::vigenteEn($this->db, $pago['momento'])['tasa'] ?? throw new ValidationException([
+                'tasa_cambio' => sprintf('No hay tasa de cambio registrada al %s. Regístrala en Finanzas o indica la tasa del pago.', $pago['momento']),
+            ]));
+        $enBs = $pago['monto_bs'] !== null;
+
+        $concepto = $pago['numero_factura'] !== null
+            ? sprintf('Cobro factura Nro %s - Cliente: %s', $pago['numero_factura'], $pago['cliente'])
+            : sprintf('Anticipo - Cliente: %s', $pago['cliente']);
+        $ref = trim((string) ($pago['referencia'] ?? ''));
+        if ($ref !== '') {
+            $concepto .= ' Ref ' . $ref;
+        }
+
+        $soporteId = self::idSoporte();
+        $ins = $this->db->prepare(
+            "INSERT INTO caja_movimientos
+                 (fecha, tipo, cuenta, moneda, monto, tasa_bs_por_usd, monto_usd, concepto, origen, cxc_pago_id, cxc_factura_id, registrado_por, soporte_super_admin_id)
+             VALUES
+                 (:fecha, 'ingreso', :cuenta, :moneda, :monto, :tasa, :monto_usd, :concepto, 'cobro_factura', :pago_id, :factura_id, :usuario, :soporte)"
+        );
+        $ins->execute([
+            'fecha'      => $pago['momento'],
+            'cuenta'     => self::cuentaParaCobro($pago['metodo']),
+            'moneda'     => $enBs ? 'VES' : 'USD',
+            'monto'      => $enBs ? $pago['monto_bs'] : $pago['monto'],
+            'tasa'       => $tasa,
+            'monto_usd'  => $pago['monto'],
+            'concepto'   => mb_substr($concepto, 0, 160),
+            'pago_id'    => $pagoId,
+            'factura_id' => $pago['factura_id'],
+            'usuario'    => $usuarioId,
+            'soporte'    => $soporteId,
+        ]);
+        return (int) $this->db->lastInsertId();
+    }
+
+    public function movimientoDeCobro(int $pagoId): ?array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT * FROM caja_movimientos WHERE cxc_pago_id = :id AND origen = 'cobro_factura' LIMIT 1"
+        );
+        $stmt->execute(['id' => $pagoId]);
+        $row = $stmt->fetch();
+        return $row === false ? null : $row;
+    }
+
     public function movimientoDeAbono(int $abonoId): ?array
     {
         $stmt = $this->db->prepare('SELECT * FROM caja_movimientos WHERE abono_id = :abono_id');
@@ -192,15 +275,16 @@ final class Caja
     {
         $stmt = $this->db->prepare(
             "INSERT INTO caja_movimientos
-                 (fecha, tipo, cuenta, moneda, monto, tasa_bs_por_usd, monto_usd, concepto, origen, revierte_id, registrado_por)
+                 (fecha, tipo, cuenta, moneda, monto, tasa_bs_por_usd, monto_usd, concepto, origen, revierte_id, registrado_por, soporte_super_admin_id)
              SELECT NOW(), IF(tipo = 'ingreso', 'egreso', 'ingreso'), cuenta, moneda, monto, tasa_bs_por_usd, monto_usd,
-                    :concepto, 'contra_asiento', id, :usuario_id
+                    :concepto, 'contra_asiento', id, :usuario_id, :soporte
              FROM caja_movimientos
              WHERE id = :id"
         );
         $stmt->execute([
             'concepto'   => mb_substr($concepto, 0, 160),
             'usuario_id' => $usuarioId,
+            'soporte'    => self::idSoporte(),
             'id'         => $movimientoId,
         ]);
         if ($stmt->rowCount() !== 1) {
@@ -217,10 +301,13 @@ final class Caja
     {
         [$where, $params] = self::filtrosSql($filtros);
         $stmt = $this->db->prepare(
-            'SELECT m.id, m.fecha, m.tipo, m.cuenta, m.moneda, m.monto, m.tasa_bs_por_usd, m.monto_usd,
-                    m.concepto, m.origen, m.revierte_id, u.nombre AS registrado_por
+            "SELECT m.id, m.fecha, m.tipo, m.cuenta, m.moneda, m.monto, m.tasa_bs_por_usd, m.monto_usd,
+                    m.concepto, m.origen, m.revierte_id,
+                    CASE WHEN m.soporte_super_admin_id IS NULL THEN u.nombre
+                         ELSE CONCAT('Soporte técnico (ID Maestro: ', m.soporte_super_admin_id, ')')
+                    END AS registrado_por
              FROM caja_movimientos m
-             JOIN usuarios u ON u.id = m.registrado_por'
+             JOIN usuarios u ON u.id = m.registrado_por"
             . $where
             . ' ORDER BY m.fecha DESC, m.id DESC LIMIT ' . max(1, min($limite, 2000))
         );
@@ -275,22 +362,24 @@ final class Caja
     }
 
     /**
-     * Cobros de facturas de clientes que sí entraron dinero. El saldo a favor no es un ingreso nuevo.
+     * Cobros de facturas de clientes que sí entraron dinero y todavía no tienen asiento en caja
+     * (los que ya lo tienen se suman como movimiento normal). El saldo a favor no es un ingreso nuevo.
      * @return array{usd:string, bs:string}
      */
     public function cobradoClientes(?string $desde = null, ?string $hasta = null): array
     {
-        $sql = "SELECT COALESCE(SUM(monto), 0) AS usd,
-                       COALESCE(SUM(COALESCE(monto_bs, ROUND(monto * tasa_cambio, 2), 0)), 0) AS bs
-                FROM cxc_pagos
-                WHERE estado = 'aplicado' AND metodo <> 'saldo_favor'";
+        $sql = "SELECT COALESCE(SUM(p.monto), 0) AS usd,
+                       COALESCE(SUM(COALESCE(p.monto_bs, ROUND(p.monto * p.tasa_cambio, 2), 0)), 0) AS bs
+                FROM cxc_pagos p
+                WHERE p.estado = 'aplicado' AND p.metodo <> 'saldo_favor'
+                  AND NOT EXISTS (SELECT 1 FROM caja_movimientos m WHERE m.cxc_pago_id = p.id)";
         $params = [];
         if ($desde !== null) {
-            $sql .= ' AND fecha >= :desde';
+            $sql .= ' AND p.fecha >= :desde';
             $params['desde'] = $desde;
         }
         if ($hasta !== null) {
-            $sql .= ' AND fecha < :hasta';
+            $sql .= ' AND p.fecha < :hasta';
             $params['hasta'] = $hasta;
         }
         $stmt = $this->db->prepare($sql);
@@ -428,6 +517,12 @@ final class Caja
             $params['hasta'] = (new DateTimeImmutable($f['hasta']))->modify('+1 day')->format('Y-m-d 00:00:00');
         }
         return [$where ? ' WHERE ' . implode(' AND ', $where) : '', $params];
+    }
+
+    /** Null fuera del modo soporte. El id es de adara_master, no de usuarios. */
+    private static function idSoporte(): ?int
+    {
+        return Auth::enSoporte() ? Auth::getAuditUserId() : null;
     }
 
     public static function aCentavos(mixed $monto): int

@@ -440,6 +440,15 @@ return [
         'POST'    => [FacturaController::class, 'storePago'],
         'idempotente' => true,
     ],
+    'sync_offline' => [
+        'POST' => [SyncController::class, 'recibir'],
+    ],
+    'facturas_anticipo' => [
+        'modulo'  => 'facturas',
+        'accion'  => 'crear',
+        'POST'    => [FacturaController::class, 'storeAnticipo'],
+        'idempotente' => true,
+    ],
     'facturas_abono' => [
         'modulo'  => 'facturas',
         'accion'  => 'crear',

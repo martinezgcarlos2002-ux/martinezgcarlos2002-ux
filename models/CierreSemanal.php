@@ -209,6 +209,59 @@ final class CierreSemanal
     }
 
     /**
+     * Saldo viejo que entra al ciclo de $fechaRef, con el periodo que lo originó.
+     * El periodo va desde el primer ciclo que no se saldó hasta el último ciclo anterior.
+     * @return array<int, array{pendiente:string, desde:string, hasta:string}>
+     */
+    public function arrastresHaciaTodos(string $fechaRef): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT c.productor_id,
+                    c.saldo_usd - c.pagado_usd AS pendiente,
+                    c.semana_fin AS hasta,
+                    COALESCE((
+                        SELECT MIN(c3.semana_inicio)
+                        FROM productores_cierres c3
+                        WHERE c3.productor_id = c.productor_id
+                          AND c3.estado <> 'anulada'
+                          AND c3.semana_inicio <= c.semana_inicio
+                          AND c3.semana_inicio > COALESCE((
+                              SELECT MAX(c4.semana_inicio)
+                              FROM productores_cierres c4
+                              WHERE c4.productor_id = c.productor_id
+                                AND c4.estado <> 'anulada'
+                                AND c4.saldo_usd <= c4.pagado_usd
+                                AND c4.semana_inicio < c.semana_inicio
+                          ), '1000-01-01')
+                    ), c.semana_inicio) AS desde
+             FROM productores_cierres c
+             JOIN (SELECT c2.productor_id, MAX(c2.semana_inicio) AS semana
+                   FROM productores_cierres c2
+                   JOIN productores p ON p.id = c2.productor_id
+                   WHERE c2.estado <> 'anulada' AND c2.semana_inicio < " . self::sqlInicioCiclo(':ref1', ':ref2') . "
+                   GROUP BY c2.productor_id) u
+               ON u.productor_id = c.productor_id AND u.semana = c.semana_inicio"
+        );
+        $stmt->execute(['ref1' => $fechaRef, 'ref2' => $fechaRef]);
+        $out = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $out[(int) $row['productor_id']] = [
+                'pendiente' => (string) $row['pendiente'],
+                'desde'     => (string) $row['desde'],
+                'hasta'     => (string) $row['hasta'],
+            ];
+        }
+        return $out;
+    }
+
+    /** @return array{pendiente:string, desde:string, hasta:string}|null */
+    public function arrastreHacia(int $productorId, string $semanaInicio): ?array
+    {
+        $todos = $this->arrastresHaciaTodos($semanaInicio);
+        return $todos[$productorId] ?? null;
+    }
+
+    /**
      * Ciclos ya terminados (fin < $hoy) con entregas o pagos sin cierre, en orden cronológico.
      * El ciclo de cada entrega se deriva del dia_cierre de su productor.
      * @return list<array{productor_id:int, semana_inicio:string}>

@@ -142,12 +142,164 @@ final class DashboardController
         }
 
         view('dashboard', [
-            'semanaInicio' => $semanaInicio,
-            'semanaFin'    => $semanaFin,
-            'operacion'    => $operacion,
-            'finanzas'     => $finanzas,
-            'indicadores'  => $indicadores,
+            'semanaInicio'    => $semanaInicio,
+            'semanaFin'       => $semanaFin,
+            'operacion'       => $operacion,
+            'finanzas'        => $finanzas,
+            'indicadores'     => $indicadores,
+            'deudasArrastre'  => $this->deudasArrastre($semanaInicio, $puede),
         ]);
+    }
+
+    /**
+     * Deuda viva de semanas ya cerradas, por semana operativa (sábado a viernes) y categoría.
+     * No existe una tabla cuentas_por_pagar: cada categoría vive en su módulo.
+     *
+     * Productores: el pendiente de una semana arrastrada ya está dentro del saldo de la
+     * siguiente, así que solo se toma el último cierre de cada productor. Si ese cierre ya
+     * venció, cuenta su saldo menos lo pagado. Si el ciclo abierto arrastra saldo anterior,
+     * ese arrastre se atribuye al día anterior al corte (la última semana cerrada).
+     *
+     * @return array{categorias:list<string>, semanas:list<array>, totales:array<string, array{cuentas:int, usd:float}>, total:array{cuentas:int, usd:float}}|null
+     */
+    private function deudasArrastre(DateTimeImmutable $corte, callable $puede): ?array
+    {
+        $partes = [];
+        if ($puede('productores')) {
+            $partes[] = "SELECT 'Productores' AS categoria, c.semana_fin AS vencimiento,
+                                COUNT(*) AS cuentas, SUM(c.saldo_usd - c.pagado_usd) AS deuda
+                         FROM productores_cierres c
+                         JOIN ultimo u ON u.productor_id = c.productor_id AND u.semana_inicio = c.semana_inicio
+                         WHERE c.semana_fin < :corte_p AND c.saldo_usd > c.pagado_usd
+                         GROUP BY c.semana_fin
+                         UNION ALL
+                         SELECT 'Productores',
+                                LEAST(DATE_SUB(c.semana_inicio, INTERVAL 1 DAY), DATE_SUB(:corte_a, INTERVAL 1 DAY)),
+                                COUNT(*), SUM(c.arrastre_anterior_usd)
+                         FROM productores_cierres c
+                         JOIN ultimo u ON u.productor_id = c.productor_id AND u.semana_inicio = c.semana_inicio
+                         WHERE c.semana_inicio >= :corte_b AND c.arrastre_anterior_usd > 0
+                         GROUP BY c.semana_inicio";
+        }
+        if ($puede('empleados')) {
+            $partes[] = "SELECT 'Nómina', n.semana_fin, COUNT(*), SUM(n.neto_usd)
+                         FROM nomina_semanal n
+                         WHERE n.estado = 'cerrada' AND n.neto_usd > 0 AND n.semana_fin < :corte_n
+                         GROUP BY n.semana_fin";
+        }
+        if ($puede('transportistas')) {
+            $partes[] = "SELECT 'Transporte', p.fecha_fin, COUNT(*),
+                                SUM(p.total_pagar - COALESCE(a.pagado, 0))
+                         FROM log_pagos_semanales p
+                         LEFT JOIN (
+                             SELECT pago_semanal_id, SUM(monto) AS pagado
+                             FROM log_pagos_transporte
+                             GROUP BY pago_semanal_id
+                         ) a ON a.pago_semanal_id = p.id
+                         WHERE p.fecha_fin < :corte_t AND p.total_pagar > COALESCE(a.pagado, 0)
+                         GROUP BY p.fecha_fin";
+        }
+        if ($partes === []) {
+            return null;
+        }
+
+        $cte = $puede('productores')
+            ? "WITH ultimo AS (
+                   SELECT productor_id, MAX(semana_inicio) AS semana_inicio
+                   FROM productores_cierres
+                   WHERE estado <> 'anulada'
+                   GROUP BY productor_id
+               ) "
+            : '';
+        $sql = $cte . 'SELECT categoria, vencimiento, cuentas, deuda FROM ('
+            . implode(' UNION ALL ', $partes) . ') d ORDER BY vencimiento DESC';
+
+        $params = [];
+        foreach (['corte_p', 'corte_a', 'corte_b', 'corte_n', 'corte_t'] as $nombre) {
+            if (str_contains($sql, ':' . $nombre)) {
+                $params[$nombre] = $corte->format('Y-m-d');
+            }
+        }
+
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            $filas = $stmt->fetchAll();
+        } catch (PDOException $e) {
+            if ($e->getCode() !== '42S02') {
+                throw $e;
+            }
+            $filas = [];
+        }
+
+        $categorias = [];
+        if ($puede('productores')) {
+            $categorias[] = 'Productores';
+        }
+        if ($puede('empleados')) {
+            $categorias[] = 'Nómina';
+        }
+        if ($puede('transportistas')) {
+            $categorias[] = 'Transporte';
+        }
+
+        $vacia = static fn (): array => ['cuentas' => 0, 'usd' => 0.0];
+        $totales = array_fill_keys($categorias, $vacia());
+        $semanas = [];
+        foreach ($filas as $f) {
+            $categoria = (string) $f['categoria'];
+            if (!isset($totales[$categoria])) {
+                continue;
+            }
+            $inicio = self::inicioSemana((string) $f['vencimiento']);
+            $semanas[$inicio] ??= array_fill_keys($categorias, $vacia());
+            $usd = round((float) $f['deuda'], 2);
+            $n = (int) $f['cuentas'];
+            $semanas[$inicio][$categoria]['cuentas'] += $n;
+            $semanas[$inicio][$categoria]['usd'] = round($semanas[$inicio][$categoria]['usd'] + $usd, 2);
+            $totales[$categoria]['cuentas'] += $n;
+            $totales[$categoria]['usd'] = round($totales[$categoria]['usd'] + $usd, 2);
+        }
+        krsort($semanas);
+
+        $lista = [];
+        foreach ($semanas as $inicio => $celdas) {
+            $fin = (new DateTimeImmutable($inicio))->modify('+6 days');
+            $totalSemana = 0.0;
+            $cuentasSemana = 0;
+            foreach ($celdas as $celda) {
+                $totalSemana += $celda['usd'];
+                $cuentasSemana += $celda['cuentas'];
+            }
+            $lista[] = [
+                'inicio'  => $inicio,
+                'fin'     => $fin->format('Y-m-d'),
+                'etiqueta'=> (new DateTimeImmutable($inicio))->format('d/m') . ' – ' . $fin->format('d/m/Y'),
+                'celdas'  => $celdas,
+                'cuentas' => $cuentasSemana,
+                'usd'     => round($totalSemana, 2),
+            ];
+        }
+
+        $total = $vacia();
+        foreach ($totales as $t) {
+            $total['cuentas'] += $t['cuentas'];
+            $total['usd'] = round($total['usd'] + $t['usd'], 2);
+        }
+
+        return [
+            'categorias' => $categorias,
+            'semanas'    => $lista,
+            'totales'    => $totales,
+            'total'      => $total,
+        ];
+    }
+
+    /** Sábado que abre la semana operativa que contiene $fecha (misma regla que el dashboard). */
+    private static function inicioSemana(string $fecha): string
+    {
+        $dia = new DateTimeImmutable($fecha);
+        return $dia->modify('-' . (((int) $dia->format('w') + 1) % 7) . ' days')->format('Y-m-d');
     }
 
     /** @return array{label:string, icon:string, p:string, valor:int} */

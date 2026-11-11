@@ -60,11 +60,22 @@ final class Productor
             $params['dia_cierre'] = CierreSemanal::diaCierreValido($diaCierre);
         }
 
-        $sql = 'SELECT t.*, t.suministrado_usd - t.pagado_usd AS saldo_usd
+        $sql = 'SELECT t.*, t.suministrado_usd - t.pagado_usd AS saldo_usd,
+                       CASE
+                           WHEN t.saldo_desde_cierre IS NULL OR t.saldo_desde_cierre > t.ultima_entrega THEN t.primera_entrega
+                           ELSE t.saldo_desde_cierre
+                       END AS saldo_desde,
+                       t.ultima_entrega AS saldo_hasta
                 FROM (
                     SELECT p.id, p.nombre, p.documento, p.telefono, p.correo, p.direccion,
                            p.precio_litro_usd, p.credito_dias, p.dia_cierre, p.grupo_cierre, p.tolerancia_pago, p.activo,
+                           (SELECT MIN(e.fecha) FROM productores_entregas e WHERE e.productor_id = p.id) AS primera_entrega,
                            (SELECT MAX(e.fecha) FROM productores_entregas e WHERE e.productor_id = p.id) AS ultima_entrega,
+                           (SELECT DATE_ADD(c.semana_fin, INTERVAL 1 DAY)
+                            FROM productores_cierres c
+                            WHERE c.productor_id = p.id AND c.estado <> \'anulada\' AND c.saldo_usd <= c.pagado_usd
+                            ORDER BY c.semana_inicio DESC
+                            LIMIT 1) AS saldo_desde_cierre,
                            ' . self::SQL_TOTALES . '
                     FROM productores p'
             . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
@@ -77,7 +88,7 @@ final class Productor
 
     /**
      * Indicadores históricos. El precio promedio es ponderado por litros (inversión / litros).
-     * @return array{productores_activos:int, productores_total:int, litros:string, precio_promedio:?string, suministrado_usd:string, pagado_usd:string, saldo_usd:string}
+     * @return array{productores_activos:int, productores_total:int, litros:string, precio_promedio:?string, suministrado_usd:string, pagado_usd:string, saldo_usd:string, saldo_desde:?string, saldo_hasta:?string}
      */
     public function kpis(): array
     {
@@ -91,6 +102,7 @@ final class Productor
              FROM (SELECT COALESCE(SUM(litros), 0) AS litros, COALESCE(SUM(subtotal_usd), 0) AS suministrado_usd
                    FROM productores_entregas) e'
         )->fetch();
+        $periodo = $this->periodoSaldoPendiente();
 
         return [
             'productores_activos' => (int) $row['productores_activos'],
@@ -100,6 +112,49 @@ final class Productor
             'suministrado_usd'    => (string) $row['suministrado_usd'],
             'pagado_usd'          => (string) $row['pagado_usd'],
             'saldo_usd'           => Caja::desdeCentavos(Caja::aCentavos($row['suministrado_usd']) - Caja::aCentavos($row['pagado_usd'])),
+            'saldo_desde'         => $periodo['desde'],
+            'saldo_hasta'         => $periodo['hasta'],
+        ];
+    }
+
+    /**
+     * Rango de fechas que todavía no está saldado: desde el día siguiente al último
+     * ciclo pagado por completo (o la primera entrega, si nunca se saldó) hasta la última entrega.
+     * Solo entran productores con saldo a favor de la empresa.
+     * @return array{desde:?string, hasta:?string}
+     */
+    public function periodoSaldoPendiente(): array
+    {
+        $row = $this->db->query(
+            'SELECT MIN(CASE
+                        WHEN pagado.siguiente IS NULL OR pagado.siguiente > e.ultima THEN e.primera
+                        ELSE pagado.siguiente
+                    END) AS desde,
+                    MAX(e.ultima) AS hasta
+             FROM (
+                 SELECT productor_id, MIN(fecha) AS primera, MAX(fecha) AS ultima, SUM(subtotal_usd) AS suministrado
+                 FROM productores_entregas
+                 GROUP BY productor_id
+             ) e
+             LEFT JOIN (
+                 SELECT c.productor_id, DATE_ADD(c.semana_fin, INTERVAL 1 DAY) AS siguiente
+                 FROM productores_cierres c
+                 JOIN (
+                     SELECT productor_id, MAX(semana_inicio) AS semana_inicio
+                     FROM productores_cierres
+                     WHERE estado <> \'anulada\' AND saldo_usd <= pagado_usd
+                     GROUP BY productor_id
+                 ) u ON u.productor_id = c.productor_id AND u.semana_inicio = c.semana_inicio
+             ) pagado ON pagado.productor_id = e.productor_id
+             WHERE e.suministrado > (
+                 SELECT COALESCE(SUM(a.monto_usd), 0) FROM productores_abonos a
+                 WHERE a.productor_id = e.productor_id AND a.anulado_en IS NULL AND ' . self::SQL_ABONOS . '
+             )'
+        )->fetch();
+
+        return [
+            'desde' => $row['desde'] !== null && $row['desde'] !== false ? (string) $row['desde'] : null,
+            'hasta' => $row['hasta'] !== null && $row['hasta'] !== false ? (string) $row['hasta'] : null,
         ];
     }
 

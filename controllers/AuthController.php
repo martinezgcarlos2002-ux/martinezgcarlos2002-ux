@@ -29,6 +29,7 @@ final class AuthController
 
     public function showLogin(): void
     {
+        self::sinCache();
         if (super_admin_actual() !== null) {
             redirect('master');
         }
@@ -49,6 +50,7 @@ final class AuthController
 
     public function login(): void
     {
+        self::sinCache();
         $email = mb_strtolower(post_string('email', 100));
         $ip = client_ip();
 
@@ -80,8 +82,9 @@ final class AuthController
         }
 
         $usuarios = new Usuario(get_db());
-        $user = $usuarios->findForLogin($email);
-        $valid = password_verify($password, $user['password_hash'] ?? self::DUMMY_HASH);
+        [$user, $consultaMs] = self::medir(static fn () => $usuarios->findForLogin($email));
+        [$valid, $verifyMs] = self::medir(static fn () => password_verify($password, $user['password_hash'] ?? self::DUMMY_HASH));
+        self::logTiempos('empresa', $consultaMs, $verifyMs, $user !== null);
 
         if (!$valid || $user === null || (int) $user['activo'] !== 1) {
             $razon = match (true) {
@@ -105,6 +108,7 @@ final class AuthController
 
     public function logout(): void
     {
+        self::sinCache();
         $user = current_user();
         if ($user !== null) {
             audit_log('auth', 'logout', null, 'usuarios', $user['id'], $user['id']);
@@ -117,29 +121,35 @@ final class AuthController
     private function loginMultiempresa(string $email, string $password, string $ip): never
     {
         $saas = new Saas(Database::master());
-        $admin = $saas->superAdminPorCorreo($email);
+        $admin = null;
         $cliente = null;
         $usuarios = null;
         $user = null;
 
-        if ($admin === null) {
+        [$hallazgo, $consultaMs] = self::medir(function () use ($saas, $email, &$admin, &$cliente, &$usuarios, &$user): void {
+            $admin = $saas->superAdminPorCorreo($email);
+            if ($admin !== null) {
+                return;
+            }
             $porHost = $saas->clientePorHost((string) ($_SERVER['HTTP_HOST'] ?? ''));
             if ($porHost !== null) {
                 // La dirección ya eligió la empresa: no se busca el correo en las demás.
                 [$cliente, $usuarios, $user] = $this->usuarioEnEmpresa($porHost, $email);
-            } else {
-                $porCorreo = $saas->clientePorCorreoAdmin($email);
-                if ($porCorreo !== null) {
-                    [$cliente, $usuarios, $user] = $this->usuarioEnEmpresa($porCorreo, $email);
-                }
-                // Empleados y otros admins no están en correo_admin_cliente. Se buscan en cada empresa.
-                if ($user === null) {
-                    [$cliente, $usuarios, $user] = $this->usuarioEntreEmpresas($saas, $email);
-                }
+                return;
             }
-        }
+            $porCorreo = $saas->clientePorCorreoAdmin($email);
+            if ($porCorreo !== null) {
+                [$cliente, $usuarios, $user] = $this->usuarioEnEmpresa($porCorreo, $email);
+            }
+            // Empleados y otros admins no están en correo_admin_cliente. Se buscan en cada empresa.
+            if ($user === null) {
+                [$cliente, $usuarios, $user] = $this->usuarioEntreEmpresas($saas, $email);
+            }
+        });
+        unset($hallazgo);
 
-        $valid = password_verify($password, $admin['password_hash'] ?? $user['password_hash'] ?? self::DUMMY_HASH);
+        [$valid, $verifyMs] = self::medir(static fn () => password_verify($password, $admin['password_hash'] ?? $user['password_hash'] ?? self::DUMMY_HASH));
+        self::logTiempos($admin !== null ? 'maestro' : 'multiempresa', $consultaMs, $verifyMs, $admin !== null || $user !== null);
 
         if ($admin !== null) {
             if (!$valid || (int) $admin['activo'] !== 1) {
@@ -265,6 +275,41 @@ final class AuthController
             return;
         }
         audit_log('auth', $accion, $detalle);
+    }
+
+    /**
+     * @template T
+     * @param callable(): T $trabajo
+     * @return array{0: T, 1: float} resultado y milisegundos
+     */
+    private static function medir(callable $trabajo): array
+    {
+        $inicio = hrtime(true);
+        $resultado = $trabajo();
+        return [$resultado, (hrtime(true) - $inicio) / 1_000_000];
+    }
+
+    /** Cloudflare no guarda ni reta la respuesta del login a partir de lo que cachea el origen. */
+    private static function sinCache(): void
+    {
+        if (headers_sent()) {
+            return;
+        }
+        header('Cache-Control: private, no-store, no-cache, must-revalidate');
+        header('CDN-Cache-Control: no-store');
+        header('Pragma: no-cache');
+    }
+
+    /** No registra correo ni contraseña: solo dónde se fue el tiempo del POST. */
+    private static function logTiempos(string $via, float $consultaMs, float $verifyMs, bool $encontrado): void
+    {
+        error_log(sprintf(
+            '[ADARA][login-tiempo] via=%s consulta_ms=%.1f verify_ms=%.1f encontrado=%d',
+            $via,
+            $consultaMs,
+            $verifyMs,
+            $encontrado ? 1 : 0
+        ));
     }
 
     private function fail(string $email, string $message): never

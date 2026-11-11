@@ -13,6 +13,16 @@ function session_start_secure(): void
     ini_set('session.use_only_cookies', '1');
     ini_set('session.use_trans_sid', '0');
     ini_set('session.cookie_httponly', '1');
+    // No reescribe el archivo de sesión si el contenido no cambió.
+    ini_set('session.lazy_write', '1');
+
+    $directorio = ADARA_ROOT . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'sessions';
+    if (!is_dir($directorio)) {
+        mkdir($directorio, 0700, true);
+    }
+    if (is_dir($directorio) && is_writable($directorio)) {
+        session_save_path($directorio);
+    }
 
     session_name(SESSION_NAME);
     session_set_cookie_params([

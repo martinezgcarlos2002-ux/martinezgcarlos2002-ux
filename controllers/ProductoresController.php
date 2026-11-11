@@ -120,7 +120,7 @@ final class ProductoresController
         $dias = self::diasDeSemana($semana);
 
         $matriz = $this->entregas->matrizSemana($semana, $semanaFin);
-        $saldosPrevios = $this->cierres->pendientesAntesTodos($semana);
+        $arrastres = $this->cierres->arrastresHaciaTodos($semana);
         $pagosSemana = $this->pagos->totalesSemanaTodos($semana);
         $cortes = $this->cierres->cortesVigentes();
         $vacio = array_fill_keys(PagoProductor::RESUMEN, '0.00');
@@ -139,7 +139,8 @@ final class ProductoresController
             }
             $pagos = $pagosSemana[$pid] ?? $vacio;
             $abonos = Caja::aCentavos($pagos['mercancia']) + Caja::aCentavos($pagos['pm_trans']) + Caja::aCentavos($pagos['efectivo']);
-            $saldoPrevio = $saldosPrevios[$pid] ?? null;
+            $arrastre = $arrastres[$pid] ?? null;
+            $saldoPrevio = $arrastre['pendiente'] ?? null;
 
             $filas[] = [
                 'id'            => $pid,
@@ -153,6 +154,8 @@ final class ProductoresController
                 'total_litros'  => number_format($litros / 1000, 3, '.', ''),
                 'total_pagar'   => Caja::desdeCentavos($bruto),
                 'saldo_previo'  => $saldoPrevio,
+                'saldo_desde'   => $arrastre['desde'] ?? null,
+                'saldo_hasta'   => $arrastre['hasta'] ?? null,
                 'mercancia'     => $pagos['mercancia'],
                 'pm_trans'      => $pagos['pm_trans'],
                 'efectivo'      => $pagos['efectivo'],
@@ -1435,7 +1438,8 @@ final class ProductoresController
 
         $litros = $cierre['litros'] ?? $consolidado['litros'];
         $bruto = $cierre['bruto_usd'] ?? $consolidado['bruto_usd'];
-        $arrastre = $cierre['arrastre_anterior_usd'] ?? $this->cierres->pendienteAntes($productorId, $semana);
+        $viejo = $this->cierres->arrastreHacia($productorId, $semana);
+        $arrastre = $cierre['arrastre_anterior_usd'] ?? ($viejo['pendiente'] ?? '0.00');
 
         $restante = Caja::aCentavos($bruto) + Caja::aCentavos($arrastre)
             - Caja::aCentavos($pagos['mercancia']) - Caja::aCentavos($pagos['pm_trans']) - Caja::aCentavos($pagos['efectivo']);
@@ -1446,6 +1450,8 @@ final class ProductoresController
             'bruto_usd'       => (string) $bruto,
             'precio_promedio' => (float) $litros > 0 ? number_format((float) $bruto / (float) $litros, 4, '.', '') : null,
             'arrastre_usd'    => (string) $arrastre,
+            'arrastre_desde'  => (float) $arrastre > 0 ? ($viejo['desde'] ?? null) : null,
+            'arrastre_hasta'  => (float) $arrastre > 0 ? ($viejo['hasta'] ?? null) : null,
             'mercancia_usd'   => $pagos['mercancia'],
             'pm_trans_usd'    => $pagos['pm_trans'],
             'efectivo_usd'    => $pagos['efectivo'],

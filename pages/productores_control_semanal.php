@@ -89,7 +89,7 @@ layout_start('Control Semanal de Productores', 'productores');
     <button type="button" class="btn btn-sm btn-outline-danger js-export-pdf"><i class="bi bi-file-earmark-pdf"></i> Exportar PDF</button>
   </div>
 </div>
-<p class="text-muted small">Escribe o corrige los litros y pulsa <strong>Guardar Semana</strong>. Si un día ya tenía entrega, sus litros se sobrescriben (el precio queda el congelado al registrarla). Solo se bloquean los días anteriores o iguales al último corte de cuenta; los posteriores siguen abiertos.</p>
+<p class="text-muted small">Escribe o corrige los litros y pulsa <strong>Guardar Semana</strong>. <strong>Total a pagar</strong> es solo la leche de esta semana. <strong>Saldo viejo</strong> es lo que venía del ciclo anterior, con sus fechas debajo. <strong>Pendiente a pagar</strong> suma los dos y resta los abonos de la semana.</p>
 
 <form method="post" action="<?= e(url('productores_semana_guardar')) ?>" id="formSemana" autocomplete="off">
 <?= csrf_field() ?>
@@ -109,13 +109,13 @@ layout_start('Control Semanal de Productores', 'productores');
           <th class="text-center"><?= e($nombresDia[$i]) ?><br><span class="fw-normal"><?= e($fechaCorta($d)) ?></span></th>
         <?php endforeach; ?>
         <th class="text-end">Tot. Litros</th>
-        <th class="text-end">Total a Pagar $</th>
-        <th class="text-end">Saldo Pend.</th>
+        <th class="text-end">Total a Pagar $<br><span class="fw-normal">semana nueva</span></th>
+        <th class="text-end">Saldo viejo<br><span class="fw-normal">ciclo anterior</span></th>
         <th class="text-end">Merc. $</th>
         <th class="text-end">PM/Trans $</th>
         <th class="text-end">Efec. $</th>
         <th class="text-end">Tot. Abonos</th>
-        <th class="text-end">Pendiente a Pagar</th>
+        <th class="text-end">Pendiente a Pagar<br><span class="fw-normal">viejo + nuevo</span></th>
       </tr>
     </thead>
     <tbody>
@@ -153,7 +153,12 @@ layout_start('Control Semanal de Productores', 'productores');
         <?php endforeach; ?>
         <td class="text-end num bg-col-lit"><?= e(num($fila['total_litros'], 1)) ?></td>
         <td class="text-end num bg-col-pagar"><?= e($dinero($fila['total_pagar'])) ?></td>
-        <td class="text-end num bg-col-saldo <?= e($saldoCls) ?>"><?= $saldo === null ? '—' : e($dinero($saldo)) ?></td>
+        <td class="text-end num bg-col-saldo <?= e($saldoCls) ?>">
+          <?= $saldo === null ? '—' : e($dinero($saldo)) ?>
+          <?php if ($saldo !== null && (float) $saldo > 0 && !empty($fila['saldo_desde'])): ?>
+            <div class="nota-arrastre"><?= e($fechaCorta($fila['saldo_desde'])) ?> – <?= e($fechaCorta($fila['saldo_hasta'])) ?></div>
+          <?php endif; ?>
+        </td>
         <td class="text-end num bg-col-merc"><?= (float) $fila['mercancia'] > 0 ? e($dinero($fila['mercancia'])) : '—' ?></td>
         <td class="text-end num bg-col-pm"><?= (float) $fila['pm_trans'] > 0 ? e($dinero($fila['pm_trans'])) : '—' ?></td>
         <td class="text-end num bg-col-efec"><?= (float) $fila['efectivo'] > 0 ? e($dinero($fila['efectivo'])) : '—' ?></td>

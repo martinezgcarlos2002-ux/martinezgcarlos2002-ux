@@ -187,7 +187,9 @@ final class Database
             ($value = getenv($key)) !== false && $value !== '' ? $value : $default;
 
         return [
-            'host' => $env('ADARA_DB_HOST', '127.0.0.1'),
+            // En Linux, "localhost" usa el socket y se salta el TCP de 127.0.0.1.
+            // En Windows el socket no existe: se queda en TCP.
+            'host' => $env('ADARA_DB_HOST', PHP_OS_FAMILY === 'Windows' ? '127.0.0.1' : 'localhost'),
             'port' => (int) $env('ADARA_DB_PORT', '3306'),
             'name' => $env('ADARA_DB_NAME', 'adara'),
             'user' => $env('ADARA_DB_USER', 'root'),

@@ -177,6 +177,34 @@ final class FacturaController
         }, 201);
     }
 
+    /** Pago sin factura: entra a caja y queda como saldo a favor del cliente. */
+    public function storeAnticipo(): void
+    {
+        $this->responder(function (): array {
+            $clienteId = self::idRequerido('cliente_id', 'Selecciona un cliente.');
+            $tasa = self::tasaCambioPost();
+            $r = $this->cxc->registrarAnticipo(
+                $clienteId,
+                post_string('monto', 30),
+                self::fecha('fecha', 'Fecha del anticipo inválida.'),
+                self::metodo(),
+                self::texto('referencia', 60),
+                self::texto('notas', 160),
+                self::usuario(),
+                $tasa['tasa'],
+                $tasa['bs']
+            );
+            $pago = $this->cxc->pagos([$r['pago_id']])[0];
+            return [
+                'mensaje'      => 'Anticipo de $' . num($pago['monto']) . ' registrado como saldo a favor.',
+                'pagos'        => [self::jsonPago($pago)],
+                'facturas'     => [],
+                'cliente'      => self::jsonCliente($this->cxc->cliente($clienteId)),
+                'devoluciones' => self::jsonDevolucionesDe($this->cxc, $clienteId),
+            ];
+        }, 201);
+    }
+
     /** El reparto lo decide el servidor (FIFO); cualquier "repartos" enviado por el cliente se ignora. */
     public function storeAbono(): void
     {
@@ -242,9 +270,11 @@ final class FacturaController
             $id = self::idRequerido('id', 'Pago inválido.');
             $r = $this->cxc->anularPago($id, self::usuario());
             return [
-                'mensaje'  => 'Pago anulado. El saldo de la factura se restauró.',
+                'mensaje'  => $r['factura_id'] === null
+                    ? 'Anticipo anulado. El saldo a favor del cliente se redujo.'
+                    : 'Pago anulado. El saldo de la factura se restauró.',
                 'pagos'    => array_map([self::class, 'jsonPago'], $this->cxc->pagos([$r['pago_id']])),
-                'facturas' => array_map([self::class, 'jsonFactura'], $this->cxc->facturas([$r['factura_id']])),
+                'facturas' => $r['factura_id'] === null ? [] : array_map([self::class, 'jsonFactura'], $this->cxc->facturas([$r['factura_id']])),
                 'cliente'  => self::jsonCliente($this->cxc->cliente($r['cliente_id'])),
             ];
         });
@@ -746,7 +776,7 @@ final class FacturaController
     {
         return [
             'id'         => (int) $p['id'],
-            'factura_id' => (int) $p['factura_id'],
+            'factura_id' => $p['factura_id'] !== null ? (int) $p['factura_id'] : null,
             'fecha'      => (string) $p['fecha'],
             'monto'      => (float) $p['monto'],
             'metodo'     => CxCService::METODOS[$p['metodo']] ?? (string) $p['metodo'],

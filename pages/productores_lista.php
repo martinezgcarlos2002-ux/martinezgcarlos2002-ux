@@ -16,6 +16,15 @@ declare(strict_types=1);
  * @var bool $puedeArchivar
  */
 $usd = static fn (mixed $v, int $d = 2): string => ((float) $v < 0 ? '-' : '') . '$' . num(abs((float) $v), $d);
+$periodo = static function (?string $desde, ?string $hasta): string {
+    if ($desde === null || $desde === '') {
+        return '';
+    }
+    $fmt = static fn (string $iso): string => (new DateTimeImmutable($iso))->format('d/m/Y');
+    $a = $fmt($desde);
+    $b = $fmt($hasta ?: $desde);
+    return $a === $b ? $a : $a . ' – ' . $b;
+};
 $diaCierreFiltro = $diaCierre;
 /** Clave enviada como tolerancia_pago => [etiqueta, días de gracia, clase de color] */
 $tolerancias = [
@@ -65,6 +74,9 @@ layout_start('Productores y Proveedores', 'productores');
       <div class="card-body py-3">
         <div class="kpi-num <?= (float) $kpis['saldo_usd'] > 0 ? 'kpi-deuda' : 'kpi-ok' ?>"><?= e($usd($kpis['saldo_usd'])) ?></div>
         <div class="text-muted">Saldo Pendiente</div>
+        <?php if ((float) $kpis['saldo_usd'] > 0 && ($etiqueta = $periodo($kpis['saldo_desde'], $kpis['saldo_hasta'])) !== ''): ?>
+        <div class="small fw-semibold text-danger"><?= e($etiqueta) ?></div>
+        <?php endif; ?>
       </div>
     </div>
   </div>
@@ -160,7 +172,12 @@ layout_start('Productores y Proveedores', 'productores');
           <td class="text-end num"><?= e($usd($p['precio_litro_usd'], 4)) ?></td>
           <td class="text-end num fw-semibold"><?= e($usd($p['suministrado_usd'])) ?></td>
           <td class="text-end num text-success"><?= e($usd($p['pagado_usd'])) ?></td>
-          <td class="text-end num fw-bold <?= $saldo > 0 ? 'text-danger' : 'text-success' ?>"><?= e($usd($saldo)) ?></td>
+          <td class="text-end num fw-bold <?= $saldo > 0 ? 'text-danger' : 'text-success' ?>">
+            <?= e($usd($saldo)) ?>
+            <?php if ($saldo > 0 && ($etiqueta = $periodo($p['saldo_desde'] ?? null, $p['saldo_hasta'] ?? null)) !== ''): ?>
+            <div class="small fw-normal text-danger"><?= e($etiqueta) ?></div>
+            <?php endif; ?>
+          </td>
           <td>
             <span class="badge <?= $activo ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $activo ? 'Activo' : 'Archivado' ?></span>
           </td>

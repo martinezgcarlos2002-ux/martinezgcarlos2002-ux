@@ -113,6 +113,7 @@ require_once ADARA_ROOT . '/controllers/BancosController.php';
 require_once ADARA_ROOT . '/models/EmpresaConfig.php';
 require_once ADARA_ROOT . '/controllers/ConfiguracionController.php';
 require_once ADARA_ROOT . '/controllers/MasterController.php';
+require_once ADARA_ROOT . '/controllers/SyncController.php';
 
 require_once ADARA_ROOT . '/layout.php';
 
