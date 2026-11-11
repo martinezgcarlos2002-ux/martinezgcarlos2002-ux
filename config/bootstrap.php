@@ -38,6 +38,7 @@ require_once ADARA_ROOT . '/security/session.php';
 require_once ADARA_ROOT . '/security/csrf.php';
 require_once ADARA_ROOT . '/security/auth.php';
 require_once ADARA_ROOT . '/security/rbac.php';
+require_once ADARA_ROOT . '/helpers/vista_movil.php';
 require_once ADARA_ROOT . '/security/audit.php';
 require_once ADARA_ROOT . '/security/idempotencia.php';
 require_once ADARA_ROOT . '/security/tenant.php';

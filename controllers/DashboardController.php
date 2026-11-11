@@ -17,6 +17,10 @@ final class DashboardController
     public function index(): void
     {
         $user = current_user();
+        if (vista_movil()) {
+            view('dashboard_movil', ['acciones' => acciones_rapidas($user)]);
+            return;
+        }
 
         // Semana operativa: sábado a viernes.
         $hoy = new DateTimeImmutable('today');
@@ -300,6 +304,18 @@ final class DashboardController
     {
         $dia = new DateTimeImmutable($fecha);
         return $dia->modify('-' . (((int) $dia->format('w') + 1) % 7) . ' days')->format('Y-m-d');
+    }
+
+    public function forzarWeb(): void
+    {
+        $_SESSION['forzar_web'] = true;
+        redirect('dashboard');
+    }
+
+    public function volverMovil(): void
+    {
+        unset($_SESSION['forzar_web']);
+        redirect('dashboard');
     }
 
     /** @return array{label:string, icon:string, p:string, valor:int} */

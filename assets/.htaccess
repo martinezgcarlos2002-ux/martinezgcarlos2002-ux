@@ -14,6 +14,8 @@ RemoveType .php .phtml .phar .cgi .pl .py .asp .shtml
     php_flag engine off
 </IfModule>
 
+AddType application/vnd.android.package-archive .apk
+
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
     # Si una imagen se abre directo en una pestaña, no puede ejecutar scripts ni cargar nada.

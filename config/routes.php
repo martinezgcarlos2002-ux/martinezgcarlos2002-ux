@@ -103,6 +103,15 @@ return [
         'modulo'  => 'dashboard',
         'GET'     => [DashboardController::class, 'index'],
     ],
+    // App Android: alterna entre la vista simplificada y el ERP completo (solo cambia la sesión).
+    'vista_web' => [
+        'modulo'  => 'dashboard',
+        'POST'    => [DashboardController::class, 'forzarWeb'],
+    ],
+    'vista_movil' => [
+        'modulo'  => 'dashboard',
+        'POST'    => [DashboardController::class, 'volverMovil'],
+    ],
 
     // ----- Productores ------------------------------------------------------
     'productores' => [

@@ -78,3 +78,9 @@ body.login-page::before {
 .login-link:hover,
 .login-link:focus-visible { color: var(--color-primario, #f97316); text-decoration: none; }
 .login-link:focus-visible { outline: 2px solid var(--color-primario, #f97316); outline-offset: 3px; border-radius: 4px; }
+
+.apk-descarga { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; text-align: center; }
+.apk-descarga[hidden],
+.es-app-nativa .apk-descarga { display: none !important; }
+.apk-descarga .btn { border-radius: 10px; font-size: .85rem; }
+.apk-descarga-nota { margin-top: .35rem; color: #6b7280; font-size: .75rem; }

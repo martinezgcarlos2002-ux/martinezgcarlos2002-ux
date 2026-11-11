@@ -69,6 +69,24 @@
     window.alert(msg);
   }
 
+  var MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+  /**
+   * Web: descarga normal. App Android: caché + menú de compartir (descargas_app.js).
+   * Sin el helper (página sin layout), cae a la descarga de la propia librería.
+   */
+  function entregar(archivo, respaldo) {
+    var helper = window.AdaraDescargas;
+    if (!helper || typeof helper.guardar !== 'function') {
+      respaldo();
+      return;
+    }
+    helper.guardar(archivo).catch(function (error) {
+      console.error('ADARA: exportación fallida', error);
+      aviso(error && error.message ? error.message : 'No se pudo guardar el archivo.');
+    });
+  }
+
   function exportarExcel() {
     if (typeof XLSX === 'undefined') {
       aviso('Cargando librería de Excel. Intenta de nuevo en un momento.');
@@ -86,7 +104,11 @@
     if (resumen) {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(tableMatrix(resumen)), 'Resumen diario');
     }
-    XLSX.writeFile(wb, c.filename + '.xlsx');
+    var nombre = c.filename + '.xlsx';
+    entregar(
+      { nombre: nombre, base64: XLSX.write(wb, { bookType: 'xlsx', type: 'base64' }), mime: MIME_XLSX },
+      function () { XLSX.writeFile(wb, nombre); }
+    );
   }
 
   function exportarPdf() {
@@ -143,7 +165,11 @@
         });
       }
     }
-    doc.save(c.filename + '.pdf');
+    var nombre = c.filename + '.pdf';
+    entregar(
+      { nombre: nombre, blob: doc.output('blob'), mime: 'application/pdf' },
+      function () { doc.save(nombre); }
+    );
   }
 
   document.addEventListener('click', function (ev) {

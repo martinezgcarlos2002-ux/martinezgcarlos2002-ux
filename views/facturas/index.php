@@ -59,7 +59,7 @@ layout_start('Control de Facturas', 'facturas');
       <div class="small text-muted">Módulo independiente</div>
     </div>
     <div class="d-flex flex-wrap gap-2">
-      <a class="btn btn-sm btn-outline-success rounded-pill" href="<?= e(url('facturas_excel')) ?>"><i class="bi bi-file-earmark-excel"></i> Excel</a>
+      <a class="btn btn-sm btn-outline-success rounded-pill btn-descarga" href="<?= e(url('facturas_excel')) ?>"><i class="bi bi-file-earmark-excel"></i> Excel</a>
       <a class="btn btn-sm btn-outline-danger rounded-pill" href="<?= e(url('facturas_pdf')) ?>"><i class="bi bi-file-earmark-pdf"></i> Reporte general PDF</a>
       <?php if ($puedeCrear): ?>
       <button type="button" class="btn btn-sm btn-outline-warning rounded-pill" data-bs-toggle="modal" data-bs-target="#modalCliente"><i class="bi bi-plus-lg"></i> Cliente</button>

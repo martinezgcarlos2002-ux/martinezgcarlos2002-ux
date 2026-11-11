@@ -18,6 +18,7 @@ storage/logs/*
 storage/tmp/
 storage/sessions/*
 !storage/sessions/.gitkeep
+assets/descargas/*.apk
 *.log
 
 # Dependencias

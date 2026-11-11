@@ -117,7 +117,7 @@ $puedeEditarHoja = $puedeCrear ?? false;
        href="<?= e(url('control_leche_planilla', ['fecha' => $hasta])) ?>">
       <i class="bi bi-printer"></i> Imprimir Planilla de Recolección
     </a>
-    <a class="btn btn-outline-success" href="<?= e(url('control_leche_excel', ['fecha' => $fechaHoja])) ?>">
+    <a class="btn btn-outline-success btn-descarga" href="<?= e(url('control_leche_excel', ['fecha' => $fechaHoja])) ?>">
       <i class="bi bi-file-earmark-excel"></i> Excel
     </a>
     <?php if ($puedeCrear): ?>
@@ -221,7 +221,7 @@ $puedeEditarHoja = $puedeCrear ?? false;
   <a class="btn btn-planilla" target="_blank" rel="noopener" href="<?= e(url('control_leche_planilla', ['fecha' => $fechaHoja])) ?>">
     <i class="bi bi-printer"></i> Imprimir planilla
   </a>
-  <a class="btn btn-outline-success" href="<?= e(url('control_leche_excel', ['fecha' => $fechaHoja])) ?>">
+  <a class="btn btn-outline-success btn-descarga" href="<?= e(url('control_leche_excel', ['fecha' => $fechaHoja])) ?>">
     <i class="bi bi-file-earmark-excel"></i> Excel
   </a>
   <?php if ($puedeEditarHoja): ?>

@@ -657,8 +657,57 @@ tr.collapse.show { display: table-row; }
 
 .table-responsive {
     width: 100%;
+    max-width: 100%;
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scroll-behavior: smooth;
+}
+/* El contenido no puede ensanchar la página: las tablas anchas scrollean dentro de su caja. */
+.main-wrap { min-width: 0; }
+.page-content { min-width: 0; max-width: 100%; }
+.card:has(> .table-responsive) { overflow: hidden; }
+
+/* ── App Android: vista simplificada ─────────────────────────────────── */
+body.vista-movil .main-wrap { margin-left: 0 !important; }
+body.vista-movil .topbar .rate-pill,
+body.vista-movil .topbar-clock { display: none; }
+.btn-inicio-movil {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2.5rem; height: 2.5rem; border-radius: 50%;
+    background: var(--navy, #1a2e5a); color: #fff; font-size: 1.15rem; text-decoration: none;
+}
+.btn-inicio-movil:hover { color: #fff; opacity: .9; }
+.topbar-logo-movil { height: 2.25rem; width: auto; border-radius: .5rem; }
+.movil-saludo { margin: .25rem 0 1rem; }
+.movil-saludo h4 { color: var(--navy, #1a2e5a); font-weight: 700; }
+.acciones-rapidas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem; }
+.accion-rapida {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .55rem;
+    min-height: 7.5rem; padding: 1rem .5rem; text-align: center; text-decoration: none;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 1rem;
+    box-shadow: 0 2px 8px rgba(26, 46, 90, .06); color: var(--navy, #1a2e5a);
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+.accion-rapida:active { transform: scale(.97); box-shadow: 0 1px 4px rgba(26, 46, 90, .08); }
+.accion-rapida-icono {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 3.25rem; height: 3.25rem; border-radius: 50%;
+    background: color-mix(in srgb, var(--color-primario, #f97316) 14%, #fff);
+    color: var(--color-primario, #f97316); font-size: 1.6rem;
+}
+.accion-rapida-texto { font-weight: 600; font-size: .92rem; line-height: 1.2; }
+.btn-globo {
+    border-radius: 999px; padding: .65rem 1.1rem; font-weight: 600;
+    background: #fff; border: 1px solid #cbd5e1; color: var(--navy, #1a2e5a);
+}
+.btn-globo:hover, .btn-globo:focus { background: #f1f5f9; color: var(--navy, #1a2e5a); }
+.volver-movil {
+    position: fixed; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); z-index: 1060; margin: 0;
+}
+@media (min-width: 576px) {
+    .acciones-rapidas { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* ── Móvil (PWA / teléfono) ──────────────────────────────────────────── */
@@ -702,6 +751,15 @@ tr.collapse.show { display: table-row; }
     }
     .page-content .form-control,
     .page-content .form-select { width: 100%; max-width: 100%; }
+    /* Tablas que no están dentro de .table-responsive: la propia tabla scrollea en horizontal. */
+    .page-content table:not(.table-responsive table) {
+        display: block;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
+    }
+    .table-responsive > .table th { white-space: nowrap; }
     .tbl-inv .table, .tbl-prod .table, .table-masiva { min-width: 720px; }
 
     /* Productores y Proveedores: los totales largos ($917.784,48) no deben romper la tarjeta. */

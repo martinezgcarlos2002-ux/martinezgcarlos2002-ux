@@ -149,7 +149,7 @@ layout_start('Recursos Humanos', 'empleados');
           <i class="bi bi-unlock"></i> Reabrir nómina
         </button>
         <?php endif; ?>
-        <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('nomina_excel', ['semana' => $nomina['inicio']])) ?>">
+        <a class="btn btn-sm btn-outline-secondary btn-descarga" href="<?= e(url('nomina_excel', ['semana' => $nomina['inicio']])) ?>">
           <i class="bi bi-file-earmark-excel"></i> Excel completo
         </a>
         <a class="btn btn-sm btn-outline-danger" href="<?= e(url('nomina_pdf', ['semana' => $nomina['inicio']])) ?>">

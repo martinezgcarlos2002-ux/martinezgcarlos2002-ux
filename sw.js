@@ -19,7 +19,7 @@
  */
 'use strict';
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_PREFIX = 'adara-';
 const CACHE_ESTATICO = `${CACHE_PREFIX}estatico-${CACHE_VERSION}`;
 const CACHE_PAGINAS = `${CACHE_PREFIX}paginas-${CACHE_VERSION}`;

@@ -1,0 +1,10 @@
+# APK para instalar a mano (sideloading) desde el login.
+AddType application/vnd.android.package-archive .apk
+
+<IfModule mod_headers.c>
+    <FilesMatch "(?i)\.apk$">
+        Header set Content-Disposition "attachment; filename=\"ADARA.apk\""
+        # Cloudflare y el teléfono vuelven a preguntar: al subir una versión nueva nadie baja la vieja.
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>

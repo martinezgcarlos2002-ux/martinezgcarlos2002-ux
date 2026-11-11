@@ -49,6 +49,10 @@ function layout_start(string $title, string $active = ''): void
     $notificaciones = $user ? NotificationHelper::getAlertas($user) : ['cierres' => [], 'atrasados' => [], 'cxc' => []];
     $otrasAlertas = count($notificaciones['cierres']) + count($notificaciones['atrasados']);
     $totalAlertas = $otrasAlertas + count($notificaciones['cxc']);
+    $movil = $user !== null && vista_movil();
+    $clasesBody = ($user ? 'app' : 'auth')
+        . (is_int($_SESSION['impersonado_por'] ?? null) ? ' modo-soporte' : '')
+        . ($movil ? ' vista-movil' : '');
     ?>
 <!DOCTYPE html>
 <html lang="es" style="<?= e(EmpresaConfig::estilo()) ?>">
@@ -69,7 +73,7 @@ function layout_start(string $title, string $active = ''): void
 <script src="<?= e(asset_v('js/offlineSync.js')) ?>" nonce="<?= e(csp_nonce()) ?>"></script>
 <?php endif; ?>
 </head>
-<body class="<?= $user ? 'app' : 'auth' ?><?= is_int($_SESSION['impersonado_por'] ?? null) ? ' modo-soporte' : '' ?>">
+<body class="<?= e($clasesBody) ?>">
 <?php if (is_int($_SESSION['impersonado_por'] ?? null)): ?>
 <div class="soporte-banner" role="alert">
   <span><i class="bi bi-exclamation-octagon-fill"></i> MODO SOPORTE TÉCNICO ACTIVO. Estás viendo los datos del cliente.</span>
@@ -80,6 +84,7 @@ function layout_start(string $title, string $active = ''): void
 </div>
 <?php endif; ?>
 <?php if ($user): ?>
+<?php if (!$movil): ?>
 <script nonce="<?= e(csp_nonce()) ?>">
 if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.classList.add('sidebar-collapsed');
 </script>
@@ -125,11 +130,22 @@ if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.class
   </div>
 </div>
 <div class="sidebar-overlay" id="sidebarOverlay" hidden></div>
+<?php endif; ?>
 <div class="main-wrap">
   <div class="topbar">
+    <?php if ($movil): ?>
+      <?php if ($active !== 'dashboard'): ?>
+    <a class="btn-inicio-movil" href="<?= e(url('dashboard')) ?>" aria-label="Volver al inicio">
+      <i class="bi bi-house-door-fill"></i>
+    </a>
+      <?php else: ?>
+    <img src="<?= e(marca_logo_src()) ?>" alt="" class="topbar-logo-movil">
+      <?php endif; ?>
+    <?php else: ?>
     <button type="button" class="btn-menu-movil" id="btnMenuMovil" aria-label="Abrir menú" aria-controls="appSidebar">
       <i class="bi bi-list"></i>
     </button>
+    <?php endif; ?>
     <h5><?= e($title) ?></h5>
     <div class="d-flex align-items-center gap-3">
       <div class="dropdown">
@@ -256,6 +272,14 @@ function layout_end(): void
 <?php if ($user): ?>
   </div>
 </div>
+<?php if (en_app_android() && forzar_web()): ?>
+<form method="post" action="<?= e(url('vista_movil')) ?>" class="volver-movil">
+  <?= csrf_field() ?>
+  <button type="submit" class="btn btn-globo shadow" aria-label="Volver a la vista móvil">
+    <i class="bi bi-phone"></i> Volver a la vista móvil
+  </button>
+</form>
+<?php endif; ?>
 <?php if (RespaldoController::consumirAutoDescarga()): ?>
 <form method="post" action="<?= e(url('respaldo_descargar')) ?>" id="formAutoRespaldo" class="d-none">
   <?= csrf_field() ?>
@@ -282,7 +306,8 @@ window.addEventListener('load', function () { document.getElementById('formAutoR
     if (sidebar) sidebar.classList.add('activo');
     if (overlay) overlay.hidden = false;
   }
-  document.getElementById('sidebarToggle').addEventListener('click', function () {
+  var toggle = document.getElementById('sidebarToggle');
+  if (toggle) toggle.addEventListener('click', function () {
     if (esMovil()) {
       if (sidebar && sidebar.classList.contains('activo')) cerrarMenuMovil();
       else abrirMenuMovil();
@@ -319,6 +344,7 @@ window.addEventListener('load', function () { document.getElementById('formAutoR
 <?php endif; ?>
 <script src="<?= e(BOOTSTRAP_JS['src']) ?>" integrity="<?= e(BOOTSTRAP_JS['integrity']) ?>" crossorigin="anonymous"></script>
 <script src="<?= e(asset_v('js/ver_clave.js')) ?>"></script>
+<script src="<?= e(asset_v('js/descargas_app.js')) ?>"></script>
 <script nonce="<?= e(csp_nonce()) ?>">
 // La flecha Atrás puede restaurar la página desde la memoria del navegador aunque las cabeceras prohíban caché.
 window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 /** @var string $email */
 $alertClass = ['error' => 'danger', 'success' => 'success', 'info' => 'info'];
+// La app Android agrega "ADARA-App" al user agent: ahí la descarga ni se imprime.
+$enApp = str_contains((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 'ADARA-App');
 ?>
 <!DOCTYPE html>
 <html lang="es" style="<?= e(EmpresaConfig::estilo()) ?>">
@@ -40,10 +42,21 @@ $alertClass = ['error' => 'danger', 'success' => 'success', 'info' => 'info'];
     <button type="submit" class="btn btn-primary w-100">Ingresar</button>
   </form>
   <a class="login-link" href="<?= e(url('olvide_clave')) ?>">¿Olvidaste tu contraseña?</a>
+  <?php if (!$enApp): ?>
+  <div id="apk-download-section" class="apk-descarga" hidden>
+    <a class="btn btn-outline-secondary w-100" href="<?= e(asset('descargas/adara.apk')) ?>" download="ADARA.apk">
+      Descargar app Android
+    </a>
+    <div class="apk-descarga-nota">Para teléfonos y tablets Android.</div>
+  </div>
+  <?php endif; ?>
 </div>
 </div>
 <script src="<?= e(BOOTSTRAP_JS['src']) ?>" integrity="<?= e(BOOTSTRAP_JS['integrity']) ?>"
         crossorigin="anonymous"></script>
 <script src="<?= e(asset_v('js/ver_clave.js')) ?>"></script>
+<?php if (!$enApp): ?>
+<script src="<?= e(asset_v('js/apk_descarga.js')) ?>"></script>
+<?php endif; ?>
 </body>
 </html>
