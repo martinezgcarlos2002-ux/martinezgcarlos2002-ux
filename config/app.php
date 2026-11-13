@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 define('ADARA_ROOT', dirname(__DIR__));
 define('APP_NAME', 'ADARA');
-define('ADARA_VERSION', '1.1.0');
+define('ADARA_VERSION', '1.0.1');
 define('APP_EMPRESA', 'El Castillo del Queso Artesanal F.P.');
 define('APP_RIF', 'V-286013356');
 define('APP_DEBUG', getenv('ADARA_DEBUG') === '1');

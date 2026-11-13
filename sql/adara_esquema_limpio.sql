@@ -529,7 +529,7 @@ CREATE TABLE `cxc_pagos` (
   `lote` char(16) DEFAULT NULL COMMENT 'Agrupa los pagos creados por un mismo abono a varias facturas',
   `lote_hash` varchar(20) DEFAULT NULL COMMENT 'Mismo identificador AB- en cada fila de un abono distribuido',
   `monto_global_origen` decimal(10,2) DEFAULT NULL COMMENT 'Total original del abono, repetido en cada fila del lote',
-  `tasa_cambio_dia` decimal(10,2) DEFAULT NULL COMMENT 'Tasa Bs/USD del día en que se registró el abono',
+  `tasa_cambio_dia` decimal(12,4) DEFAULT NULL COMMENT 'Tasa BCV (Bs por 1 USD) del abono que originó esta fracción',
   `registrado_por` int(10) unsigned NOT NULL,
   `creado_en` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
@@ -543,6 +543,31 @@ CREATE TABLE `cxc_pagos` (
   CONSTRAINT `fk_cxc_pagos_usuario` FOREIGN KEY (`registrado_por`) REFERENCES `usuarios` (`id`),
   CONSTRAINT `ck_cxc_pagos_monto` CHECK (`monto` > 0),
   CONSTRAINT `ck_cxc_pagos_tasa` CHECK (`tasa_cambio` is null and `monto_bs` is null or `tasa_cambio` > 0 and `monto_bs` > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `pagos_globales` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `cliente_id` int(10) unsigned NOT NULL,
+  `lote` char(16) NOT NULL,
+  `lote_hash` varchar(20) NOT NULL,
+  `monto_total_ingresado` decimal(12,2) NOT NULL,
+  `tasa_bcv_aplicada` decimal(12,4) DEFAULT NULL COMMENT 'Bs por 1 USD en el momento del abono',
+  `monto_bs` decimal(14,2) DEFAULT NULL,
+  `fecha` date NOT NULL,
+  `metodo` enum('efectivo','punto','transferencia','pago_movil','saldo_favor','otro') NOT NULL,
+  `referencia` varchar(60) DEFAULT NULL,
+  `notas` varchar(160) DEFAULT NULL,
+  `registrado_por` int(10) unsigned NOT NULL,
+  `creado_en` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_pagos_globales_lote` (`lote`),
+  UNIQUE KEY `uq_pagos_globales_hash` (`lote_hash`),
+  KEY `ix_pagos_globales_cliente` (`cliente_id`,`fecha`),
+  CONSTRAINT `fk_pagos_globales_cliente` FOREIGN KEY (`cliente_id`) REFERENCES `cxc_clientes` (`id`),
+  CONSTRAINT `fk_pagos_globales_usuario` FOREIGN KEY (`registrado_por`) REFERENCES `usuarios` (`id`),
+  CONSTRAINT `ck_pagos_globales_monto` CHECK (`monto_total_ingresado` > 0),
+  CONSTRAINT `ck_pagos_globales_tasa` CHECK (`tasa_bcv_aplicada` is null or `tasa_bcv_aplicada` > 0),
+  CONSTRAINT `ck_pagos_globales_bs` CHECK (`monto_bs` is null or `monto_bs` > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
@@ -729,6 +754,7 @@ CREATE TABLE `empresa_configuracion` (
   `color_secundario` varchar(7) NOT NULL,
   `ruta_logo` varchar(180) DEFAULT NULL,
   `ruta_sello` varchar(180) DEFAULT NULL,
+  `fondo_login` varchar(180) DEFAULT NULL,
   `actualizado_en` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   CONSTRAINT `ck_empresa_config_unica` CHECK (`id` = 1),

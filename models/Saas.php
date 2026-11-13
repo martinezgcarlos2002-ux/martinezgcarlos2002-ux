@@ -315,6 +315,28 @@ final class Saas
         return $etiqueta === 'www' ? null : $this->uno('SELECT * FROM clientes_saas WHERE dominio_o_slug = :v', $etiqueta);
     }
 
+    /** Slug o dominio exacto, para el login local (?empresa=) cuando el host no identifica al cliente. */
+    public function clientePorSlug(string $slug): ?array
+    {
+        $slug = strtolower(trim($slug));
+        if ($slug === '' || !preg_match(self::PATRON_SLUG, $slug)) {
+            return null;
+        }
+        return $this->uno('SELECT * FROM clientes_saas WHERE dominio_o_slug = :v', $slug);
+    }
+
+    /**
+     * Empresa del login público: primero el host, y si no alcanza (localhost) el parámetro empresa.
+     */
+    public function clienteDePeticionPublica(): ?array
+    {
+        $cliente = $this->clientePorHost((string) ($_SERVER['HTTP_HOST'] ?? ''));
+        if ($cliente !== null) {
+            return $cliente;
+        }
+        return $this->clientePorSlug((string) ($_GET['empresa'] ?? ''));
+    }
+
     /**
      * Empresas donde buscar un empleado cuando la dirección no identifica a una sola
      * (localhost, o un dominio compartido por varias).
@@ -462,6 +484,108 @@ final class Saas
             'detalle' => $detalle === null ? null : json_encode($detalle, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
             'ip'      => client_ip(),
         ]);
+        if ($superAdminId === null || $superAdminId < 1) {
+            return;
+        }
+        $texto = $accion;
+        if (is_array($detalle)) {
+            $extra = $detalle['texto'] ?? null;
+            if (is_string($extra) && $extra !== '') {
+                $texto = $extra;
+            } else {
+                $texto .= ' ' . json_encode($detalle, JSON_UNESCAPED_UNICODE);
+            }
+        }
+        try {
+            $this->registrarAuditoria($superAdminId, $clienteId, $texto);
+        } catch (Throwable $e) {
+            error_log('[ADARA][soporte_auditoria] ' . $e->getMessage());
+        }
+    }
+
+    /** Registro inmutable de lo que hace cada Usuario Maestro. La tabla rechaza UPDATE y DELETE. */
+    public function registrarAuditoria(int $idMaestro, ?int $idCliente, string $accion): void
+    {
+        $accion = trim($accion);
+        if ($idMaestro < 1 || $accion === '') {
+            return;
+        }
+        $this->db->prepare(
+            'INSERT INTO soporte_auditoria (id_maestro, id_cliente, accion_realizada, direccion_ip)
+             VALUES (:maestro, :cliente, :accion, :ip)'
+        )->execute([
+            'maestro' => $idMaestro,
+            'cliente' => $idCliente,
+            'accion'  => mb_substr($accion, 0, 500),
+            'ip'      => client_ip(),
+        ]);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function auditoriaSoporte(int $limite = 400): array
+    {
+        $limite = max(1, min(400, $limite));
+        $sql = 'SELECT a.id, a.id_maestro, a.id_cliente, a.accion_realizada, a.fecha_hora, a.direccion_ip,
+                       s.nombre AS maestro, s.correo, c.nombre_empresa
+                FROM soporte_auditoria a
+                INNER JOIN super_admins s ON s.id = a.id_maestro
+                LEFT JOIN clientes_saas c ON c.id = a.id_cliente
+                ORDER BY a.fecha_hora DESC, a.id DESC
+                LIMIT ' . $limite;
+        return $this->db->query($sql)->fetchAll();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function bitacora(string $fecha): array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT b.id, b.id_maestro, b.id_cliente, b.descripcion_tarea, b.estado_tarea, b.fecha,
+                    s.nombre AS maestro, c.nombre_empresa
+             FROM soporte_bitacora b
+             INNER JOIN super_admins s ON s.id = b.id_maestro
+             INNER JOIN clientes_saas c ON c.id = b.id_cliente
+             WHERE b.fecha = :fecha
+             ORDER BY s.nombre, b.id'
+        );
+        $stmt->execute(['fecha' => $fecha]);
+        return $stmt->fetchAll();
+    }
+
+    public function registrarBitacora(int $idMaestro, int $idCliente, string $descripcion, string $estado): void
+    {
+        if (!in_array($estado, ['en_curso', 'resuelta', 'en_espera'], true)) {
+            throw new ValidationException(['estado_tarea' => 'El estado no es válido.']);
+        }
+        $descripcion = trim($descripcion);
+        if (mb_strlen($descripcion) < 8 || mb_strlen($descripcion) > 500) {
+            throw new ValidationException(['descripcion_tarea' => 'Describe la tarea (entre 8 y 500 caracteres).']);
+        }
+        if ($this->clientePorId($idCliente) === null) {
+            throw new ValidationException(['id_cliente' => 'Esa empresa no está registrada.']);
+        }
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare(
+                'INSERT INTO soporte_bitacora (id_maestro, id_cliente, descripcion_tarea, estado_tarea, fecha)
+                 VALUES (:maestro, :cliente, :descripcion, :estado, CURDATE())'
+            )->execute([
+                'maestro'     => $idMaestro,
+                'cliente'     => $idCliente,
+                'descripcion' => $descripcion,
+                'estado'      => $estado,
+            ]);
+            $this->registrarAuditoria($idMaestro, $idCliente, 'Bitácora del día: ' . $descripcion);
+            $this->db->commit();
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
     }
 
     /** @return array<string, mixed>|null */

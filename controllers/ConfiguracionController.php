@@ -26,6 +26,7 @@ final class ConfiguracionController
             (new EmpresaConfig(get_db()))->guardar($datos, [
                 'logo' => $_FILES['logo'] ?? null,
                 'sello' => $_FILES['sello'] ?? null,
+                'fondo' => $_FILES['fondo'] ?? null,
             ]);
         } catch (ValidationException $e) {
             view('configuracion', [

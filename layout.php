@@ -49,6 +49,17 @@ function layout_start(string $title, string $active = ''): void
     $notificaciones = $user ? NotificationHelper::getAlertas($user) : ['cierres' => [], 'atrasados' => [], 'cxc' => []];
     $otrasAlertas = count($notificaciones['cierres']) + count($notificaciones['atrasados']);
     $totalAlertas = $otrasAlertas + count($notificaciones['cxc']);
+    $avisosSaas = [];
+    $empresaAvisos = $_SESSION['tenant_id'] ?? null;
+    if ($user && Database::multiempresa() && is_int($empresaAvisos)) {
+        try {
+            $avisosSaas = (new SaasComercial(Database::master()))->avisosPendientes($empresaAvisos);
+        } catch (Throwable) {
+            $avisosSaas = [];
+        }
+    }
+    $avisosSaasTotal = count($avisosSaas);
+    $alertasVisibles = $totalAlertas + $avisosSaasTotal;
     $movil = $user !== null && vista_movil();
     $clasesBody = ($user ? 'app' : 'auth')
         . (is_int($_SESSION['impersonado_por'] ?? null) ? ' modo-soporte' : '')
@@ -59,6 +70,9 @@ function layout_start(string $title, string $active = ''): void
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1f33">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="<?= e(base_path()) ?>manifest.webmanifest">
 <title><?= e($title) ?> – <?= e(marca()['nombre_empresa']) ?></title>
 <link rel="icon" type="image/png" href="<?= e(asset('img/favicon.png')) ?>">
 <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
@@ -71,6 +85,7 @@ function layout_start(string $title, string $active = ''): void
 <script src="<?= e(asset_v('js/contacto.js')) ?>" nonce="<?= e(csp_nonce()) ?>"></script>
 <?php if ($user): ?>
 <script src="<?= e(asset_v('js/offlineSync.js')) ?>" nonce="<?= e(csp_nonce()) ?>"></script>
+<script src="<?= e(asset_v('js/offlineIndexedDb.js')) ?>" nonce="<?= e(csp_nonce()) ?>"></script>
 <?php endif; ?>
 </head>
 <body class="<?= e($clasesBody) ?>">
@@ -102,6 +117,7 @@ if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.class
   <nav class="sidebar-nav">
     <?php foreach (modulos() as $key => $modulo): ?>
       <?php if ($key === 'respaldo' && Database::multiempresa() && !is_int($_SESSION['impersonado_por'] ?? null)) continue; ?>
+      <?php if ($key === 'terminos' && !Database::multiempresa()) continue; ?>
       <?php if (has_permiso($user, $key)): ?>
     <a class="nav-link<?= $active === $key ? ' active' : '' ?>" href="<?= e(url($modulo['p'])) ?>" title="<?= e($modulo['label']) ?>"<?= $active === $key ? ' aria-current="page"' : '' ?>>
       <span class="nav-icon"><i class="bi <?= e($modulo['icon']) ?>"></i></span>
@@ -158,17 +174,17 @@ if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.class
       <div class="dropdown">
         <button type="button" class="btn btn-light border rounded-circle position-relative" id="btnNotificaciones"
                 data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
-                aria-label="Notificaciones<?= $totalAlertas > 0 ? ': ' . $totalAlertas . ' alertas' : '' ?>">
+                aria-label="Notificaciones<?= $alertasVisibles > 0 ? ': ' . $alertasVisibles . ' alertas' : '' ?>">
           <i class="bi bi-bell"></i>
-          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger<?= $totalAlertas > 0 ? '' : ' d-none' ?>" id="contadorAlertas" data-otras="<?= (int) $otrasAlertas ?>">
-            <?= $totalAlertas > 99 ? '99+' : $totalAlertas ?>
+          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger<?= $alertasVisibles > 0 ? '' : ' d-none' ?>" id="contadorAlertas" data-base="<?= (int) $totalAlertas ?>" data-otras="<?= (int) $otrasAlertas ?>">
+            <span id="contadorAlertasNumero"><?= $alertasVisibles > 99 ? '99+' : $alertasVisibles ?></span>
             <span class="visually-hidden">alertas sin leer</span>
           </span>
         </button>
         <div class="dropdown-menu dropdown-menu-end shadow p-0" id="menuNotificaciones" aria-labelledby="btnNotificaciones">
           <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom bg-body-tertiary">
             <strong class="small">Notificaciones</strong>
-            <span class="badge text-bg-secondary" id="contadorAlertasMenu"><?= $totalAlertas ?></span>
+            <span class="badge text-bg-secondary" id="contadorAlertasMenu"><?= $alertasVisibles ?></span>
           </div>
           <div class="notificaciones-scroll">
 
@@ -237,6 +253,27 @@ if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.class
             <?php endif; ?>
           </ul>
           <?php endif; ?>
+
+          <?php if (Database::multiempresa() && is_int($_SESSION['tenant_id'] ?? null)): ?>
+          <h6 class="dropdown-header d-flex justify-content-between align-items-center gap-4 text-info-emphasis bg-info-subtle border-top">
+            <span><i class="bi bi-bell"></i> Suscripción</span>
+            <span class="badge text-bg-info" id="nAvisosSaas"><?= $avisosSaasTotal ?></span>
+          </h6>
+          <ul class="list-unstyled mb-0 dropdown-alertas-lista" id="listaAvisosSaas">
+            <?php foreach ($avisosSaas as $aviso): ?>
+            <li>
+              <button type="button" class="dropdown-item text-wrap py-2 border-bottom js-aviso-saas" data-id="<?= (int) $aviso['id'] ?>">
+                <span class="d-block fw-semibold small"><?= e((string) $aviso['mensaje']) ?></span>
+                <span class="d-block text-body-secondary small"><?= e(date('d/m/Y', strtotime((string) $aviso['fecha']))) ?></span>
+              </button>
+            </li>
+            <?php endforeach; ?>
+            <?php if ($avisosSaas === []): ?>
+            <li><span class="dropdown-item-text small text-body-secondary py-2">Sin avisos de suscripción.</span></li>
+            <?php endif; ?>
+          </ul>
+          <div id="avisosSaas" hidden data-url="<?= e(url('avisos_cliente')) ?>" data-leer="<?= e(url('avisos_cliente_leer')) ?>"></div>
+          <?php endif; ?>
           </div>
         </div>
       </div>
@@ -247,6 +284,11 @@ if (localStorage.getItem('adara_sidebar_collapsed') === '1') document.body.class
       <script nonce="<?= e(csp_nonce()) ?>">window.TASA_BCV = <?= json_encode((float) $tasa['tasa'], JSON_THROW_ON_ERROR) ?>;</script>
       <?php else: ?>
       <script nonce="<?= e(csp_nonce()) ?>">window.TASA_BCV = null;</script>
+      <?php endif; ?>
+      <?php if (Database::multiempresa() && is_int($_SESSION['tenant_id'] ?? null) && !is_int($_SESSION['impersonado_por'] ?? null)): ?>
+      <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTicketSoporte">
+        <i class="bi bi-life-preserver"></i> Soporte
+      </button>
       <?php endif; ?>
       <span class="text-muted small topbar-clock" id="relojTop"><?= e(date('d/m/Y H:i:s')) ?></span>
       <form method="post" action="<?= e(url('logout')) ?>">
@@ -349,9 +391,64 @@ window.addEventListener('load', function () { document.getElementById('formAutoR
 <?php else: ?>
 </main>
 <?php endif; ?>
+<?php
+$ticketPendiente = ticket_form_pendiente();
+$puedeReportar = $user && Database::multiempresa() && is_int($_SESSION['tenant_id'] ?? null) && !is_int($_SESSION['impersonado_por'] ?? null);
+if ($puedeReportar):
+    $ticketForm = $ticketPendiente['form'];
+    $ticketErrores = $ticketPendiente['errores'];
+?>
+<div class="modal fade" id="modalTicketSoporte" tabindex="-1" aria-labelledby="modalTicketSoporteTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="post" action="<?= e(url('soporte_ticket')) ?>">
+      <?= csrf_field() ?>
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTicketSoporteTitulo">Reportar a soporte</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label" for="ticketTipo">Tipo</label>
+          <select class="form-select" id="ticketTipo" name="tipo_solicitud" required>
+            <?php foreach (SaasComercial::TIPOS_TICKET as $codigo => $etiqueta): ?>
+            <option value="<?= e($codigo) ?>"<?= ($ticketForm['tipo_solicitud'] ?? '') === $codigo ? ' selected' : '' ?>><?= e($etiqueta) ?></option>
+            <?php endforeach; ?>
+          </select>
+          <?php if (isset($ticketErrores['tipo_solicitud'])): ?><div class="invalid-feedback d-block"><?= e($ticketErrores['tipo_solicitud']) ?></div><?php endif; ?>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="ticketAsunto">Asunto</label>
+          <input class="form-control" id="ticketAsunto" name="asunto" maxlength="140" required value="<?= e((string) ($ticketForm['asunto'] ?? '')) ?>">
+          <?php if (isset($ticketErrores['asunto'])): ?><div class="invalid-feedback d-block"><?= e($ticketErrores['asunto']) ?></div><?php endif; ?>
+        </div>
+        <div class="mb-0">
+          <label class="form-label" for="ticketDescripcion">Descripción</label>
+          <textarea class="form-control" id="ticketDescripcion" name="descripcion" rows="4" maxlength="2000" required><?= e((string) ($ticketForm['descripcion'] ?? '')) ?></textarea>
+          <?php if (isset($ticketErrores['descripcion'])): ?><div class="invalid-feedback d-block"><?= e($ticketErrores['descripcion']) ?></div><?php endif; ?>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Enviar</button>
+      </div>
+    </form>
+  </div>
+</div>
+<?php if ($ticketErrores !== []): ?>
+<script nonce="<?= e(csp_nonce()) ?>">
+document.addEventListener('DOMContentLoaded', function () {
+  var el = document.getElementById('modalTicketSoporte');
+  if (el && window.bootstrap) window.bootstrap.Modal.getOrCreateInstance(el).show();
+});
+</script>
+<?php endif; ?>
+<?php endif; ?>
 <script src="<?= e(BOOTSTRAP_JS['src']) ?>" integrity="<?= e(BOOTSTRAP_JS['integrity']) ?>" crossorigin="anonymous"></script>
 <script src="<?= e(asset_v('js/ver_clave.js')) ?>"></script>
 <script src="<?= e(asset_v('js/descargas_app.js')) ?>"></script>
+<?php if ($user && Database::multiempresa() && is_int($_SESSION['tenant_id'] ?? null)): ?>
+<script src="<?= e(asset_v('js/avisos_cliente.js')) ?>"></script>
+<?php endif; ?>
 <script nonce="<?= e(csp_nonce()) ?>">
 // La flecha Atrás puede restaurar la página desde la memoria del navegador aunque las cabeceras prohíban caché.
 window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });

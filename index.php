@@ -106,6 +106,11 @@ if (!empty($route['super_admin'])) {
     }
 }
 
+if (empty($route['super_admin']) && empty($route['publica'])) {
+    suscripcion_exigir_activa($p);
+    contrato_exigir_al_admin($p);
+}
+
 if ($method === 'POST' && !empty($route['idempotente']) && current_user() !== null) {
     Idempotencia::iniciar($p, (int) current_user()['id']);
 }

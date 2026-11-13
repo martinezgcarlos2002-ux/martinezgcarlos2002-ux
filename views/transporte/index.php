@@ -92,7 +92,11 @@ layout_start('Transportistas', 'transportistas');
     </div></div></div>
   </div>
 
-  <div id="vistaLista">
+  <?php if (!empty($filtroDeuda)): ?>
+  <?php require ADARA_ROOT . '/pages/partials/deudas_filtro.php'; ?>
+  <?php endif; ?>
+
+  <div id="vistaLista"<?= !empty($filtroDeuda) ? ' class="d-none"' : '' ?>>
     <div class="card shadow-sm border-0 rounded-4">
       <div class="card-header bg-white border-0 pt-3 fw-semibold"><i class="bi bi-people"></i> Transportistas</div>
       <div class="table-responsive">

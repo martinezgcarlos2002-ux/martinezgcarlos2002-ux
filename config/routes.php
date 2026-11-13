@@ -44,6 +44,47 @@ return [
         'super_admin' => true,
         'POST'        => [MasterController::class, 'respaldoEmpresa'],
     ],
+    // Base maestra de soporte. El controlador exige además el rol Propietario.
+    'master_respaldo_soporte' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'respaldoSoporte'],
+    ],
+    'master_auditoria' => [
+        'super_admin' => true,
+        'GET'         => [MasterController::class, 'auditoria'],
+    ],
+    'master_bitacora' => [
+        'super_admin' => true,
+        'GET'         => [MasterController::class, 'bitacora'],
+    ],
+    'master_bitacora_guardar' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'guardarBitacora'],
+    ],
+    'master_suscripcion_guardar' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'guardarSuscripcion'],
+    ],
+    'master_suscripcion_borrar' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'borrarSuscripcion'],
+    ],
+    'master_suscripcion_estado' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'estadoSuscripcion'],
+    ],
+    'master_tickets' => [
+        'super_admin' => true,
+        'GET'         => [MasterController::class, 'tickets'],
+    ],
+    'master_ticket_estado' => [
+        'super_admin' => true,
+        'POST'        => [MasterController::class, 'estadoTicket'],
+    ],
+    'master_tickets_aviso' => [
+        'super_admin' => true,
+        'GET'         => [MasterController::class, 'avisosTickets'],
+    ],
     'master_salir' => [
         'super_admin' => true,
         'POST'        => [MasterController::class, 'salir'],
@@ -102,6 +143,24 @@ return [
     'dashboard' => [
         'modulo'  => 'dashboard',
         'GET'     => [DashboardController::class, 'index'],
+    ],
+    'terminos' => [
+        'GET' => [TerminosController::class, 'ver'],
+    ],
+    'terminos_aceptar' => [
+        'POST' => [TerminosController::class, 'aceptar'],
+    ],
+    'soporte_ticket' => [
+        'POST' => [TicketClienteController::class, 'enviar'],
+    ],
+    'servicio_suspendido' => [
+        'GET' => [AvisosClienteController::class, 'suspendido'],
+    ],
+    'avisos_cliente' => [
+        'GET' => [AvisosClienteController::class, 'lista'],
+    ],
+    'avisos_cliente_leer' => [
+        'POST' => [AvisosClienteController::class, 'leer'],
     ],
     // App Android: alterna entre la vista simplificada y el ERP completo (solo cambia la sesión).
     'vista_web' => [

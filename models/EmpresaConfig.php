@@ -16,20 +16,29 @@ final class EmpresaConfig
     {
     }
 
-    /** @return array{nombre_empresa:string,rif_documento:string,telefono:string,direccion:string,color_primario:string,color_secundario:string,ruta_logo:string,ruta_sello:string} */
+    /** @return array{nombre_empresa:string,rif_documento:string,telefono:string,direccion:string,color_primario:string,color_secundario:string,ruta_logo:string,ruta_sello:string,fondo_login:string} */
     public static function actual(PDO $db): array
     {
         static $cache = null;
         if ($cache !== null) {
             return $cache;
         }
+        $base = 'SELECT nombre_empresa, rif_documento, telefono, direccion, color_primario, color_secundario, ruta_logo, ruta_sello';
         try {
-            $row = $db->query(
-                'SELECT nombre_empresa, rif_documento, telefono, direccion, color_primario, color_secundario, ruta_logo, ruta_sello
-                 FROM empresa_configuracion WHERE id = 1'
-            )->fetch();
-        } catch (PDOException) {
+            $row = $db->query($base . ', fondo_login FROM empresa_configuracion WHERE id = 1')->fetch();
+        } catch (PDOException $e) {
             $row = false;
+            // 1054: la migración 059 todavía no corrió. El resto de la marca sigue leyéndose.
+            if ((int) ($e->errorInfo[1] ?? 0) === 1054) {
+                try {
+                    $row = $db->query($base . ' FROM empresa_configuracion WHERE id = 1')->fetch();
+                    if (is_array($row)) {
+                        $row['fondo_login'] = '';
+                    }
+                } catch (PDOException) {
+                    $row = false;
+                }
+            }
         }
         $cache = is_array($row) ? self::normalizar($row) : self::defecto();
         return $cache;
@@ -40,7 +49,7 @@ final class EmpresaConfig
         // El cache es estático por petición. Un guardado redirige y la siguiente carga lee de nuevo.
     }
 
-    /** @return array{nombre_empresa:string,rif_documento:string,telefono:string,direccion:string,color_primario:string,color_secundario:string,ruta_logo:string,ruta_sello:string} */
+    /** @return array{nombre_empresa:string,rif_documento:string,telefono:string,direccion:string,color_primario:string,color_secundario:string,ruta_logo:string,ruta_sello:string,fondo_login:string} */
     public static function defecto(): array
     {
         if (Database::multiempresa()) {
@@ -54,6 +63,7 @@ final class EmpresaConfig
                 'color_secundario' => '#1A2E5A',
                 'ruta_logo' => 'img/ADARA LOGO.jpg',
                 'ruta_sello' => '',
+                'fondo_login' => '',
             ];
         }
         return [
@@ -65,6 +75,7 @@ final class EmpresaConfig
             'color_secundario' => '#1A2E5A',
             'ruta_logo' => 'img/logo.jpg',
             'ruta_sello' => '',
+            'fondo_login' => '',
         ];
     }
 
@@ -88,7 +99,9 @@ final class EmpresaConfig
         $m = self::vigente();
         $primario = $m['color_primario'];
         $secundario = $m['color_secundario'];
-        return '--color-primario:' . $primario
+        return '--main-color:' . $primario
+            . ';--secondary-color:' . $secundario
+            . ';--color-primario:' . $primario
             . ';--color-secundario:' . $secundario
             . ';--orange:' . $primario
             . ';--orange-hover:' . self::oscurecer($primario)
@@ -98,7 +111,7 @@ final class EmpresaConfig
 
     /**
      * @param array{nombre_empresa:string,rif_documento:string,telefono:string,direccion:string,color_primario:string,color_secundario:string} $datos
-     * @param array{logo?:array<string,mixed>,sello?:array<string,mixed>} $archivos
+     * @param array{logo?:array<string,mixed>,sello?:array<string,mixed>,fondo?:array<string,mixed>} $archivos
      */
     public function guardar(array $datos, array $archivos): void
     {
@@ -134,6 +147,7 @@ final class EmpresaConfig
         }
         $logo = $this->recibirImagen($archivos['logo'] ?? null, 'logo', $errores);
         $sello = $this->recibirImagen($archivos['sello'] ?? null, 'sello', $errores);
+        $fondo = $this->recibirImagen($archivos['fondo'] ?? null, 'fondo', $errores);
         if ($errores !== []) {
             if ($logo !== null) {
                 self::borrarMarca($logo);
@@ -141,47 +155,104 @@ final class EmpresaConfig
             if ($sello !== null) {
                 self::borrarMarca($sello);
             }
+            if ($fondo !== null) {
+                self::borrarMarca($fondo);
+            }
             throw new ValidationException($errores);
         }
 
         $rutaLogo = $actual['ruta_logo'];
         $rutaSello = $actual['ruta_sello'];
+        $rutaFondo = $actual['fondo_login'];
         if ($logo !== null) {
             $rutaLogo = $logo;
         }
         if ($sello !== null) {
             $rutaSello = $sello;
         }
+        if ($fondo !== null) {
+            $rutaFondo = $fondo;
+        }
 
-        $this->db->prepare(
-            'INSERT INTO empresa_configuracion
-                (id, nombre_empresa, rif_documento, telefono, direccion, color_primario, color_secundario, ruta_logo, ruta_sello)
-             VALUES (1, :nombre, :rif, :telefono, :direccion, :primario, :secundario, :logo, :sello)
-             ON DUPLICATE KEY UPDATE
-                nombre_empresa = VALUES(nombre_empresa),
-                rif_documento = VALUES(rif_documento),
-                telefono = VALUES(telefono),
-                direccion = VALUES(direccion),
-                color_primario = VALUES(color_primario),
-                color_secundario = VALUES(color_secundario),
-                ruta_logo = VALUES(ruta_logo),
-                ruta_sello = VALUES(ruta_sello)'
-        )->execute([
-            'nombre' => $nombre,
-            'rif' => $rif,
-            'telefono' => $telefono,
-            'direccion' => $direccion,
-            'primario' => $primario,
-            'secundario' => $secundario,
-            'logo' => $rutaLogo !== '' ? $rutaLogo : null,
-            'sello' => $rutaSello !== '' ? $rutaSello : null,
-        ]);
+        try {
+            $this->db->prepare(
+                'INSERT INTO empresa_configuracion
+                    (id, nombre_empresa, rif_documento, telefono, direccion, color_primario, color_secundario, ruta_logo, ruta_sello, fondo_login)
+                 VALUES (1, :nombre, :rif, :telefono, :direccion, :primario, :secundario, :logo, :sello, :fondo)
+                 ON DUPLICATE KEY UPDATE
+                    nombre_empresa = VALUES(nombre_empresa),
+                    rif_documento = VALUES(rif_documento),
+                    telefono = VALUES(telefono),
+                    direccion = VALUES(direccion),
+                    color_primario = VALUES(color_primario),
+                    color_secundario = VALUES(color_secundario),
+                    ruta_logo = VALUES(ruta_logo),
+                    ruta_sello = VALUES(ruta_sello),
+                    fondo_login = VALUES(fondo_login)'
+            )->execute([
+                'nombre' => $nombre,
+                'rif' => $rif,
+                'telefono' => $telefono,
+                'direccion' => $direccion,
+                'primario' => $primario,
+                'secundario' => $secundario,
+                'logo' => $rutaLogo !== '' ? $rutaLogo : null,
+                'sello' => $rutaSello !== '' ? $rutaSello : null,
+                'fondo' => $rutaFondo !== '' ? $rutaFondo : null,
+            ]);
+        } catch (PDOException $e) {
+            $sinColumna = (int) ($e->errorInfo[1] ?? 0) === 1054;
+            if ($sinColumna && $fondo === null) {
+                $this->db->prepare(
+                    'INSERT INTO empresa_configuracion
+                        (id, nombre_empresa, rif_documento, telefono, direccion, color_primario, color_secundario, ruta_logo, ruta_sello)
+                     VALUES (1, :nombre, :rif, :telefono, :direccion, :primario, :secundario, :logo, :sello)
+                     ON DUPLICATE KEY UPDATE
+                        nombre_empresa = VALUES(nombre_empresa),
+                        rif_documento = VALUES(rif_documento),
+                        telefono = VALUES(telefono),
+                        direccion = VALUES(direccion),
+                        color_primario = VALUES(color_primario),
+                        color_secundario = VALUES(color_secundario),
+                        ruta_logo = VALUES(ruta_logo),
+                        ruta_sello = VALUES(ruta_sello)'
+                )->execute([
+                    'nombre' => $nombre,
+                    'rif' => $rif,
+                    'telefono' => $telefono,
+                    'direccion' => $direccion,
+                    'primario' => $primario,
+                    'secundario' => $secundario,
+                    'logo' => $rutaLogo !== '' ? $rutaLogo : null,
+                    'sello' => $rutaSello !== '' ? $rutaSello : null,
+                ]);
+            } else {
+                if ($logo !== null) {
+                    self::borrarMarca($logo);
+                }
+                if ($sello !== null) {
+                    self::borrarMarca($sello);
+                }
+                if ($fondo !== null) {
+                    self::borrarMarca($fondo);
+                }
+                if ($sinColumna) {
+                    throw new ValidationException([
+                        'fondo' => 'Esta base todavía no tiene el campo fondo_login. Aplica sql/059_fondo_login.sql.',
+                    ]);
+                }
+                throw $e;
+            }
+        }
 
         if ($logo !== null) {
             self::borrarMarca($actual['ruta_logo']);
         }
         if ($sello !== null) {
             self::borrarMarca($actual['ruta_sello']);
+        }
+        if ($fondo !== null) {
+            self::borrarMarca($actual['fondo_login']);
         }
     }
 
@@ -242,8 +313,12 @@ final class EmpresaConfig
     {
         $logo = trim((string) ($row['ruta_logo'] ?? ''));
         $sello = trim((string) ($row['ruta_sello'] ?? ''));
+        $fondo = str_replace('\\', '/', trim((string) ($row['fondo_login'] ?? '')));
         $primario = strtoupper(trim((string) ($row['color_primario'] ?? '')));
         $secundario = strtoupper(trim((string) ($row['color_secundario'] ?? '')));
+        if ($fondo !== '' && (!str_starts_with($fondo, self::DIR . '/') || str_contains($fondo, '..'))) {
+            $fondo = '';
+        }
         return [
             'nombre_empresa' => (string) ($row['nombre_empresa'] ?? self::defecto()['nombre_empresa']),
             'rif_documento' => (string) ($row['rif_documento'] ?? ''),
@@ -253,6 +328,7 @@ final class EmpresaConfig
             'color_secundario' => self::esColor($secundario) ? $secundario : '#1A2E5A',
             'ruta_logo' => $logo !== '' ? $logo : 'img/logo.jpg',
             'ruta_sello' => $sello,
+            'fondo_login' => $fondo,
         ];
     }
 
@@ -283,10 +359,27 @@ final class EmpresaConfig
     }
 }
 
-/** @return array{nombre_empresa:string,rif_documento:string,telefono:string,direccion:string,color_primario:string,color_secundario:string,ruta_logo:string,ruta_sello:string} */
+/** @return array{nombre_empresa:string,rif_documento:string,telefono:string,direccion:string,color_primario:string,color_secundario:string,ruta_logo:string,ruta_sello:string,fondo_login:string} */
 function marca(): array
 {
     return EmpresaConfig::vigente();
+}
+
+/** URL del fondo de login de la empresa resuelta, o el fondo estándar de ADARA. */
+function fondo_login_src(): string
+{
+    $ruta = marca()['fondo_login'];
+    $abs = $ruta === '' ? '' : marca_archivo($ruta);
+    if ($abs === '' || !is_file($abs)) {
+        return asset('img/fondo_empresa.jpg');
+    }
+    return asset_v($ruta);
+}
+
+/** Atributo style del <body> del login. Ya va escapado. */
+function fondo_login_estilo(): string
+{
+    return "background-image:url('" . e(fondo_login_src()) . "');background-size:cover;background-position:center;background-repeat:no-repeat;";
 }
 
 function marca_logo_src(): string

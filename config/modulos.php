@@ -25,4 +25,5 @@ return [
     'auditoria'      => ['label' => 'Auditoría',           'p' => 'auditoria',      'icon' => 'bi-search',              'solo_admin' => true],
     'respaldo'       => ['label' => 'Respaldo Diario',     'p' => 'respaldo',       'icon' => 'bi-database-down',       'solo_admin' => true],
     'configuracion'  => ['label' => 'Marca',               'p' => 'configuracion',  'icon' => 'bi-palette-fill',        'solo_admin' => true],
+    'terminos'       => ['label' => 'Términos',            'p' => 'terminos',       'icon' => 'bi-file-earmark-text',   'solo_admin' => true],
 ];

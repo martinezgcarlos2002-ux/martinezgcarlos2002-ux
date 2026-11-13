@@ -4,8 +4,10 @@ DirectoryIndex index.php
 # Solo index.php y assets/ son públicos. El resto del código, SQL y logs no se sirve nunca.
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule ^(aserp-php|aserp|bin|config|controllers|helpers|lib|models|pages|security|services|sql|storage)(/|$) - [F,L]
+    RewriteRule ^(aserp-php|aserp|bin|config|controllers|helpers|lib|models|pages|security|services|sql|storage|tools)(/|$) - [F,L]
 </IfModule>
+
+AddType application/manifest+json .webmanifest
 
 <FilesMatch "\.(php|sql|log|ini|env|md|json|lock|bak)$">
     Require all denied

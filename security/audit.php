@@ -46,4 +46,32 @@ function audit_log(
         'metodo'     => PHP_SAPI === 'cli' ? 'CLI' : mb_substr($_SERVER['REQUEST_METHOD'] ?? 'GET', 0, 7),
         'ruta'       => PHP_SAPI === 'cli' ? 'cli' : mb_substr((string) ($_GET['p'] ?? ''), 0, 60),
     ]);
+
+    // El alta en la base del cliente ya se intentó. El registro del maestro va a la base maestra
+    // (otra conexión): si esta petición luego hace rollback, la auditoría de soporte se conserva.
+    // modo_soporte ya lo anota Saas::auditar antes de cambiar la sesión.
+    if (is_int($soporteId) && $accion !== 'modo_soporte') {
+        $cliente = $_SESSION['tenant_id'] ?? null;
+        registrarAuditoria(
+            $soporteId,
+            is_int($cliente) ? $cliente : null,
+            $modulo . '/' . $accion
+        );
+    }
+}
+
+/**
+ * Anota en soporte_auditoria (base maestra) lo que hizo un Usuario Maestro.
+ * Los controladores la llaman al modificar datos de un cliente. Si la tabla aún no existe, no interrumpe el ERP.
+ */
+function registrarAuditoria(int $idMaestro, ?int $idCliente, string $accion): void
+{
+    if ($idMaestro < 1 || !Database::multiempresa()) {
+        return;
+    }
+    try {
+        (new Saas(Database::master()))->registrarAuditoria($idMaestro, $idCliente, $accion);
+    } catch (Throwable $e) {
+        error_log('[ADARA][soporte_auditoria] ' . $e->getMessage());
+    }
 }

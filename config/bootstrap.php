@@ -50,6 +50,7 @@ require_once ADARA_ROOT . '/security/audit.php';
 require_once ADARA_ROOT . '/security/idempotencia.php';
 require_once ADARA_ROOT . '/security/tenant.php';
 require_once ADARA_ROOT . '/models/Saas.php';
+require_once ADARA_ROOT . '/models/SaasComercial.php';
 require_once ADARA_ROOT . '/helpers/SqlScript.php';
 require_once ADARA_ROOT . '/services/SaaSManager.php';
 
@@ -108,6 +109,7 @@ require_once ADARA_ROOT . '/controllers/DiasLibresController.php';
 require_once ADARA_ROOT . '/controllers/CobranzasController.php';
 require_once ADARA_ROOT . '/services/CorrelativoService.php';
 require_once ADARA_ROOT . '/services/CxCService.php';
+require_once ADARA_ROOT . '/services/DeudasArrastreDetalle.php';
 require_once ADARA_ROOT . '/controllers/FacturaController.php';
 require_once ADARA_ROOT . '/services/CatalogoService.php';
 require_once ADARA_ROOT . '/controllers/CatalogoController.php';
@@ -121,6 +123,9 @@ require_once ADARA_ROOT . '/controllers/BancosController.php';
 require_once ADARA_ROOT . '/models/EmpresaConfig.php';
 require_once ADARA_ROOT . '/controllers/ConfiguracionController.php';
 require_once ADARA_ROOT . '/controllers/MasterController.php';
+require_once ADARA_ROOT . '/controllers/TerminosController.php';
+require_once ADARA_ROOT . '/controllers/TicketClienteController.php';
+require_once ADARA_ROOT . '/controllers/AvisosClienteController.php';
 require_once ADARA_ROOT . '/controllers/SyncController.php';
 
 require_once ADARA_ROOT . '/layout.php';

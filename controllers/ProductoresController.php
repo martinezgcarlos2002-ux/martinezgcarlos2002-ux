@@ -47,9 +47,28 @@ final class ProductoresController
         }
         $diaCierre = parse_int_range($_GET['dia_cierre'] ?? null, 1, 7);
         $user = current_user();
+        $filtroDeuda = ($_GET['filtro'] ?? '') === 'con_deuda';
+        $deudasFilas = [];
+        $deudasTotal = '0.00';
+        $deudasCorte = DeudasArrastreDetalle::corte();
+        if ($filtroDeuda) {
+            $deudasFilas = DeudasArrastreDetalle::productores(get_db(), $deudasCorte);
+            foreach ($deudasFilas as &$filaDeuda) {
+                $filaDeuda['href'] = url('productor_control', ['id' => $filaDeuda['cuenta_id']]);
+            }
+            unset($filaDeuda);
+            $deudasTotal = DeudasArrastreDetalle::total($deudasFilas);
+        }
 
         view('productores_lista', [
             'productores'   => $this->productores->listar($q, $estado, $orden, $diaCierre, $productorId),
+            'filtroDeuda'   => $filtroDeuda,
+            'deudasFilas'   => $deudasFilas,
+            'deudasTotal'   => $deudasTotal,
+            'deudasCorte'   => $deudasCorte,
+            'deudasTitulo'  => 'Productores con deuda arrastrada',
+            'deudasNota'    => 'Solo el último ciclo de cada productor: saldo vivo si ya cerró, o el arrastre si el ciclo actual todavía está abierto. El total es el de la tarjeta del dashboard.',
+            'deudasVolver'  => url('productores'),
             'catalogo'      => $this->productores->catalogoNombres(),
             'kpis'          => $this->productores->kpis(),
             'q'             => $q,

@@ -43,6 +43,66 @@ function tenant_restaurar(): void
     Database::usarEmpresa((string) $cliente['nombre_db_fisica']);
 }
 
+/**
+ * El administrador de la empresa no opera el ERP hasta aceptar los Términos.
+ * El modo soporte no firma por el cliente. Sin la migración 008 no se bloquea a nadie.
+ */
+/**
+ * Suspensión manual del servicio. No cierra la sesión: muestra la pantalla de contacto.
+ * Sin la columna estado_suscripcion no bloquea.
+ */
+function suscripcion_exigir_activa(string $pagina): void
+{
+    if (in_array($pagina, ['servicio_suspendido', 'logout', 'master_salir_soporte', 'soporte_ticket'], true)) {
+        return;
+    }
+    if (!Database::multiempresa() || sesion_es_panel_maestro()) {
+        return;
+    }
+    $clienteId = $_SESSION['tenant_id'] ?? null;
+    if (!is_int($clienteId) || current_user() === null) {
+        return;
+    }
+    if (!(new SaasComercial(Database::master()))->estaSuspendido($clienteId)) {
+        return;
+    }
+    if (wants_json()) {
+        json_response(403, [
+            'ok'      => false,
+            'codigo'  => 'servicio_suspendido',
+            'errores' => ['general' => 'Servicio Suspendido - Contacte a Soporte'],
+        ]);
+    }
+    redirect('servicio_suspendido');
+}
+
+function contrato_exigir_al_admin(string $pagina): void
+{
+    if (in_array($pagina, ['terminos', 'terminos_aceptar', 'logout', 'master_salir_soporte'], true)) {
+        return;
+    }
+    if (!Database::multiempresa() || is_int($_SESSION['impersonado_por'] ?? null) || sesion_es_panel_maestro()) {
+        return;
+    }
+    $clienteId = $_SESSION['tenant_id'] ?? null;
+    $user = current_user();
+    if (!is_int($clienteId) || ($user['rol'] ?? '') !== 'admin') {
+        return;
+    }
+    if ((new SaasComercial(Database::master()))->contratoAceptado($clienteId)) {
+        return;
+    }
+    if (wants_json()) {
+        json_response(409, [
+            'ok'      => false,
+            'codigo'  => 'contrato_pendiente',
+            'errores' => ['general' => 'El administrador debe aceptar los Términos y Condiciones antes de usar el sistema.'],
+        ]);
+    }
+    flash('warning', 'Para usar ADARA, acepta los Términos y Condiciones.');
+    redirect('terminos');
+}
+
 /** Sesión del Panel Maestro, no el modo soporte (ese sí debe ver el ERP del cliente). */
 function sesion_es_panel_maestro(): bool
 {

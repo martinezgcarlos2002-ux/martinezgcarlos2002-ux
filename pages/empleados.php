@@ -126,16 +126,16 @@ layout_start('Recursos Humanos', 'empleados');
         </form>
         <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('empleados', ['tab' => 'nomina', 'semana' => $semanaSiguiente])) ?>" aria-label="Semana siguiente"><i class="bi bi-chevron-right"></i></a>
         <span class="badge rh-tasa">TASA BCV: <?= $nomina['tasa'] !== null ? e(num($nomina['tasa'])) : '—' ?></span>
-        <?php if ($editarNomina): ?>
+        <?php if ($editarNomina && empty($filtroDeuda)): ?>
         <button type="submit" form="formNomina" class="btn btn-sm btn-primary"><i class="bi bi-save"></i> Guardar cambios</button>
         <?php endif; ?>
-        <?php if ($esAdmin && $editarNomina && $nomina['filas'] !== []): ?>
+        <?php if ($esAdmin && $editarNomina && empty($filtroDeuda) && $nomina['filas'] !== []): ?>
         <button type="submit" form="formNomina" formaction="<?= e(url('nomina_cerrar')) ?>" class="btn btn-sm btn-success"
                 data-confirmar="¿Cerrar la nómina de esta semana? Los montos y los días libres de la semana quedarán congelados.">
           <i class="bi bi-lock"></i> Cerrar nómina
         </button>
         <?php endif; ?>
-        <?php if ($esAdmin && in_array($nomina['estado'], ['cerrada', 'mixta'], true)): ?>
+        <?php if ($esAdmin && empty($filtroDeuda) && in_array($nomina['estado'], ['cerrada', 'mixta'], true)): ?>
         <form method="post" action="<?= e(url('nomina_pagar')) ?>" class="m-0">
           <?= csrf_field() ?>
           <input type="hidden" name="semana" value="<?= e($nomina['inicio']) ?>">
@@ -144,7 +144,7 @@ layout_start('Recursos Humanos', 'empleados');
           </button>
         </form>
         <?php endif; ?>
-        <?php if ($esAdmin && in_array($nomina['estado'], ['cerrada', 'mixta'], true)): ?>
+        <?php if ($esAdmin && empty($filtroDeuda) && in_array($nomina['estado'], ['cerrada', 'mixta'], true)): ?>
         <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalReabrir">
           <i class="bi bi-unlock"></i> Reabrir nómina
         </button>
@@ -161,6 +161,9 @@ layout_start('Recursos Humanos', 'empleados');
       </div>
     </div>
 
+    <?php if (!empty($filtroDeuda)): ?>
+    <?php require ADARA_ROOT . '/pages/partials/deudas_filtro.php'; ?>
+    <?php else: ?>
     <div class="d-flex gap-2 align-items-center mb-2">
       <div class="input-group input-group-sm rh-buscar">
         <span class="input-group-text"><i class="bi bi-search"></i></span>
@@ -295,6 +298,7 @@ layout_start('Recursos Humanos', 'empleados');
         </div>
       </div>
     </form>
+    <?php endif; ?>
 
     <?php if ($esAdmin): ?>
     <div class="modal fade" id="modalReabrir" tabindex="-1" aria-labelledby="tituloReabrir" aria-hidden="true">

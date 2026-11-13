@@ -11,13 +11,16 @@ $enApp = str_contains((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 'ADARA-App')
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1f33">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="<?= e(base_path()) ?>manifest.webmanifest">
 <title>Iniciar Sesión – <?= e(marca()['nombre_empresa']) ?></title>
 <link rel="icon" type="image/png" href="<?= e(asset('img/favicon.png')) ?>">
 <link rel="stylesheet" href="<?= e(BOOTSTRAP_CSS['href']) ?>"
       integrity="<?= e(BOOTSTRAP_CSS['integrity']) ?>" crossorigin="anonymous">
 <link rel="stylesheet" href="<?= e(asset_v('css/login.css')) ?>">
 </head>
-<body class="login-page" style="background-image:url('<?= e(asset('img/fondo_empresa.jpg')) ?>');background-size:cover;background-position:center;background-repeat:no-repeat;">
+<body class="login-page" style="<?= fondo_login_estilo() ?>">
 <div class="login-overlay">
 <div class="card login-card">
   <div class="text-center mb-3">

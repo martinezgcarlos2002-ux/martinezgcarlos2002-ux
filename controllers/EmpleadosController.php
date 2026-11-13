@@ -20,8 +20,12 @@ final class EmpleadosController
         $this->asegurarEsquema($db);
         $user = current_user();
 
+        $filtroDeuda = ($_GET['filtro'] ?? '') === 'con_deuda';
         $tab = $_GET['tab'] ?? 'nomina';
         $tab = is_string($tab) && in_array($tab, self::TABS, true) ? $tab : 'nomina';
+        if ($filtroDeuda) {
+            $tab = 'nomina';
+        }
 
         [$semana] = Nomina::periodo(parse_date($_GET['semana'] ?? null) ?? date('Y-m-d'));
         [$cicloHoyInicio, $cicloHoyFin] = Nomina::periodo(date('Y-m-d'));
@@ -46,8 +50,26 @@ final class EmpleadosController
         $cupos = array_column($vigentesMes, 'dias_libres_mes', 'id');
 
         $nomina = new Nomina($db);
+        $deudasFilas = [];
+        $deudasTotal = '0.00';
+        $deudasCorte = DeudasArrastreDetalle::corte();
+        if ($filtroDeuda) {
+            $deudasFilas = DeudasArrastreDetalle::nomina($db, $deudasCorte);
+            foreach ($deudasFilas as &$filaDeuda) {
+                $filaDeuda['href'] = url('empleados', ['tab' => 'nomina', 'semana' => $filaDeuda['desde']]);
+            }
+            unset($filaDeuda);
+            $deudasTotal = DeudasArrastreDetalle::total($deudasFilas);
+        }
         view('empleados', [
             'tab'            => $tab,
+            'filtroDeuda'    => $filtroDeuda,
+            'deudasFilas'    => $deudasFilas,
+            'deudasTotal'    => $deudasTotal,
+            'deudasCorte'    => $deudasCorte,
+            'deudasTitulo'   => 'Nómina cerrada con saldo pendiente',
+            'deudasNota'     => 'Semanas ya cerradas, con neto mayor que cero, anteriores a la semana operativa en curso. El total es el de la tarjeta del dashboard.',
+            'deudasVolver'   => url('empleados', ['tab' => 'nomina']),
             'empresa'        => marca()['nombre_empresa'],
             'rif'            => marca()['rif_documento'],
             'tipoNomina'     => 'Semanal',

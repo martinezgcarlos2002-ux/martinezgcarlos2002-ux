@@ -654,21 +654,396 @@ final class MasterController
         redirect('master');
     }
 
+    /**
+     * Volcado .sql de la base maestra de soporte. Solo el Propietario (id 1).
+     * Un Usuario Maestro recibe 403 y el intento queda en soporte_auditoria.
+     */
+    public function respaldoSoporte(): void
+    {
+        $this->exigirPropietario();
+        $pdo = Database::master();
+        $nombre = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
+        $nombre = preg_replace('/[^a-z0-9_]/', '', strtolower($nombre)) ?? 'soporte';
+        if ($nombre === '') {
+            $nombre = 'soporte';
+        }
+        $archivo = 'soporte_' . $nombre . '_' . date('Y-m-d_His') . '.sql';
+        $this->saas->auditar($this->admin['id'], 'respaldo_soporte', null, [
+            'texto'   => 'El Propietario descargó el respaldo de la base de soporte técnico.',
+            'archivo' => $archivo,
+        ]);
+
+        session_write_close();
+        set_time_limit(0);
+        ignore_user_abort(false);
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/sql; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . $archivo . '"');
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: no-store, private');
+
+        $hash = hash_init('sha256');
+        $bytes = 0;
+        $resumen = (new RespaldoSql($pdo))->generar(static function (string $sql) use ($hash, &$bytes): void {
+            hash_update($hash, $sql);
+            $bytes += strlen($sql);
+            echo $sql;
+            flush();
+        });
+
+        if (connection_aborted()) {
+            return;
+        }
+        $this->saas->auditar($this->admin['id'], 'respaldo_soporte_fin', null, $resumen + [
+            'texto'   => 'Terminó el respaldo de la base de soporte técnico.',
+            'archivo' => $archivo,
+            'bytes'   => $bytes,
+            'sha256'  => hash_final($hash),
+        ]);
+    }
+
+    public function auditoria(): void
+    {
+        $this->exigirPropietario();
+        try {
+            $filas = $this->saas->auditoriaSoporte();
+            $aviso = null;
+        } catch (PDOException $e) {
+            $filas = [];
+            $aviso = (int) ($e->errorInfo[1] ?? 0) === 1146
+                ? 'Falta la tabla soporte_auditoria. Aplica sql/master/007_soporte_maestro.sql en la base maestra.'
+                : 'No se pudo leer la auditoría de soporte.';
+        }
+        view('master_auditoria', [
+            'admin' => $this->admin,
+            'filas' => $filas,
+            'aviso' => $aviso,
+        ]);
+    }
+
+    public function bitacora(): void
+    {
+        $fecha = $this->fechaBitacora((string) ($_GET['fecha'] ?? ''));
+        try {
+            $filas = $this->saas->bitacora($fecha);
+            $aviso = null;
+        } catch (PDOException $e) {
+            $filas = [];
+            $aviso = (int) ($e->errorInfo[1] ?? 0) === 1146
+                ? 'Falta la tabla soporte_bitacora. Aplica sql/master/007_soporte_maestro.sql en la base maestra.'
+                : 'No se pudo leer la bitácora.';
+        }
+        view('master_bitacora', [
+            'admin'    => $this->admin,
+            'fecha'    => $fecha,
+            'hoy'      => date('Y-m-d'),
+            'filas'    => $filas,
+            'clientes' => $this->saas->clientes(),
+            'errores'  => [],
+            'aviso'    => $aviso,
+            'form'     => ['id_cliente' => '', 'descripcion_tarea' => '', 'estado_tarea' => 'en_curso'],
+        ]);
+    }
+
+    public function guardarBitacora(): void
+    {
+        $fecha = date('Y-m-d');
+        $form = [
+            'id_cliente'        => post_string('id_cliente', 12),
+            'descripcion_tarea' => post_string('descripcion_tarea', 500),
+            'estado_tarea'      => post_string('estado_tarea', 20),
+        ];
+        $idCliente = parse_int_range($form['id_cliente'], 1, 4294967295);
+        try {
+            if ($idCliente === null) {
+                throw new ValidationException(['id_cliente' => 'Elige la empresa en la que estás trabajando.']);
+            }
+            $this->saas->registrarBitacora($this->admin['id'], $idCliente, $form['descripcion_tarea'], $form['estado_tarea']);
+        } catch (ValidationException $e) {
+            $this->pintarBitacora($fecha, $form, $e->errors);
+            return;
+        } catch (PDOException $e) {
+            $mensaje = (int) ($e->errorInfo[1] ?? 0) === 1146
+                ? 'Falta la tabla soporte_bitacora. Aplica sql/master/007_soporte_maestro.sql en la base maestra.'
+                : 'No se pudo guardar el reporte.';
+            $this->pintarBitacora($fecha, $form, ['general' => $mensaje]);
+            return;
+        }
+        flash('success', 'Reporte registrado. Tus compañeros ya lo ven en el panel del día y no se puede editar ni borrar.');
+        redirect('master_bitacora');
+    }
+
+    /** Un Usuario Maestro no descarga la base de soporte ni abre la auditoría. */
+    private function exigirPropietario(): void
+    {
+        if ($this->admin['id'] === Saas::PROPIETARIO_ID) {
+            return;
+        }
+        $this->saas->auditar($this->admin['id'], 'acceso_denegado_propietario', null, [
+            'texto' => 'Usuario Maestro intentó una acción exclusiva del Propietario.',
+            'ruta'  => (string) ($_GET['p'] ?? ''),
+        ]);
+        http_response_code(403);
+        view('master_denegado', ['admin' => $this->admin]);
+        exit;
+    }
+
+    private function fechaBitacora(string $fecha): string
+    {
+        $hoy = date('Y-m-d');
+        $parseada = DateTime::createFromFormat('!Y-m-d', $fecha);
+        if ($parseada === false || $parseada->format('Y-m-d') !== $fecha) {
+            return $hoy;
+        }
+        return $fecha;
+    }
+
+    /**
+     * @param array{id_cliente:string, descripcion_tarea:string, estado_tarea:string} $form
+     * @param array<string, string> $errores
+     */
+    private function pintarBitacora(string $fecha, array $form, array $errores): void
+    {
+        try {
+            $filas = $this->saas->bitacora($fecha);
+            $aviso = null;
+        } catch (PDOException) {
+            $filas = [];
+            $aviso = 'No se pudo leer la bitácora.';
+        }
+        view('master_bitacora', [
+            'admin'    => $this->admin,
+            'fecha'    => $fecha,
+            'hoy'      => date('Y-m-d'),
+            'filas'    => $filas,
+            'clientes' => $this->saas->clientes(),
+            'errores'  => $errores,
+            'aviso'    => $aviso,
+            'form'     => $form,
+        ]);
+    }
+
+    public function guardarSuscripcion(): void
+    {
+        $form = [
+            'sus_id'          => post_string('sus_id', 12),
+            'sus_cliente'     => post_string('sus_cliente', 12),
+            'sus_tarifa'      => post_string('sus_tarifa', 20),
+            'sus_monto'       => post_string('sus_monto', 20),
+            'sus_inicio'      => post_string('sus_inicio', 10),
+            'sus_corte'       => post_string('sus_corte', 10),
+            'sus_modo'        => post_string('sus_modo', 20),
+            'sus_referencia'  => post_string('sus_referencia', 80),
+            'sus_descripcion' => post_string('sus_descripcion', 500),
+            'sus_pago'        => post_string('sus_pago', 10),
+            'sus_tasa'        => post_string('sus_tasa', 20),
+            'sus_usar_saldo'  => isset($_POST['sus_usar_saldo']) ? '1' : '0',
+        ];
+        $datos = [
+            'id_cliente'       => $form['sus_cliente'],
+            'tarifa_usd'       => $form['sus_tarifa'],
+            'monto_pagado'     => $form['sus_monto'],
+            'dia_inicio'       => $form['sus_inicio'],
+            'dia_corte'        => $form['sus_corte'],
+            'modo_pago'        => $form['sus_modo'],
+            'referencia'       => $form['sus_referencia'],
+            'descripcion_pago' => $form['sus_descripcion'],
+            'fecha_pago'       => $form['sus_pago'],
+            'tasa_bcv_dia'     => $form['sus_tasa'],
+            'usar_saldo'       => $form['sus_usar_saldo'],
+        ];
+        $comercial = new SaasComercial(Database::master());
+        $id = parse_int_range($form['sus_id'], 1, PHP_INT_MAX);
+        try {
+            if ($id === null) {
+                $comercial->registrarPago($this->admin['id'], $datos);
+            } else {
+                $comercial->actualizarPago($id, $datos);
+            }
+        } catch (ValidationException $e) {
+            $this->render('empresas', $e->errors, $form);
+            return;
+        } catch (PDOException $e) {
+            $codigo = (int) ($e->errorInfo[1] ?? 0);
+            $mensaje = in_array($codigo, [1146, 1054], true)
+                ? 'Falta aplicar sql/master/009_saas_billetera_avisos.sql en la base maestra.'
+                : 'No se pudo guardar el pago.';
+            $this->render('empresas', ['sus_cliente' => $mensaje], $form);
+            return;
+        }
+        $this->saas->auditar($this->admin['id'], $id === null ? 'suscripcion_pago' : 'suscripcion_editar', (int) $form['sus_cliente'], [
+            'texto'  => ($id === null ? 'Registró' : 'Corrigió') . ' un pago de suscripción de $' . $form['sus_tarifa'] . ' hasta ' . $form['sus_corte'] . '.',
+            'tarifa' => $form['sus_tarifa'],
+            'monto'  => $form['sus_monto'],
+            'corte'  => $form['sus_corte'],
+        ]);
+        flash('success', $id === null
+            ? 'Pago registrado. Si sobró dinero, quedó en el saldo a favor.'
+            : 'Pago corregido. El saldo a favor se ajustó con la diferencia.');
+        redirect('master');
+    }
+
+    public function borrarSuscripcion(): void
+    {
+        $id = parse_int_range($_POST['id'] ?? '', 1, PHP_INT_MAX);
+        try {
+            if ($id === null) {
+                throw new ValidationException(['sus_cliente' => 'El pago no es válido.']);
+            }
+            (new SaasComercial(Database::master()))->eliminarPago($id);
+        } catch (ValidationException $e) {
+            flash('error', implode(' ', $e->errors));
+            redirect('master');
+        } catch (PDOException) {
+            flash('error', 'No se pudo borrar el pago.');
+            redirect('master');
+        }
+        $this->saas->auditar($this->admin['id'], 'suscripcion_borrar', null, [
+            'texto' => 'Borró el pago de suscripción #' . $id . '.',
+        ]);
+        flash('success', 'Pago eliminado. El saldo a favor volvió al estado anterior a ese registro.');
+        redirect('master');
+    }
+
+    public function estadoSuscripcion(): void
+    {
+        $id = parse_int_range($_POST['id'] ?? '', 1, 4294967295);
+        $estado = post_string('estado', 20);
+        try {
+            if ($id === null) {
+                throw new ValidationException(['id' => 'La empresa no es válida.']);
+            }
+            (new SaasComercial(Database::master()))->cambiarEstadoSuscripcion($id, $estado);
+        } catch (ValidationException $e) {
+            flash('error', implode(' ', $e->errors));
+            redirect('master');
+        } catch (PDOException) {
+            flash('error', 'No se pudo cambiar el estado del servicio.');
+            redirect('master');
+        }
+        $this->saas->auditar($this->admin['id'], 'suscripcion_estado', $id, [
+            'texto'  => $estado === 'Suspendido'
+                ? 'Suspendió el servicio de la empresa.'
+                : 'Reactivó el servicio de la empresa.',
+            'estado' => $estado,
+        ]);
+        flash('success', $estado === 'Suspendido'
+            ? 'Servicio suspendido. La empresa verá la pantalla de contacto con soporte.'
+            : 'Servicio reactivado.');
+        redirect('master');
+    }
+
+    public function tickets(): void
+    {
+        try {
+            $filas = (new SaasComercial(Database::master()))->tickets();
+            $aviso = null;
+        } catch (PDOException $e) {
+            $filas = [];
+            $codigo = (int) ($e->errorInfo[1] ?? 0);
+            $aviso = in_array($codigo, [1146, 1054], true)
+                ? 'Falta aplicar sql/master/008_saas_suscripcion_tickets.sql en la base maestra.'
+                : 'No se pudo leer los reportes.';
+        }
+        view('master_tickets', [
+            'admin'   => $this->admin,
+            'tickets' => $filas,
+            'aviso'   => $aviso,
+        ]);
+    }
+
+    public function estadoTicket(): void
+    {
+        $id = parse_int_range($_POST['id'] ?? '', 1, PHP_INT_MAX);
+        $estado = post_string('estado', 20);
+        try {
+            if ($id === null) {
+                throw new ValidationException(['estado' => 'El reporte no es válido.']);
+            }
+            (new SaasComercial(Database::master()))->cambiarEstadoTicket($id, $estado);
+        } catch (ValidationException $e) {
+            flash('error', implode(' ', $e->errors));
+            redirect('master_tickets');
+        } catch (PDOException) {
+            flash('error', 'No se pudo actualizar el reporte.');
+            redirect('master_tickets');
+        }
+        $this->saas->auditar($this->admin['id'], 'ticket_estado', null, [
+            'texto'  => 'Cambió el reporte #' . $id . ' a ' . $estado . '.',
+            'ticket' => $id,
+            'estado' => $estado,
+        ]);
+        flash('success', 'Estado del reporte actualizado.');
+        redirect('master_tickets');
+    }
+
+    public function avisosTickets(): void
+    {
+        try {
+            $comercial = new SaasComercial(Database::master());
+            $filas = $comercial->ticketsAbiertos(8);
+            $total = $comercial->contarAbiertos();
+        } catch (PDOException) {
+            json_response(200, ['ok' => true, 'total' => 0, 'tickets' => []]);
+        }
+        $tickets = [];
+        foreach ($filas as $t) {
+            $tipo = (string) $t['tipo_solicitud'];
+            $tickets[] = [
+                'id'      => (int) $t['id'],
+                'empresa' => (string) $t['nombre_empresa'],
+                'asunto'  => (string) $t['asunto'],
+                'tipo'    => SaasComercial::TIPOS_TICKET[$tipo] ?? $tipo,
+                'cuando'  => date('d/m/Y H:i', strtotime((string) $t['fecha_creacion'])),
+                'url'     => url('master_tickets') . '#t' . (int) $t['id'],
+            ];
+        }
+        json_response(200, ['ok' => true, 'total' => $total, 'tickets' => $tickets]);
+    }
+
     /** @param array<string, string> $errores @param array<string, string> $form */
     private function render(string $tab, array $errores, array $form): void
     {
         $clave = $_SESSION['_clave_temporal'] ?? null;
         unset($_SESSION['_clave_temporal']);
         $esPropietario = $this->admin['id'] === Saas::PROPIETARIO_ID;
+        $suscripciones = [];
+        $pagosSuscripcion = [];
+        $avisoSuscripcion = null;
+        try {
+            $comercial = new SaasComercial(Database::master());
+            $suscripciones = $comercial->panelSuscripciones();
+            $pagosSuscripcion = $comercial->ultimosPagos();
+        } catch (PDOException $e) {
+            $codigo = (int) ($e->errorInfo[1] ?? 0);
+            $avisoSuscripcion = in_array($codigo, [1146, 1054], true)
+                ? 'Falta aplicar sql/master/009_saas_billetera_avisos.sql en la base maestra.'
+                : 'No se pudo leer las suscripciones.';
+        }
+        $suscripcionEditar = null;
+        $editarId = $errores === [] ? parse_int_range($_GET['suscripcion'] ?? '', 1, PHP_INT_MAX) : null;
+        if ($editarId !== null && $avisoSuscripcion === null) {
+            try {
+                $suscripcionEditar = (new SaasComercial(Database::master()))->suscripcion($editarId);
+            } catch (PDOException) {
+                $suscripcionEditar = null;
+            }
+        }
         view('master', [
-            'admin'         => $this->admin,
-            'tab'           => $tab,
-            'esPropietario' => $esPropietario,
-            'clientes'      => $this->saas->clientes(),
-            'superAdmins'   => $esPropietario ? $this->saas->superAdmins() : [],
-            'errores'       => $errores,
-            'form'          => $form,
-            'claveTemporal' => is_array($clave) ? $clave : null,
+            'admin'            => $this->admin,
+            'tab'              => $tab,
+            'esPropietario'    => $esPropietario,
+            'clientes'         => $this->saas->clientes(),
+            'superAdmins'      => $esPropietario ? $this->saas->superAdmins() : [],
+            'errores'          => $errores,
+            'form'             => $form,
+            'claveTemporal'    => is_array($clave) ? $clave : null,
+            'suscripciones'    => $suscripciones,
+            'pagosSuscripcion'  => $pagosSuscripcion,
+            'avisoSuscripcion'  => $avisoSuscripcion,
+            'suscripcionEditar' => $suscripcionEditar,
         ]);
     }
 }

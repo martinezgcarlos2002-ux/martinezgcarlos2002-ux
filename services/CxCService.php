@@ -346,7 +346,11 @@ final class CxCService
             $lote = bin2hex(random_bytes(8));
             $loteHash = uniqid('AB-');
             $montoGlobal = Caja::desdeCentavos($restoC);
-            $tasaDia = $tasaCambio !== null ? number_format((float) $tasaCambio, 2, '.', '') : null;
+            $tasaDia = $tasaCambio;
+            $this->registrarPagoGlobal(
+                $clienteId, $lote, $loteHash, $montoGlobal, $tasaDia, $montoBs,
+                $fecha, $metodo, $ref, $notas, $userId
+            );
             $totalC = $restoC;
             $pagos = [];
             foreach ($facturas as $f) {
@@ -1001,12 +1005,8 @@ final class CxCService
      */
     public function pagos(?array $ids = null): array
     {
-        $where = $ids === null ? '' : ($ids === [] ? 'WHERE 1 = 0' : 'WHERE id IN (' . implode(',', array_map('intval', $ids)) . ')');
-        return $this->db->query(
-            "SELECT id, factura_id, cliente_id, monto, fecha, metodo, referencia, notas, tasa_cambio, monto_bs, estado,
-                    lote_hash, monto_global_origen, tasa_cambio_dia
-             FROM cxc_pagos $where ORDER BY fecha DESC, id DESC"
-        )->fetchAll();
+        $where = $ids === null ? '' : ($ids === [] ? 'WHERE 1 = 0' : 'WHERE p.id IN (' . implode(',', array_map('intval', $ids)) . ')');
+        return $this->db->query($this->sqlPagos() . " $where ORDER BY p.fecha DESC, p.id DESC")->fetchAll();
     }
 
     /**
@@ -1102,12 +1102,86 @@ final class CxCService
         return $row;
     }
 
+    /**
+     * Lectura de pagos. Si existe pagos_globales, el monto digitado y la tasa BCV
+     * salen de esa cabecera (una por lote) y, si no hay cabecera, de la copia en la fracción.
+     */
+    private function sqlPagos(): string
+    {
+        $columnas = 'p.id, p.factura_id, p.cliente_id, p.monto, p.fecha, p.metodo, p.referencia, p.notas,
+                    p.tasa_cambio, p.monto_bs, p.estado, p.lote, p.lote_hash';
+        if (!$this->tienePagosGlobales()) {
+            return "SELECT $columnas, p.monto_global_origen, p.tasa_cambio_dia,
+                           NULL AS pago_global_id, NULL AS monto_total_ingresado, NULL AS tasa_bcv_aplicada
+                    FROM cxc_pagos p";
+        }
+        return "SELECT $columnas,
+                       COALESCE(g.monto_total_ingresado, p.monto_global_origen) AS monto_global_origen,
+                       COALESCE(g.tasa_bcv_aplicada, p.tasa_cambio_dia) AS tasa_cambio_dia,
+                       g.id AS pago_global_id,
+                       COALESCE(g.monto_total_ingresado, p.monto_global_origen) AS monto_total_ingresado,
+                       COALESCE(g.tasa_bcv_aplicada, p.tasa_cambio_dia) AS tasa_bcv_aplicada
+                FROM cxc_pagos p
+                LEFT JOIN pagos_globales g ON g.lote = p.lote AND p.lote IS NOT NULL";
+    }
+
+    private function tienePagosGlobales(): bool
+    {
+        static $existe = null;
+        if ($existe === null) {
+            $existe = $this->db->query("SHOW TABLES LIKE 'pagos_globales'")->fetch() !== false;
+        }
+        return $existe;
+    }
+
+    /**
+     * Cabecera del abono distribuido. Si la migración 058 aún no corrió, las fracciones
+     * siguen guardando monto_global_origen y tasa_cambio_dia en el INSERT (eso no es un UPDATE).
+     */
+    private function registrarPagoGlobal(
+        int $clienteId,
+        string $lote,
+        string $loteHash,
+        string $montoTotal,
+        ?string $tasaBcv,
+        ?string $montoBs,
+        string $fecha,
+        string $metodo,
+        ?string $ref,
+        ?string $notas,
+        int $userId
+    ): void {
+        if (!$this->tienePagosGlobales()) {
+            return;
+        }
+        $this->db->prepare(
+            'INSERT INTO pagos_globales (
+                cliente_id, lote, lote_hash, monto_total_ingresado, tasa_bcv_aplicada, monto_bs,
+                fecha, metodo, referencia, notas, registrado_por
+             ) VALUES (
+                :cliente, :lote, :lote_hash, :monto, :tasa, :bs,
+                :fecha, :metodo, :ref, :notas, :usuario
+             )'
+        )->execute([
+            'cliente'   => $clienteId,
+            'lote'      => $lote,
+            'lote_hash' => $loteHash,
+            'monto'     => $montoTotal,
+            'tasa'      => $tasaBcv,
+            'bs'        => $montoBs,
+            'fecha'     => $fecha,
+            'metodo'    => $metodo,
+            'ref'       => self::nulo($ref),
+            'notas'     => self::nulo($notas),
+            'usuario'   => $userId,
+        ]);
+    }
+
     /** @return list<array<string, mixed>> */
     private function pagosDeFactura(int $facturaId): array
     {
         $stmt = $this->db->prepare(
-            'SELECT id, factura_id, cliente_id, monto, fecha, metodo, referencia, notas, tasa_cambio, monto_bs, estado
-             FROM cxc_pagos WHERE factura_id = :id ORDER BY fecha DESC, id DESC'
+            $this->sqlPagos() . ' WHERE p.factura_id = :id ORDER BY p.fecha DESC, p.id DESC'
         );
         $stmt->execute(['id' => $facturaId]);
         return $stmt->fetchAll();

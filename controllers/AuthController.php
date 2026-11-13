@@ -38,7 +38,7 @@ final class AuthController
         }
         if (Database::multiempresa() && Database::empresaActiva() === null) {
             // Marca de la empresa en su propio subdominio; en el dominio principal, la marca ADARA.
-            $cliente = (new Saas(Database::master()))->clientePorHost((string) ($_SERVER['HTTP_HOST'] ?? ''));
+            $cliente = (new Saas(Database::master()))->clienteDePeticionPublica();
             if ($cliente !== null && $cliente['estado_licencia'] === 'activa') {
                 Database::usarEmpresa((string) $cliente['nombre_db_fisica']);
             }

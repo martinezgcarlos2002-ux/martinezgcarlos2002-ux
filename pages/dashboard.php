@@ -9,9 +9,9 @@ declare(strict_types=1);
 /** @var array{categorias:list<string>, semanas:list<array>, totales:array<string, array{cuentas:int, usd:float}>, total:array{cuentas:int, usd:float}}|null $deudasArrastre */
 
 $enlacesDeuda = [
-    'Productores' => modulos()['productores']['p'],
-    'Nómina'      => modulos()['empleados']['p'],
-    'Transporte'  => modulos()['transportistas']['p'],
+    'Productores' => ['p' => 'productores', 'q' => ['filtro' => 'con_deuda']],
+    'Nómina'      => ['p' => 'empleados', 'q' => ['filtro' => 'con_deuda', 'tab' => 'nomina']],
+    'Transporte'  => ['p' => 'transportistas', 'q' => ['filtro' => 'con_deuda']],
 ];
 
 $usd = static fn (array $m): string => '$' . num($m['usd']);
@@ -56,10 +56,10 @@ layout_start('Dashboard', 'dashboard');
     <div class="row g-2 mb-3">
       <?php foreach ($deudasArrastre['categorias'] as $cat): $t = $deudasArrastre['totales'][$cat]; ?>
       <div class="col-md-4">
-        <a class="deudas-chip <?= $t['usd'] > 0 ? 'deudas-chip-alerta' : '' ?>" href="<?= e(url($enlacesDeuda[$cat])) ?>">
+        <a class="deudas-chip <?= $t['usd'] > 0 ? 'deudas-chip-alerta' : '' ?>" href="<?= e(url($enlacesDeuda[$cat]['p'], $enlacesDeuda[$cat]['q'])) ?>">
           <span><?= e($cat) ?></span>
           <strong class="<?= $t['usd'] > 0 ? 'deudas-rojo' : '' ?>"><?= e($usd(['usd' => $t['usd'], 'bs' => null])) ?></strong>
-          <small><?= e((string) $t['cuentas']) ?> cuenta<?= $t['cuentas'] === 1 ? '' : 's' ?></small>
+          <small><?= e((string) $t['cuentas']) ?> cuenta<?= $t['cuentas'] === 1 ? '' : 's' ?> · ver detalle</small>
         </a>
       </div>
       <?php endforeach; ?>

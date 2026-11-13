@@ -35,6 +35,7 @@ $tolerancias = [
 
 layout_start('Productores y Proveedores', 'productores');
 ?>
+<?php if (empty($filtroDeuda)): ?>
 <div class="row g-3 mb-3 kpi-productores">
   <div class="col-6 col-lg-3">
     <div class="card h-100 text-center">
@@ -81,6 +82,7 @@ layout_start('Productores y Proveedores', 'productores');
     </div>
   </div>
 </div>
+<?php endif; ?>
 
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
   <form class="d-flex flex-wrap gap-2" method="get" action="<?= e(base_path() . 'index.php') ?>">
@@ -135,6 +137,9 @@ layout_start('Productores y Proveedores', 'productores');
   </div>
 </div>
 
+<?php if (!empty($filtroDeuda)): ?>
+<?php require ADARA_ROOT . '/pages/partials/deudas_filtro.php'; ?>
+<?php else: ?>
 <p class="text-muted small mb-2"><i class="bi bi-hand-index"></i> Toca un productor para abrir toda su información</p>
 
 <div class="card">
@@ -219,6 +224,7 @@ layout_start('Productores y Proveedores', 'productores');
     </table>
   </div>
 </div>
+<?php endif; ?>
 
 <?php if ($puedeCrear || $puedeEditar): ?>
 <!-- ============================================================

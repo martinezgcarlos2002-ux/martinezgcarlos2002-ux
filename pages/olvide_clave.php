@@ -15,7 +15,7 @@ $alertClass = ['error' => 'danger', 'success' => 'success', 'info' => 'info', 'w
       integrity="<?= e(BOOTSTRAP_CSS['integrity']) ?>" crossorigin="anonymous">
 <link rel="stylesheet" href="<?= e(asset_v('css/login.css')) ?>">
 </head>
-<body class="login-page" style="background-image:url('<?= e(asset('img/fondo_empresa.jpg')) ?>');background-size:cover;background-position:center;background-repeat:no-repeat;">
+<body class="login-page" style="<?= fondo_login_estilo() ?>">
 <div class="login-overlay">
 <div class="card login-card">
   <div class="text-center mb-3">

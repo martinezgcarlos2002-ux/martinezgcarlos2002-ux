@@ -5,13 +5,23 @@ declare(strict_types=1);
  * Cascarón exclusivo del Panel Maestro SaaS. No carga módulos, tasas ni datos de ninguna empresa.
  * Lo usan las pantallas del panel y, como red de seguridad, layout_start() cuando la sesión es de super admin.
  *
- * @param 'master'|'accesos'|'clave'|'contrato'|'arquitectura' $active
+ * @param 'master'|'accesos'|'clave'|'contrato'|'arquitectura'|'bitacora'|'auditoria'|'tickets' $active
  */
 function layout_master_start(string $title, string $active = 'master'): void
 {
     $admin = super_admin_actual();
     $alertClass = ['error' => 'danger', 'success' => 'success', 'info' => 'info', 'warning' => 'warning'];
     $esPropietario = $admin !== null && $admin['id'] === Saas::PROPIETARIO_ID;
+    $ticketsSoporte = [];
+    $totalTicketsSoporte = 0;
+    try {
+        $buzon = new SaasComercial(Database::master());
+        $totalTicketsSoporte = $buzon->contarAbiertos();
+        $ticketsSoporte = $buzon->ticketsAbiertos(8);
+    } catch (Throwable) {
+        $ticketsSoporte = [];
+        $totalTicketsSoporte = 0;
+    }
     ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -51,6 +61,24 @@ function layout_master_start(string $title, string $active = 'master'): void
       <span class="nav-icon"><i class="bi bi-diagram-3"></i></span>
       <span class="nav-label">Arquitectura</span>
     </a>
+    <a class="nav-link" href="<?= e(url('master')) ?>#suscripciones" title="Suscripciones">
+      <span class="nav-icon"><i class="bi bi-hourglass-split"></i></span>
+      <span class="nav-label">Suscripciones</span>
+    </a>
+    <a class="nav-link<?= $active === 'tickets' ? ' active' : '' ?>" href="<?= e(url('master_tickets')) ?>" title="Tickets de soporte">
+      <span class="nav-icon"><i class="bi bi-life-preserver"></i></span>
+      <span class="nav-label">Tickets</span>
+    </a>
+    <a class="nav-link<?= $active === 'bitacora' ? ' active' : '' ?>" href="<?= e(url('master_bitacora')) ?>" title="Bitácora del día">
+      <span class="nav-icon"><i class="bi bi-journal-text"></i></span>
+      <span class="nav-label">Bitácora</span>
+    </a>
+    <?php if ($esPropietario): ?>
+    <a class="nav-link<?= $active === 'auditoria' ? ' active' : '' ?>" href="<?= e(url('master_auditoria')) ?>" title="Auditoría de maestros">
+      <span class="nav-icon"><i class="bi bi-shield-check"></i></span>
+      <span class="nav-label">Auditoría</span>
+    </a>
+    <?php endif; ?>
     <?php if ($esPropietario): ?>
     <a class="nav-link<?= $active === 'accesos' ? ' active' : '' ?>" href="<?= e(url('master')) ?>#accesos" title="Gestión de Accesos">
       <span class="nav-icon"><i class="bi bi-person-lock"></i></span>
@@ -73,6 +101,40 @@ function layout_master_start(string $title, string $active = 'master'): void
     </button>
     <h5><?= e($title) ?></h5>
     <div class="d-flex align-items-center gap-3">
+      <div class="dropdown" id="campanaSoporte" data-url="<?= e(url('master_tickets_aviso')) ?>">
+        <button type="button" class="btn btn-light border rounded-circle position-relative" id="btnTicketsSoporte"
+                data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+                aria-label="Reportes de soporte">
+          <i class="bi bi-bell"></i>
+          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger<?= $totalTicketsSoporte > 0 ? '' : ' d-none' ?>" id="contadorTicketsSoporte">
+            <?= $totalTicketsSoporte > 99 ? '99+' : (int) $totalTicketsSoporte ?>
+          </span>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end shadow p-0" style="min-width: 320px" aria-labelledby="btnTicketsSoporte">
+          <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom bg-body-tertiary">
+            <strong class="small">Soporte</strong>
+            <span class="badge text-bg-secondary" id="contadorTicketsMenu"><?= (int) $totalTicketsSoporte ?></span>
+          </div>
+          <ul class="list-unstyled mb-0 notificaciones-scroll" id="listaTicketsSoporte">
+            <?php if ($ticketsSoporte === []): ?>
+            <li><span class="dropdown-item-text small text-body-secondary py-2">No hay reportes nuevos ni pendientes.</span></li>
+            <?php endif; ?>
+            <?php foreach ($ticketsSoporte as $t): ?>
+            <li>
+              <a class="dropdown-item d-flex flex-column py-2 border-bottom" href="<?= e(url('master_tickets') . '#t' . (int) $t['id']) ?>">
+                <span class="d-flex justify-content-between gap-2">
+                  <span class="fw-semibold small"><?= e((string) $t['nombre_empresa']) ?></span>
+                  <span class="badge text-bg-light border"><?= e(SaasComercial::TIPOS_TICKET[(string) $t['tipo_solicitud']] ?? (string) $t['tipo_solicitud']) ?></span>
+                </span>
+                <span class="small text-wrap"><?= e((string) $t['asunto']) ?></span>
+                <span class="small text-body-secondary"><?= e(date('d/m/Y H:i', strtotime((string) $t['fecha_creacion']))) ?></span>
+              </a>
+            </li>
+            <?php endforeach; ?>
+          </ul>
+          <a class="dropdown-item text-center small py-2 border-top" href="<?= e(url('master_tickets')) ?>">Ver todos los reportes</a>
+        </div>
+      </div>
       <?php if ($esPropietario): ?><span class="badge text-bg-dark">Propietario</span><?php endif; ?>
       <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('master_clave')) ?>"><i class="bi bi-key"></i> Mi clave</a>
       <form method="post" action="<?= e(url('master_salir')) ?>">
@@ -97,6 +159,7 @@ function layout_master_end(): void
   </div>
 </div>
 <script src="<?= e(BOOTSTRAP_JS['src']) ?>" integrity="<?= e(BOOTSTRAP_JS['integrity']) ?>" crossorigin="anonymous"></script>
+<script src="<?= e(asset_v('js/master_campana.js')) ?>"></script>
 <script src="<?= e(asset_v('js/ver_clave.js')) ?>"></script>
 <script nonce="<?= e(csp_nonce()) ?>">
 window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });

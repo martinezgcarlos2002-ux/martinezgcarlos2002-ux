@@ -16,7 +16,9 @@ declare(strict_types=1);
  * @var list<array<string, mixed>> $devoluciones
  * @var list<string> $metodos
  * @var float|null $tasa
+ * @var string|null $saldoAFavor
  */
+$saldoAFavor = $saldoAFavor ?? null;
 $endpoints = [
     'inicio'           => url('facturas'),
     'numero'           => url('facturas_numero'),
@@ -57,6 +59,9 @@ layout_start('Control de Facturas', 'facturas');
     <div>
       <h1 class="h5 mb-0"><i class="bi bi-receipt-cutoff"></i> Control de Facturas de Clientes</h1>
       <div class="small text-muted">Módulo independiente</div>
+      <?php if ($saldoAFavor !== null): ?>
+      <div class="mt-2"><span class="badge text-bg-success">Saldo a favor: $<?= e(number_format((float) $saldoAFavor, 2, '.', ',')) ?></span></div>
+      <?php endif; ?>
     </div>
     <div class="d-flex flex-wrap gap-2">
       <a class="btn btn-sm btn-outline-success rounded-pill btn-descarga" href="<?= e(url('facturas_excel')) ?>"><i class="bi bi-file-earmark-excel"></i> Excel</a>
@@ -192,7 +197,7 @@ layout_start('Control de Facturas', 'facturas');
       </div>
       <div class="tab-pane fade" id="tabPagos" role="tabpanel">
         <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
-          <thead><tr class="small text-uppercase text-muted"><th>Fecha</th><th>Factura</th><th>Método</th><th>Referencia</th><th>Notas</th><th>Origen</th><th class="text-end">Monto</th><th class="text-end">Acciones</th></tr></thead>
+          <thead><tr class="small text-uppercase text-muted"><th>Fecha</th><th>Factura</th><th>Método</th><th>Referencia</th><th>Notas</th><th>Abono global / Tasa BCV</th><th class="text-end">Fracción</th><th class="text-end">Acciones</th></tr></thead>
           <tbody id="tbDetPagos"></tbody>
         </table></div>
       </div>
@@ -326,6 +331,9 @@ layout_start('Control de Facturas', 'facturas');
         <div class="row g-3">
           <div class="col-md-7"><label class="form-label" for="abonoCliente">Cliente <span class="text-danger">*</span></label><select class="form-select js-clientes" id="abonoCliente" name="cliente_id" data-con-deuda="1" required></select><div class="invalid-feedback"></div></div>
           <div class="col-md-5"><label class="form-label" for="abonoMonto">Abono total $ <span class="text-danger">*</span></label><input class="form-control" id="abonoMonto" name="monto" inputmode="decimal" required><div class="invalid-feedback"></div></div>
+          <div class="col-md-4"><label class="form-label" for="abonoTasa">Tasa BCV (Bs/$)</label><input class="form-control" id="abonoTasa" name="tasa_cambio" inputmode="decimal" placeholder="Ej: 185.50"><div class="invalid-feedback"></div></div>
+          <div class="col-md-4"><label class="form-label" for="abonoMontoBs">Monto total Bs</label><input class="form-control" id="abonoMontoBs" name="monto_bs" inputmode="decimal"><div class="invalid-feedback"></div></div>
+          <div class="col-md-4"><p class="form-text mb-0 mt-4">Se guarda el monto que escribes y la tasa de este momento. Cada factura recibe solo su fracción.</p></div>
           <div class="col-md-6"><label class="form-label" for="abonoFecha">Fecha <span class="text-danger">*</span></label><input class="form-control" type="date" id="abonoFecha" name="fecha" required value="<?= e($hoy) ?>" max="<?= e($hoy) ?>"><div class="invalid-feedback"></div></div>
           <div class="col-md-6"><label class="form-label" for="abonoMetodo">Método</label><select class="form-select" id="abonoMetodo" name="metodo"><?= $opcionesMetodo() ?></select><div class="invalid-feedback"></div></div>
           <div class="col-md-6"><label class="form-label" for="abonoNotas">Nota para cada pago</label><input class="form-control" id="abonoNotas" name="notas" maxlength="160" placeholder="Ej: Abono recibido del cliente"></div>

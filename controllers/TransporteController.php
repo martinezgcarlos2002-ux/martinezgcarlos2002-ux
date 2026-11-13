@@ -13,8 +13,27 @@ final class TransporteController
 
     public function index(): void
     {
+        $filtroDeuda = ($_GET['filtro'] ?? '') === 'con_deuda';
+        $deudasFilas = [];
+        $deudasTotal = '0.00';
+        $deudasCorte = DeudasArrastreDetalle::corte();
+        if ($filtroDeuda) {
+            $deudasFilas = DeudasArrastreDetalle::transporte(get_db(), $deudasCorte);
+            foreach ($deudasFilas as &$filaDeuda) {
+                $filaDeuda['href'] = null;
+            }
+            unset($filaDeuda);
+            $deudasTotal = DeudasArrastreDetalle::total($deudasFilas);
+        }
         view('transporte', [
             'hoy'          => date('Y-m-d'),
+            'filtroDeuda'  => $filtroDeuda,
+            'deudasFilas'  => $deudasFilas,
+            'deudasTotal'  => $deudasTotal,
+            'deudasCorte'  => $deudasCorte,
+            'deudasTitulo' => 'Transporte con saldo de semanas cerradas',
+            'deudasNota'   => 'Cierres cuya fecha fin ya pasó y cuyo total a pagar supera lo abonado. El total es el de la tarjeta del dashboard.',
+            'deudasVolver' => url('transportistas'),
             'metricas'     => $this->log->obtenerMetricas(),
             'transportistas' => array_map([self::class, 'jsonTransportista'], $this->log->transportistas()),
             'productores'  => array_map([self::class, 'jsonProductor'], $this->log->productoresDisponibles()),

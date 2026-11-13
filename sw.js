@@ -19,7 +19,7 @@
  */
 'use strict';
 
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const CACHE_PREFIX = 'adara-';
 const CACHE_ESTATICO = `${CACHE_PREFIX}estatico-${CACHE_VERSION}`;
 const CACHE_PAGINAS = `${CACHE_PREFIX}paginas-${CACHE_VERSION}`;
@@ -45,6 +45,8 @@ const PRECACHE_LOCAL = [
   'assets/css/adara.css',
   'assets/js/contacto.js',
   'assets/js/offlineSync.js',
+  'assets/js/offlineIndexedDb.js',
+  'manifest.webmanifest',
   'assets/js/descargas_app.js',
   'assets/img/favicon.png',
   'assets/img/logo.jpg',

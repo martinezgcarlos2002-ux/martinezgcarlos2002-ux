@@ -131,6 +131,7 @@
       this.S = JSON.parse(document.getElementById('cfDatos').textContent);
       this.ui = { cliente: null, q: '', estado: '', resaltar: null };
       this.pagoCalc = '';
+      this.abonoCalc = '';
       this.buscarTimer = null;
       this.numeroAbort = null;
     }
@@ -564,13 +565,7 @@
       ps.forEach(function (p) {
         var f = self.factura(p.factura_id);
         var anulado = p.estado === 'anulado';
-        var origen = null;
-        if (p.lote_hash) {
-          origen = self.h('div', {}, [
-            self.h('span', { class: 'badge rounded-pill text-bg-primary', text: 'Pago Distribuido de ' + self.money(p.monto_global) }),
-            p.tasa_dia ? self.h('div', { class: 'small text-muted mt-1', text: 'Tasa ' + Number(p.tasa_dia).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }) : null
-          ]);
-        }
+        var origen = self.origenAbono(p);
         tp.appendChild(self.h('tr', { class: anulado ? 'text-muted' : '' }, [
           self.h('td', { text: self.dmy(p.fecha) }), self.h('td', { class: 'fw-semibold', text: f ? f.numero : '' }),
           self.h('td', { text: p.metodo || '—' }), self.h('td', { text: p.referencia || '—' }), self.h('td', { class: 'small', text: p.notas || '' }),
@@ -825,7 +820,7 @@
           var anulado = p.estado === 'anulado';
           tp.appendChild(self.h('tr', { class: anulado ? 'text-muted' : '' }, [
             self.h('td', { text: self.dmy(p.fecha) }),
-            self.h('td', { text: p.metodo || '—' }),
+            self.h('td', {}, [p.metodo || '—', self.origenAbono(p)]),
             self.h('td', { text: p.referencia || '—' }),
             self.h('td', { class: 'text-end', text: self.money(p.monto) }),
             self.h('td', { class: 'text-end small' }, [
@@ -1153,6 +1148,48 @@
       return n > 0 ? n : 0;
     }
 
+    origenAbono(p) {
+      var total = p.monto_total_ingresado != null ? p.monto_total_ingresado : p.monto_global;
+      var tasa = p.tasa_bcv_aplicada != null ? p.tasa_bcv_aplicada : p.tasa_dia;
+      if (!p.lote_hash && total == null) return null;
+      var tasaTxt = tasa
+        ? ('Tasa BCV ' + Number(tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 }))
+        : 'Tasa BCV no registrada en este abono';
+      var ref = p.lote_hash ? (' ' + p.lote_hash) : '';
+      return this.h('div', { class: 'mt-1' }, [
+        this.h('span', {
+          class: 'badge rounded-pill text-bg-primary',
+          text: 'Fracción ' + this.money(p.monto) + ' de un abono global' + (total != null ? ' de ' + this.money(total) : '') + ref
+        }),
+        this.h('div', { class: 'small text-muted mt-1', text: tasaTxt })
+      ]);
+    }
+
+    tasaAbono() {
+      var n = this.num($('#abonoTasa') ? $('#abonoTasa').value : '');
+      return n > 0 ? n : 0;
+    }
+
+    recalcularAbonoDesdeUsd() {
+      var tasa = this.tasaAbono();
+      var usd = this.num($('#abonoMonto') ? $('#abonoMonto').value : '');
+      if (!$('#abonoMontoBs') || tasa <= 0 || !(usd > 0)) return;
+      if (this.abonoCalc === 'bs') return;
+      this.abonoCalc = 'usd';
+      $('#abonoMontoBs').value = this.r2(usd * tasa).toFixed(2);
+      this.abonoCalc = '';
+    }
+
+    recalcularAbonoDesdeBs() {
+      var tasa = this.tasaAbono();
+      var bs = this.num($('#abonoMontoBs') ? $('#abonoMontoBs').value : '');
+      if (!$('#abonoMonto') || tasa <= 0 || !(bs > 0)) return;
+      if (this.abonoCalc === 'usd') return;
+      this.abonoCalc = 'bs';
+      $('#abonoMonto').value = this.r2(bs / tasa).toFixed(2);
+      this.abonoCalc = '';
+    }
+
     recalcularPagoDesdeUsd() {
       var tasa = this.tasaPago();
       var usd = this.num($('#pagoMonto').value);
@@ -1356,10 +1393,25 @@
         formAbono.reset();
         self.marcarErrores(formAbono, {});
         self.renderSelectClientes();
+        if (self.tasaVigente > 0 && $('#abonoTasa')) $('#abonoTasa').value = String(self.tasaVigente);
         if (self.ui.cliente != null) $('#abonoCliente').value = self.ui.cliente;
         self.mostrarCreditoAbono($('#abonoCliente').value);
         self.previewAbono();
+        self.recalcularAbonoDesdeUsd();
       });
+      $('#abonoMonto').addEventListener('input', function () { self.recalcularAbonoDesdeUsd(); });
+      if ($('#abonoMontoBs')) {
+        $('#abonoMontoBs').addEventListener('input', function () {
+          self.recalcularAbonoDesdeBs();
+          self.previewAbono();
+        });
+      }
+      if ($('#abonoTasa')) {
+        $('#abonoTasa').addEventListener('input', function () {
+          if (self.abonoCalc === 'bs') self.recalcularAbonoDesdeBs();
+          else self.recalcularAbonoDesdeUsd();
+        });
+      }
       $('#abonoCliente').addEventListener('change', function () {
         self.mostrarCreditoAbono($('#abonoCliente').value);
         self.previewAbono();
@@ -1367,6 +1419,10 @@
       $('#abonoMetodo').addEventListener('change', function () {
         var c = self.cliente($('#abonoCliente').value);
         self.limitarMontoSaldoFavor($('#abonoMetodo'), $('#abonoMonto'), c ? Number(c.credito || 0) : 0, c ? self.resumenCliente(c.id).saldo : null);
+        var esFavor = this.value === 'saldo_favor';
+        if ($('#abonoTasa')) $('#abonoTasa').disabled = esFavor;
+        if ($('#abonoMontoBs')) $('#abonoMontoBs').disabled = esFavor;
+        if (!esFavor) self.recalcularAbonoDesdeUsd();
       });
       $('#abonoMonto').addEventListener('input', function () { self.previewAbono(); });
       formAbono.addEventListener('submit', function (e) {

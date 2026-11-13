@@ -31,6 +31,21 @@ layout_master_start('Panel de Empresas', 'master');
   <?php endif; ?>
 
 <?php if ($esPropietario): ?>
+<div class="card card-body mb-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+      <h5 class="mb-1">Respaldo de la base de soporte</h5>
+      <p class="text-muted small mb-0">Volcado SQL de la base maestra. Un Usuario Maestro no puede descargarlo.</p>
+    </div>
+    <form method="post" action="<?= e(url('master_respaldo_soporte')) ?>">
+      <?= csrf_field() ?>
+      <button class="btn btn-dark" type="submit"><i class="bi bi-database-down"></i> Descargar .sql</button>
+    </form>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php if ($esPropietario): ?>
   <section class="mb-5" id="accesos">
   <h4 class="mb-3"><i class="bi bi-person-lock"></i> Súper-administradores</h4>
   <div class="row g-4">
@@ -155,6 +170,8 @@ layout_master_start('Panel de Empresas', 'master');
   </section>
 <?php endif; ?>
 
+  <?php require ADARA_ROOT . '/pages/partials/master_suscripciones.php'; ?>
+
   <section id="empresas">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
@@ -250,7 +267,17 @@ layout_master_start('Panel de Empresas', 'master');
                 <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
                 <input type="hidden" name="estado" value="<?= $activa ? 'inactiva' : 'activa' ?>">
                 <button type="submit" class="btn btn-sm <?= $activa ? 'btn-outline-danger' : 'btn-outline-success' ?>">
-                  <i class="bi <?= $activa ? 'bi-pause-circle' : 'bi-play-circle' ?>"></i> <?= $activa ? 'Suspender' : 'Activar' ?>
+                  <i class="bi <?= $activa ? 'bi-pause-circle' : 'bi-play-circle' ?>"></i> <?= $activa ? 'Suspender licencia' : 'Activar licencia' ?>
+                </button>
+              </form>
+              <?php $servicioSuspendido = ($c['estado_suscripcion'] ?? 'activa') === 'Suspendido'; ?>
+              <form method="post" action="<?= e(url('master_suscripcion_estado')) ?>" class="d-inline js-confirmar"
+                    data-confirmar="<?= $servicioSuspendido ? '' : e('¿Suspender el servicio de ' . $c['nombre_empresa'] . '? Verán la pantalla de contacto con soporte.') ?>">
+                <?= csrf_field() ?>
+                <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
+                <input type="hidden" name="estado" value="<?= $servicioSuspendido ? 'activa' : 'Suspendido' ?>">
+                <button type="submit" class="btn btn-sm <?= $servicioSuspendido ? 'btn-outline-success' : 'btn-danger' ?>">
+                  <?= $servicioSuspendido ? 'Reactivar servicio' : 'Suspender Cliente' ?>
                 </button>
               </form>
               <?php if ((int) $c['base_existe'] === 1): ?>

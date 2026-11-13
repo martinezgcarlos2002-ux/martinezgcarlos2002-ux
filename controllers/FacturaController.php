@@ -41,6 +41,15 @@ final class FacturaController
     public function index(): void
     {
         $metricas = $this->cxc->obtenerMetricasDashboard();
+        $saldoAFavor = null;
+        $empresaId = $_SESSION['tenant_id'] ?? null;
+        if (Database::multiempresa() && is_int($empresaId)) {
+            try {
+                $saldoAFavor = (new SaasComercial(Database::master()))->saldoAFavor($empresaId);
+            } catch (Throwable) {
+                $saldoAFavor = null;
+            }
+        }
         view('facturas', [
             'hoy'          => date('Y-m-d'),
             'metricas'     => $metricas,
@@ -52,6 +61,7 @@ final class FacturaController
             'puedeCrear'   => has_permiso(current_user(), 'facturas', 'crear'),
             'puedeAnular'  => has_permiso(current_user(), 'facturas', 'anular'),
             'tasa'         => TasaCambio::vigente(get_db())['tasa'] ?? null,
+            'saldoAFavor'  => $saldoAFavor,
         ]);
     }
 
@@ -785,8 +795,15 @@ final class FacturaController
             'tasa'       => $p['tasa_cambio'] !== null && $p['tasa_cambio'] !== '' ? (float) $p['tasa_cambio'] : null,
             'monto_bs'   => $p['monto_bs'] !== null && $p['monto_bs'] !== '' ? (float) $p['monto_bs'] : null,
             'lote_hash'  => ($p['lote_hash'] ?? null) !== null && $p['lote_hash'] !== '' ? (string) $p['lote_hash'] : null,
+            'pago_global_id' => isset($p['pago_global_id']) && $p['pago_global_id'] !== null && $p['pago_global_id'] !== '' ? (int) $p['pago_global_id'] : null,
             'monto_global' => ($p['monto_global_origen'] ?? null) !== null && $p['monto_global_origen'] !== '' ? (float) $p['monto_global_origen'] : null,
+            'monto_total_ingresado' => ($p['monto_total_ingresado'] ?? $p['monto_global_origen'] ?? null) !== null && ($p['monto_total_ingresado'] ?? $p['monto_global_origen'] ?? '') !== ''
+                ? (float) ($p['monto_total_ingresado'] ?? $p['monto_global_origen'])
+                : null,
             'tasa_dia'   => ($p['tasa_cambio_dia'] ?? null) !== null && $p['tasa_cambio_dia'] !== '' ? (float) $p['tasa_cambio_dia'] : null,
+            'tasa_bcv_aplicada' => ($p['tasa_bcv_aplicada'] ?? $p['tasa_cambio_dia'] ?? null) !== null && ($p['tasa_bcv_aplicada'] ?? $p['tasa_cambio_dia'] ?? '') !== ''
+                ? (float) ($p['tasa_bcv_aplicada'] ?? $p['tasa_cambio_dia'])
+                : null,
             'estado'     => (string) ($p['estado'] ?? 'aplicado'),
         ];
     }
