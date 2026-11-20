@@ -31,17 +31,35 @@ $destino = Join-Path $raiz 'tools\bubblewrap'
 New-Item -ItemType Directory -Force -Path $destino | Out-Null
 Set-Location $destino
 
-if (-not (Get-Command bubblewrap -ErrorAction SilentlyContinue)) {
+$node = Get-Command node -ErrorAction SilentlyContinue
+if (-not $node) {
+    Write-Host 'Instala Node.js 18 o superior y vuelve a abrir PowerShell.'
+    exit 1
+}
+$bubblewrapJs = Join-Path (Split-Path $node.Source) 'node_modules\@bubblewrap\cli\bin\bubblewrap.js'
+if (-not (Test-Path -LiteralPath $bubblewrapJs)) {
     Write-Host 'Instala Bubblewrap: npm install -g @bubblewrap/cli'
     exit 1
 }
 
-if (-not (Test-Path (Join-Path $destino 'twa-manifest.json'))) {
-    bubblewrap init --manifest $ManifestUrl --directory $destino --packageId $Paquete
+function Invoke-Bubblewrap {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]] $BwArgs)
+    & $node.Source $bubblewrapJs @BwArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "bubblewrap $($BwArgs -join ' ') terminó con código $LASTEXITCODE"
+    }
 }
 
-bubblewrap update --manifest $ManifestUrl
-bubblewrap build
+if (-not (Test-Path (Join-Path $destino 'twa-manifest.json'))) {
+    Invoke-Bubblewrap init --manifest $ManifestUrl --directory $destino --packageId $Paquete
+}
+
+# El proyecto ya generado no se regenera: update borra app\build y en Windows
+# Gradle suele tener esos archivos abiertos (EBUSY).
+if (-not (Test-Path (Join-Path $destino 'app\build.gradle'))) {
+    Invoke-Bubblewrap update --skipVersionUpgrade
+}
+Invoke-Bubblewrap build
 
 $apk = Get-ChildItem -Path $destino -Filter '*.apk' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $apk) {
@@ -49,9 +67,13 @@ if (-not $apk) {
     exit 1
 }
 
-$sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk\build-tools'
-$apksigner = Get-ChildItem -Path $sdk -Filter 'apksigner.bat' -Recurse -ErrorAction SilentlyContinue |
-    Sort-Object FullName -Descending | Select-Object -First 1
+$sdkRoots = @(
+    (Join-Path $env:LOCALAPPDATA 'Android\Sdk\build-tools'),
+    (Join-Path $env:USERPROFILE '.bubblewrap\android_sdk\build-tools')
+) | Where-Object { Test-Path -LiteralPath $_ }
+$apksigner = $sdkRoots | ForEach-Object {
+    Get-ChildItem -LiteralPath $_ -Filter 'apksigner.bat' -Recurse -ErrorAction SilentlyContinue
+} | Sort-Object FullName -Descending | Select-Object -First 1
 if ($apksigner) {
     & $apksigner.FullName verify --verbose $apk.FullName
 } else {
